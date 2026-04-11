@@ -1,109 +1,43 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { getData } from './api/index'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { getData, getToolConfig, getToolPreview, runDepartmentTool, saveConfig } from './api/index'
+import ToolPreviewDialog from './components/preview/ToolPreviewDialog.vue'
 import UiBadge from './components/ui/UiBadge.vue'
 import UiButton from './components/ui/UiButton.vue'
 import UiCard from './components/ui/UiCard.vue'
+import UiDialog from './components/ui/UiDialog.vue'
+import UiFileInput from './components/ui/UiFileInput.vue'
+import UiLabel from './components/ui/UiLabel.vue'
+import UiToastStack from './components/ui/UiToastStack.vue'
+import { departments } from './data/departments'
+
+const PREVIEW_TOOL_ID = 'invoice_recognizer'
+const PREVIEW_DEPARTMENT = 'CONSULT'
+
+const activeDepartmentCode = ref(departments[0].code)
+const runningToolId = ref('')
+const previewDialogOpen = ref(false)
+const previewLoading = ref(false)
+const previewData = ref(null)
+const previewTargetKey = ref('')
+const configDialogOpen = ref(false)
+const toasts = ref([])
 
 const lastUpdated = ref('等待同步')
 const connectionStatus = ref({
   state: 'pending',
-  label: '接口检查中',
-  detail: '正在连接本地服务',
+  label: '连接检查中',
+  detail: '正在确认自动化服务是否可用。',
 })
 
-const departments = [
-  {
-    code: 'BUE1',
-    name: 'BUE1',
-    tone: '客户推进',
-    summary: '销售前线工具入口，适合线索跟进、客户推进与阶段记录。',
-    tools: [
-      { name: '商机总览', tag: 'Pipeline', description: '集中查看重点客户、机会状态与负责人。' },
-      { name: '线索池', tag: 'Leads', description: '统一沉淀新增线索、分级意向和来源渠道。' },
-      { name: '拜访纪要', tag: 'Notes', description: '管理销售沟通纪要与下一步动作。' },
-    ],
-  },
-  {
-    code: 'BUE2',
-    name: 'BUE2',
-    tone: '方案交付',
-    summary: '方案与交付协同入口，适合报价、排期和项目推进。',
-    tools: [
-      { name: '项目排期', tag: 'Schedule', description: '同步项目节点、里程碑和内部协作进度。' },
-      { name: '报价模板', tag: 'Quote', description: '快速访问标准化报价与成本测算文件。' },
-      { name: '复盘档案', tag: 'Review', description: '沉淀项目结果、复盘结论与经验记录。' },
-    ],
-  },
-  {
-    code: 'BUE3',
-    name: 'BUE3',
-    tone: '协同管理',
-    summary: '跨团队协作入口，适合任务统筹、资源共享与透明管理。',
-    tools: [
-      { name: '区域日报', tag: 'Daily', description: '查看每日推进情况、异常事项和同步重点。' },
-      { name: '任务看板', tag: 'Board', description: '统一追踪责任人、进度与优先级变化。' },
-      { name: '资源共享', tag: 'Assets', description: '沉淀跨组资料、模板与通用支持文件。' },
-    ],
-  },
-  {
-    code: 'BUV1',
-    name: 'BUV1',
-    tone: '内容生产',
-    summary: '内容制作入口，适合选题规划、素材整理和发布协作。',
-    tools: [
-      { name: '选题日历', tag: 'Plan', description: '管理月度选题、版本节奏与发布时间。' },
-      { name: '素材库', tag: 'Media', description: '集中存放文案、封面、脚本和原始素材。' },
-      { name: '发布检查', tag: 'Publish', description: '统一核对发布前的配置、标题和说明文案。' },
-    ],
-  },
-  {
-    code: 'BUV2',
-    name: 'BUV2',
-    tone: '增长执行',
-    summary: '增长支持入口，适合直播、投放和活动反馈管理。',
-    tools: [
-      { name: '直播排班', tag: 'Roster', description: '查看场次安排、岗位分配与值守节奏。' },
-      { name: '投放监测', tag: 'Ads', description: '关注投放表现、预算消耗与核心指标波动。' },
-      { name: '复盘报告', tag: 'Report', description: '沉淀活动结果、亮点问题与优化动作。' },
-    ],
-  },
-  {
-    code: 'BUV3',
-    name: 'BUV3',
-    tone: '品牌创意',
-    summary: '品牌创意入口，适合策划提案、创意输出和视觉规范查阅。',
-    tools: [
-      { name: 'Campaign Board', tag: 'Brand', description: '管理品牌活动节奏、主题与执行节点。' },
-      { name: '创意提案', tag: 'Idea', description: '集中查看提案版本、评审意见与修改方向。' },
-      { name: '视觉规范', tag: 'Guide', description: '统一访问品牌视觉要求与设计资产。' },
-    ],
-  },
-  {
-    code: 'CONSULT',
-    name: '顾问部',
-    tone: '咨询支持',
-    summary: '咨询策略入口，适合知识沉淀、客户方案与会议记录。',
-    tools: [
-      { name: '咨询知识库', tag: 'Knowledge', description: '汇总方法论、经典案例和常见问题解法。' },
-      { name: '方案模板', tag: 'Template', description: '快速进入标准方案结构与交付模板。' },
-      { name: '客户纪要', tag: 'Client', description: '沉淀关键会议纪要、待办事项和客户反馈。' },
-    ],
-  },
-  {
-    code: 'OPS',
-    name: '运营部',
-    tone: '运营统筹',
-    summary: '运营管理入口，适合数据监控、活动安排与渠道管理。',
-    tools: [
-      { name: '数据日报', tag: 'Metrics', description: '快速查看核心经营指标与趋势变化。' },
-      { name: '活动日历', tag: 'Calendar', description: '掌握近期活动、节点提醒与协同安排。' },
-      { name: '渠道监控', tag: 'Channel', description: '跟踪各渠道状态、异常波动和告警信息。' },
-    ],
-  },
-]
+const configData = ref({
+  folderPath: '',
+  excelPath: '',
+})
 
-const activeDepartmentCode = ref(departments[0].code)
+const previewCache = new Map()
+let previewAbortController = null
+const toastTimers = new Map()
 
 const activeDepartment = computed(() => {
   return departments.find((department) => department.code === activeDepartmentCode.value) ?? departments[0]
@@ -125,24 +59,281 @@ const statusBadgeVariant = computed(() => {
   return 'secondary'
 })
 
-onMounted(async () => {
+const configuredSummary = computed(() => {
+  const hasFolder = Boolean(configData.value.folderPath)
+  const hasExcel = Boolean(configData.value.excelPath)
+
+  if (hasFolder && hasExcel) {
+    return '已配置完成'
+  }
+
+  if (hasFolder || hasExcel) {
+    return '部分已配置'
+  }
+
+  return '待配置'
+})
+
+function getToolKey(departmentCode, toolId) {
+  return `${departmentCode}:${toolId}`
+}
+
+function pushToast({ type = 'info', title, message = '', duration = 4200 }) {
+  const id = `toast-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  toasts.value = [...toasts.value, { id, type, title, message }]
+
+  if (duration > 0) {
+    const timer = setTimeout(() => dismissToast(id), duration)
+    toastTimers.set(id, timer)
+  }
+}
+
+function dismissToast(id) {
+  const timer = toastTimers.get(id)
+  if (timer) {
+    clearTimeout(timer)
+    toastTimers.delete(id)
+  }
+
+  toasts.value = toasts.value.filter((toast) => toast.id !== id)
+}
+
+function clearPreviewRequest() {
+  if (previewAbortController) {
+    previewAbortController.abort()
+    previewAbortController = null
+  }
+}
+
+function getOutputSnippet(result) {
+  return [result.stdout, result.stderr, result.error]
+    .find((value) => typeof value === 'string' && value.trim())
+    ?.trim()
+    ?.slice(0, 180)
+}
+
+async function loadConnectionStatus() {
   lastUpdated.value = new Date().toLocaleString('zh-CN', { hour12: false })
 
   try {
     const response = await getData()
     connectionStatus.value = {
       state: 'online',
-      label: '接口连接正常',
-      detail: response.message || '已收到本地服务返回结果',
+      label: '服务在线',
+      detail: response.message || '自动化服务连接正常，预览与执行能力可用。',
     }
   } catch (error) {
     console.error(error)
     connectionStatus.value = {
       state: 'offline',
-      label: '接口暂不可用',
-      detail: '页面结构可先使用，后续补入真实工具链接即可。',
+      label: '服务离线',
+      detail: '未能连到后端服务，请确认 FastAPI 已启动且地址可访问。',
     }
   }
+}
+
+async function loadInvoiceConfig() {
+  try {
+    const response = await getToolConfig(PREVIEW_DEPARTMENT, PREVIEW_TOOL_ID)
+    if (response?.success && response.config) {
+      configData.value = {
+        folderPath: response.config.folderPath || '',
+        excelPath: response.config.excelPath || '',
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load config:', error)
+  }
+}
+
+async function saveConfiguration() {
+  try {
+    const response = await saveConfig(PREVIEW_DEPARTMENT, PREVIEW_TOOL_ID, configData.value)
+    if (!response?.success) {
+      throw new Error(response?.error || '保存失败')
+    }
+
+    configDialogOpen.value = false
+    pushToast({
+      type: 'success',
+      title: '配置已保存',
+      message: '识别目录和 Excel 输出位置已经更新。',
+    })
+
+    previewCache.delete(getToolKey(PREVIEW_DEPARTMENT, PREVIEW_TOOL_ID))
+    if (previewDialogOpen.value && previewTargetKey.value === getToolKey(PREVIEW_DEPARTMENT, PREVIEW_TOOL_ID)) {
+      await openToolPreview(findPreviewTool(), { force: true })
+    }
+  } catch (error) {
+    console.error('Failed to save config:', error)
+    pushToast({
+      type: 'error',
+      title: '保存失败',
+      message: error.message || '请检查配置内容后重试。',
+    })
+  }
+}
+
+function findPreviewTool() {
+  return departments
+    .find((department) => department.code === PREVIEW_DEPARTMENT)
+    ?.tools.find((tool) => tool.id === PREVIEW_TOOL_ID)
+}
+
+async function warmToolPreview(tool) {
+  if (!tool?.previewable) {
+    return
+  }
+
+  const key = getToolKey(activeDepartmentCode.value, tool.id)
+  if (previewCache.has(key)) {
+    return
+  }
+
+  try {
+    const response = await getToolPreview(activeDepartmentCode.value, tool.id)
+    if (response?.success && response.preview) {
+      previewCache.set(key, response.preview)
+    }
+  } catch (error) {
+    console.debug('Preview warm-up skipped:', error)
+  }
+}
+
+async function openToolPreview(tool, options = {}) {
+  if (!tool?.previewable) {
+    pushToast({
+      type: 'warning',
+      title: '预览暂未开放',
+      message: '当前仅对英德单据识别提供企业级预览能力。',
+    })
+    return
+  }
+
+  const force = options.force === true
+  const toolKey = getToolKey(activeDepartmentCode.value, tool.id)
+  previewTargetKey.value = toolKey
+  previewDialogOpen.value = true
+  previewData.value = previewCache.get(toolKey) ?? null
+
+  if (!force && previewData.value) {
+    previewLoading.value = false
+    return
+  }
+
+  previewLoading.value = true
+
+  clearPreviewRequest()
+  await nextTick()
+  await new Promise((resolve) => requestAnimationFrame(resolve))
+
+  previewAbortController = new AbortController()
+
+  try {
+    const response = await getToolPreview(activeDepartmentCode.value, tool.id, previewAbortController.signal)
+    if (!response?.success || !response.preview) {
+      throw new Error(response?.error || '未能获取预览数据')
+    }
+
+    previewCache.set(toolKey, response.preview)
+    if (previewTargetKey.value === toolKey) {
+      previewData.value = response.preview
+    }
+  } catch (error) {
+    if (error.name !== 'AbortError') {
+      console.error('Failed to load preview:', error)
+      if (previewTargetKey.value === toolKey) {
+        previewData.value = null
+      }
+      pushToast({
+        type: 'error',
+        title: '预览加载失败',
+        message: error.message || '请稍后重试。',
+      })
+    }
+  } finally {
+    previewAbortController = null
+    if (previewTargetKey.value === toolKey) {
+      previewLoading.value = false
+    }
+  }
+}
+
+async function refreshPreview() {
+  const tool = findPreviewTool()
+  if (!tool) {
+    return
+  }
+
+  previewCache.delete(getToolKey(PREVIEW_DEPARTMENT, PREVIEW_TOOL_ID))
+  await openToolPreview(tool, { force: true })
+}
+
+async function runDepartmentScript(tool) {
+  if (tool.action !== 'run_script') {
+    return
+  }
+
+  runningToolId.value = tool.id
+
+  try {
+    const result = await runDepartmentTool(activeDepartmentCode.value, tool.id)
+    const summary = getOutputSnippet(result)
+
+    if (result?.success) {
+      pushToast({
+        type: 'success',
+        title: '脚本执行成功',
+        message: summary || '识别任务已完成。',
+        duration: 5200,
+      })
+      return
+    }
+
+    pushToast({
+      type: 'error',
+      title: '脚本执行失败',
+      message: summary || '请查看控制台或后端日志定位原因。',
+      duration: 5200,
+    })
+  } catch (error) {
+    console.error('Failed to run script:', error)
+    pushToast({
+      type: 'error',
+      title: '执行请求失败',
+      message: '请确认 FastAPI 服务已启动，例如 `uvicorn main:app --reload`。',
+      duration: 5200,
+    })
+  } finally {
+    runningToolId.value = ''
+  }
+}
+
+watch(activeDepartmentCode, async (departmentCode) => {
+  if (departmentCode === PREVIEW_DEPARTMENT) {
+    const tool = findPreviewTool()
+    await warmToolPreview(tool)
+  }
+})
+
+watch(previewDialogOpen, (open) => {
+  if (!open) {
+    clearPreviewRequest()
+    previewLoading.value = false
+  }
+})
+
+onMounted(async () => {
+  await Promise.all([loadConnectionStatus(), loadInvoiceConfig()])
+  await warmToolPreview(findPreviewTool())
+})
+
+onBeforeUnmount(() => {
+  clearPreviewRequest()
+  for (const timer of toastTimers.values()) {
+    clearTimeout(timer)
+  }
+  toastTimers.clear()
 })
 </script>
 
@@ -151,7 +342,10 @@ onMounted(async () => {
     <header class="page-header">
       <div class="page-copy">
         <UiBadge variant="secondary">Department Workspace</UiBadge>
-        <h1>公司部门工具台</h1>
+        <h1>部门工具工作台</h1>
+        <p class="page-lead">
+          这次升级把顾问部“英德单据识别”的体验重点放在预览流畅度上，让页面先响应，再异步补数据。
+        </p>
       </div>
 
       <UiCard class="status-panel">
@@ -161,11 +355,11 @@ onMounted(async () => {
         </div>
         <div class="status-meta">
           <div>
-            <span>部门数</span>
+            <span>部门数量</span>
             <strong>{{ departments.length }}</strong>
           </div>
           <div>
-            <span>工具位</span>
+            <span>工具总数</span>
             <strong>{{ totalTools }}</strong>
           </div>
           <div>
@@ -182,7 +376,9 @@ onMounted(async () => {
           <p class="section-label">Departments</p>
           <h2>部门切换</h2>
         </div>
-        <p class="section-note">点击标签查看当前部门工具，结构上参考 `Tabs + Card + Badge + Button`。</p>
+        <p class="section-note">
+          预览能力会在顾问部页签激活时提前预热，这样点击“预览”时不会再把等待感全部留给用户。
+        </p>
       </div>
 
       <div class="tabs-list" role="tablist" aria-label="部门切换">
@@ -214,29 +410,66 @@ onMounted(async () => {
           </div>
 
           <div class="department-actions">
-            <UiButton>新增工具入口</UiButton>
-            <UiButton variant="outline">编辑部门配置</UiButton>
+            <UiButton
+              v-if="activeDepartment.code === PREVIEW_DEPARTMENT"
+              variant="outline"
+              @click="openToolPreview(findPreviewTool())"
+            >
+              打开丝滑预览
+            </UiButton>
+            <UiButton
+              v-if="activeDepartment.code === PREVIEW_DEPARTMENT"
+              @click="configDialogOpen = true"
+            >
+              管理识别配置
+            </UiButton>
           </div>
         </div>
 
         <div class="tool-grid">
           <UiCard
             v-for="tool in activeDepartment.tools"
-            :key="tool.name"
+            :key="tool.id"
             class="tool-card"
             tone="muted"
           >
             <div class="tool-card-head">
               <UiBadge variant="secondary">{{ tool.tag }}</UiBadge>
-              <UiBadge variant="outline">待接入</UiBadge>
+              <UiBadge variant="outline">
+                {{ tool.previewable ? 'Preview Ready' : 'Roadmap' }}
+              </UiBadge>
             </div>
             <div class="tool-card-body">
               <h3>{{ tool.name }}</h3>
               <p>{{ tool.description }}</p>
             </div>
             <div class="tool-card-foot">
-              <UiButton variant="outline">查看详情</UiButton>
-              <UiButton>配置入口</UiButton>
+              <template v-if="tool.previewable">
+                <div class="tool-card-actions">
+                  <UiButton
+                    variant="outline"
+                    @mouseenter="warmToolPreview(tool)"
+                    @focus="warmToolPreview(tool)"
+                    @click="openToolPreview(tool)"
+                  >
+                    预览
+                  </UiButton>
+                  <UiButton variant="outline" @click="configDialogOpen = true">
+                    配置
+                  </UiButton>
+                </div>
+                <UiButton
+                  :loading="runningToolId === tool.id"
+                  @click="runDepartmentScript(tool)"
+                >
+                  运行识别
+                </UiButton>
+              </template>
+
+              <template v-else>
+                <UiButton variant="outline" disabled>预览建设中</UiButton>
+                <UiButton disabled>能力建设中</UiButton>
+              </template>
             </div>
           </UiCard>
         </div>
@@ -245,31 +478,75 @@ onMounted(async () => {
       <UiCard class="aside-card">
         <div class="aside-block">
           <p class="section-label">Current Focus</p>
-          <h3>当前部门信息</h3>
+          <h3>顾问部体验升级</h3>
           <ul class="info-list">
             <li>
-              <span>部门代码</span>
-              <strong>{{ activeDepartment.code }}</strong>
+              <span>当前部门</span>
+              <strong>{{ activeDepartment.name }}</strong>
             </li>
             <li>
-              <span>定位标签</span>
-              <strong>{{ activeDepartment.tone }}</strong>
+              <span>预览策略</span>
+              <strong>先反馈，再补数</strong>
             </li>
             <li>
-              <span>工具数量</span>
-              <strong>{{ activeDepartment.tools.length }}</strong>
+              <span>识别配置</span>
+              <strong>{{ configuredSummary }}</strong>
             </li>
           </ul>
         </div>
 
         <div class="aside-block">
           <p class="section-label">Design Notes</p>
-          <h3>这次的样式方向</h3>
+          <h3>为什么现在更丝滑</h3>
           <p class="aside-text">
-            以浅色中性背景、细边框、轻投影和紧凑组件为主，减少花哨装饰，让内容更像真正可扩展的内部产品页面。
+            预览入口会优先打开固定容器和骨架屏，再用异步请求补齐配置摘要。执行成功或失败也改成页面内 toast，
+            不再使用阻塞式 alert。
           </p>
         </div>
       </UiCard>
     </section>
+
+    <ToolPreviewDialog
+      v-model:open="previewDialogOpen"
+      :loading="previewLoading"
+      :preview="previewData"
+      @refresh="refreshPreview"
+    />
+
+    <UiDialog
+      v-model:open="configDialogOpen"
+      keep-mounted
+      title="英德单据识别配置"
+      description="将识别源目录和 Excel 输出路径整理为独立配置，避免每次运行时重新输入。"
+    >
+      <div class="config-form">
+        <div class="form-field">
+          <UiLabel for="folder-path">源单据文件夹</UiLabel>
+          <UiFileInput
+            id="folder-path"
+            v-model="configData.folderPath"
+            placeholder="选择需要识别的单据目录..."
+            webkitdirectory
+          />
+        </div>
+
+        <div class="form-field">
+          <UiLabel for="excel-path">Excel 输出文件</UiLabel>
+          <UiFileInput
+            id="excel-path"
+            v-model="configData.excelPath"
+            placeholder="选择 Excel 输出位置..."
+            accept=".xlsx,.xls"
+          />
+        </div>
+      </div>
+
+      <template #footer>
+        <UiButton variant="outline" @click="configDialogOpen = false">取消</UiButton>
+        <UiButton @click="saveConfiguration">保存配置</UiButton>
+      </template>
+    </UiDialog>
+
+    <UiToastStack :toasts="toasts" @dismiss="dismissToast" />
   </div>
 </template>

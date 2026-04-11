@@ -277,6 +277,12 @@ button {
   flex-wrap: wrap;
 }
 
+.tool-card-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .tool-card-body {
   display: grid;
   gap: 10px;
@@ -386,6 +392,7 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   min-height: 36px;
   padding: 0 14px;
   border: 1px solid transparent;
@@ -404,6 +411,12 @@ button {
   box-shadow: 0 0 0 3px var(--ring);
 }
 
+.ui-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .ui-button--default {
   background: var(--accent);
   color: var(--accent-foreground);
@@ -413,6 +426,26 @@ button {
   background: var(--card);
   border-color: var(--border-strong);
   color: var(--foreground);
+}
+
+.ui-button--loading {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+.ui-button-spinner {
+  display: inline-flex;
+  margin-right: 6px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 980px) {
@@ -431,6 +464,32 @@ button {
   .status-meta {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
+
+/* 配置表单样式 */
+.config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-with-button {
+  display: flex;
+  gap: 8px;
+}
+
+.input-with-button .ui-input {
+  flex: 1;
+}
+
+.input-with-button .ui-button {
+  flex-shrink: 0;
 }
 
 @media (max-width: 720px) {
@@ -468,6 +527,10 @@ button {
     flex: 1 1 0;
   }
 
+  .tool-card-actions {
+    width: 100%;
+  }
+
   .info-list li {
     flex-direction: column;
     gap: 6px;
@@ -475,5 +538,9 @@ button {
 
   .info-list strong {
     text-align: left;
+  }
+
+  .input-with-button {
+    flex-direction: column;
   }
 }
