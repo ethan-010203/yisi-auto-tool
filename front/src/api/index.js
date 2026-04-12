@@ -51,3 +51,16 @@ export function getToolPreview(department, tool, signal) {
     signal,
   })
 }
+
+export function getExecutionLogs(limit = 20, department = null, signal) {
+  const deptParam = department ? `&department=${department}` : ''
+  return requestJson(`${API_BASE_URL}/logs?limit=${limit}${deptParam}`, { signal })
+}
+
+export function getDepartmentLogs(department, limit = 20, signal) {
+  return requestJson(`${API_BASE_URL}/departments/${department}/logs?limit=${limit}`, { signal })
+}
+
+export function getToolLogs(department, tool, limit = 10, signal) {
+  return requestJson(`${API_BASE_URL}/departments/${department}/tools/${tool}/logs?limit=${limit}`, { signal })
+}

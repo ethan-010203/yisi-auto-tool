@@ -4,6 +4,7 @@ import asyncio
 import json
 import subprocess
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
@@ -11,6 +12,8 @@ from typing import Optional
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+from runner.logger import get_recent_logs, get_logs_by_tool, log_execution
 
 try:
     import tkinter as tk
@@ -38,6 +41,7 @@ app.add_middleware(
 
 DEPARTMENT_SCRIPTS = {
     "CONSULT": {
+        "test_hello": Path(__file__).parent / "scripts" / "consult" / "test_hello.py",
         "invoice_recognizer": Path(__file__).parent / "scripts" / "consult" / "invoice_recognizer.py",
     }
 }
@@ -179,6 +183,11 @@ def run_tool(department: str, tool: str):
     if not script_path or not script_path.exists():
         return {"success": False, "error": f"Tool {tool} not found for department {department}"}
 
+    # 读取配置用于记录
+    config = _read_tool_config(department, tool)
+    
+    start_time = time.time()
+    
     try:
         result = subprocess.run(
             [sys.executable, str(script_path)],
@@ -186,16 +195,57 @@ def run_tool(department: str, tool: str):
             text=True,
             timeout=60,
         )
+        
+        duration = time.time() - start_time
+        success = result.returncode == 0
+        
+        # 记录执行日志
+        log_execution(
+            department=department.upper(),
+            tool=tool,
+            config=config,
+            status="success" if success else "failed",
+            output=result.stdout if success else result.stderr,
+            error=None if success else (result.stderr or "Unknown error"),
+            duration=duration,
+        )
+        
         return {
-            "success": result.returncode == 0,
+            "success": success,
             "stdout": result.stdout,
             "stderr": result.stderr,
             "returncode": result.returncode,
         }
     except subprocess.TimeoutExpired:
-        return {"success": False, "error": "Script execution timeout"}
+        duration = time.time() - start_time
+        error_msg = "Script execution timeout"
+        
+        log_execution(
+            department=department.upper(),
+            tool=tool,
+            config=config,
+            status="failed",
+            output="",
+            error=error_msg,
+            duration=duration,
+        )
+        
+        return {"success": False, "error": error_msg}
     except Exception as error:
-        return {"success": False, "error": str(error)}
+        duration = time.time() - start_time
+        error_msg = str(error)
+        
+        log_execution(
+            department=department.upper(),
+            tool=tool,
+            config=config,
+            status="failed",
+            output="",
+            error=error_msg,
+            duration=duration,
+        )
+        
+        return {"success": False, "error": error_msg}
 
 
 @app.post("/api/departments/{department}/tools/{tool}/config")
@@ -286,5 +336,35 @@ async def select_file(request: FileSelectRequest):
         if file_path:
             return {"success": True, "path": file_path}
         return {"success": False, "path": None, "message": "未选择文件"}
+    except Exception as error:
+        return {"success": False, "error": str(error)}
+
+
+@app.get("/api/logs")
+def get_execution_logs(limit: int = 20, department: Optional[str] = None):
+    """获取最近的执行记录，支持按部门筛选"""
+    try:
+        logs = get_recent_logs(limit=limit, department=department.upper() if department else None)
+        return {"success": True, "logs": logs}
+    except Exception as error:
+        return {"success": False, "error": str(error)}
+
+
+@app.get("/api/departments/{department}/logs")
+def get_department_logs(department: str, limit: int = 20):
+    """获取指定部门的所有执行记录"""
+    try:
+        logs = get_recent_logs(limit=limit, department=department.upper())
+        return {"success": True, "logs": logs}
+    except Exception as error:
+        return {"success": False, "error": str(error)}
+
+
+@app.get("/api/departments/{department}/tools/{tool}/logs")
+def get_tool_execution_logs(department: str, tool: str, limit: int = 10):
+    """获取指定工具的执行记录"""
+    try:
+        logs = get_logs_by_tool(department.upper(), tool, limit=limit)
+        return {"success": True, "logs": logs}
     except Exception as error:
         return {"success": False, "error": str(error)}

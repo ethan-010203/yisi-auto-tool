@@ -1,10 +1,11 @@
 <script setup>
+import { computed } from 'vue'
 import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, DialogTrigger } from 'radix-vue'
 
 const props = defineProps({
   open: {
     type: Boolean,
-    default: undefined,
+    default: false,
   },
   keepMounted: {
     type: Boolean,
@@ -25,17 +26,21 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:open'])
+
+const openValue = computed({
+  get: () => props.open,
+  set: (value) => emit('update:open', value),
+})
 </script>
 
 <template>
-  <DialogRoot :open="props.open" @update:open="emit('update:open', $event)">
+  <DialogRoot v-model:open="openValue" modal>
     <DialogTrigger v-if="$slots.trigger" as-child>
       <slot name="trigger" />
     </DialogTrigger>
     <DialogPortal>
-      <DialogOverlay :force-mount="props.keepMounted" class="ui-dialog-overlay" />
+      <DialogOverlay class="ui-dialog-overlay" />
       <DialogContent
-        :force-mount="props.keepMounted"
         class="ui-dialog-content"
         :class="`ui-dialog-content--${props.size}`"
       >
@@ -51,7 +56,7 @@ const emit = defineEmits(['update:open'])
         <div v-if="$slots.footer" class="ui-dialog-footer">
           <slot name="footer" />
         </div>
-        <DialogClose class="ui-dialog-close" aria-label="Close">
+        <DialogClose class="ui-dialog-close-btn" aria-label="Close">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 6-12 12"/><path d="m6 6 12 12"/></svg>
         </DialogClose>
       </DialogContent>
@@ -127,7 +132,7 @@ const emit = defineEmits(['update:open'])
   border-top: 1px solid #f4f4f5;
 }
 
-.ui-dialog-close {
+.ui-dialog-close-btn {
   position: absolute;
   top: 16px;
   right: 16px;
@@ -142,9 +147,10 @@ const emit = defineEmits(['update:open'])
   color: #71717a;
   cursor: pointer;
   transition: all 0.15s ease;
+  padding: 0;
 }
 
-.ui-dialog-close:hover {
+.ui-dialog-close-btn:hover {
   background: #f4f4f5;
   color: #18181b;
 }
