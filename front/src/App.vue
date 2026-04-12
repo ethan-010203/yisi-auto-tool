@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getData, getToolConfig, getToolPreview, runDepartmentTool, saveConfig } from './api/index'
+import ExecutionLogPanel from './components/ExecutionLogPanel.vue'
 import ToolPreviewDialog from './components/preview/ToolPreviewDialog.vue'
 import UiBadge from './components/ui/UiBadge.vue'
 import UiButton from './components/ui/UiButton.vue'
@@ -14,7 +15,21 @@ import { departments } from './data/departments'
 const PREVIEW_TOOL_ID = 'invoice_recognizer'
 const PREVIEW_DEPARTMENT = 'CONSULT'
 
-const activeDepartmentCode = ref(departments[0].code)
+const STORAGE_KEY = 'yisi-auto-tool:department'
+
+const getSavedDepartment = () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved && departments.some(d => d.code === saved)) {
+      return saved
+    }
+  } catch {
+    // localStorage 不可用，使用默认值
+  }
+  return departments[0].code
+}
+
+const activeDepartmentCode = ref(getSavedDepartment())
 const runningToolId = ref('')
 const previewDialogOpen = ref(false)
 const previewLoading = ref(false)
@@ -22,6 +37,7 @@ const previewData = ref(null)
 const previewTargetKey = ref('')
 const configDialogOpen = ref(false)
 const toasts = ref([])
+const logPanel = ref(null)
 
 const lastUpdated = ref('等待同步')
 const connectionStatus = ref({
@@ -306,10 +322,17 @@ async function runDepartmentScript(tool) {
     })
   } finally {
     runningToolId.value = ''
+    // 刷新执行日志
+    logPanel.value?.refresh()
   }
 }
 
 watch(activeDepartmentCode, async (departmentCode) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, departmentCode)
+  } catch {
+    // localStorage 不可用，静默处理
+  }
   if (departmentCode === PREVIEW_DEPARTMENT) {
     const tool = findPreviewTool()
     await warmToolPreview(tool)
@@ -409,21 +432,6 @@ onBeforeUnmount(() => {
             <p>{{ activeDepartment.summary }}</p>
           </div>
 
-          <div class="department-actions">
-            <UiButton
-              v-if="activeDepartment.code === PREVIEW_DEPARTMENT"
-              variant="outline"
-              @click="openToolPreview(findPreviewTool())"
-            >
-              打开丝滑预览
-            </UiButton>
-            <UiButton
-              v-if="activeDepartment.code === PREVIEW_DEPARTMENT"
-              @click="configDialogOpen = true"
-            >
-              管理识别配置
-            </UiButton>
-          </div>
         </div>
 
         <div class="tool-grid">
@@ -466,6 +474,15 @@ onBeforeUnmount(() => {
                 </UiButton>
               </template>
 
+              <template v-else-if="tool.action === 'run_script'">
+                <UiButton
+                  :loading="runningToolId === tool.id"
+                  @click="runDepartmentScript(tool)"
+                >
+                  执行测试
+                </UiButton>
+              </template>
+
               <template v-else>
                 <UiButton variant="outline" disabled>预览建设中</UiButton>
                 <UiButton disabled>能力建设中</UiButton>
@@ -476,33 +493,11 @@ onBeforeUnmount(() => {
       </UiCard>
 
       <UiCard class="aside-card">
-        <div class="aside-block">
-          <p class="section-label">Current Focus</p>
-          <h3>顾问部体验升级</h3>
-          <ul class="info-list">
-            <li>
-              <span>当前部门</span>
-              <strong>{{ activeDepartment.name }}</strong>
-            </li>
-            <li>
-              <span>预览策略</span>
-              <strong>先反馈，再补数</strong>
-            </li>
-            <li>
-              <span>识别配置</span>
-              <strong>{{ configuredSummary }}</strong>
-            </li>
-          </ul>
-        </div>
-
-        <div class="aside-block">
-          <p class="section-label">Design Notes</p>
-          <h3>为什么现在更丝滑</h3>
-          <p class="aside-text">
-            预览入口会优先打开固定容器和骨架屏，再用异步请求补齐配置摘要。执行成功或失败也改成页面内 toast，
-            不再使用阻塞式 alert。
-          </p>
-        </div>
+        <ExecutionLogPanel 
+          ref="logPanel"
+          :department="activeDepartment.code"
+          :limit="10" 
+        />
       </UiCard>
     </section>
 

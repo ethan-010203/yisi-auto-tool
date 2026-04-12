@@ -157,6 +157,7 @@ button {
 .tabs-head h2,
 .department-copy h2 {
   margin-top: 8px;
+  margin-bottom: 0;
   font-size: 1.45rem;
   line-height: 1.1;
   letter-spacing: -0.04em;
@@ -221,11 +222,12 @@ button {
   grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.72fr);
   gap: 20px;
   margin-top: 20px;
+  align-items: start;
 }
 
 .department-card {
   display: grid;
-  gap: 24px;
+  gap: 12px;
 }
 
 .department-header {
@@ -246,7 +248,8 @@ button {
 }
 
 .department-copy p {
-  margin-top: 12px;
+  margin-top: 8px;
+  margin-bottom: 0;
   color: var(--muted-foreground);
 }
 
@@ -259,33 +262,51 @@ button {
 
 .tool-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
 }
 
 .tool-card {
-  display: grid;
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 180px;
 }
 
-.tool-card-head,
-.tool-card-foot {
+.tool-card-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
+}
+
+.tool-card-foot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: auto;
 }
 
 .tool-card-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .tool-card-body {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.tool-card-body p {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  margin: 0;
 }
 
 .tool-card-body h3,
@@ -302,15 +323,16 @@ button {
 }
 
 .aside-card {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 20px;
-  align-content: start;
 }
 
 .aside-block {
   display: grid;
   gap: 12px;
 }
+
 
 .info-list {
   padding: 0;
@@ -450,8 +472,7 @@ button {
 
 @media (max-width: 980px) {
   .page-header,
-  .content-grid,
-  .tool-grid {
+  .content-grid {
     grid-template-columns: 1fr;
   }
 
@@ -504,9 +525,12 @@ button {
     border-radius: 16px;
   }
 
-  .status-meta,
   .tool-grid {
     grid-template-columns: 1fr;
+  }
+
+  .status-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .tabs-list {

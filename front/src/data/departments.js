@@ -71,9 +71,13 @@ export const departments = [
     tone: 'Document Automation',
     summary: '把跨境单据处理流程从手工核对升级为可配置、可预览、可执行的自动化作业。',
     tools: [
-      { id: 'knowledge_base', name: '政策知识库', tag: 'Knowledge', description: '聚合跨境税务、报关与申报规则。' },
-      { id: 'template_center', name: '模板中心', tag: 'Template', description: '沉淀高频业务模板和标准化配置。' },
-      { id: 'client_workspace', name: '客户工作台', tag: 'Client', description: '汇总客户资料、往来记录和任务上下文。' },
+      {
+        id: 'test_hello',
+        name: '测试功能',
+        tag: 'Test',
+        description: '系统测试工具，验证自动化服务是否正常运行。',
+        action: 'run_script',
+      },
       {
         id: 'invoice_recognizer',
         name: '英德单据识别',
