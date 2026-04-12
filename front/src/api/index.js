@@ -64,3 +64,10 @@ export function getDepartmentLogs(department, limit = 20, signal) {
 export function getToolLogs(department, tool, limit = 10, signal) {
   return requestJson(`${API_BASE_URL}/departments/${department}/tools/${tool}/logs?limit=${limit}`, { signal })
 }
+
+export function clearDepartmentLogs(department, signal) {
+  return requestJson(`${API_BASE_URL}/departments/${department}/logs`, {
+    method: 'DELETE',
+    signal,
+  })
+}

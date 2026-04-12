@@ -127,3 +127,21 @@ def _write_department_logs(department: str, logs: List[Dict[str, Any]]):
     log_file = _get_log_file(department)
     with open(log_file, "w", encoding="utf-8") as f:
         json.dump(logs, f, ensure_ascii=False, indent=2)
+
+
+def clear_department_logs(department: str) -> bool:
+    """清空指定部门的所有日志
+    
+    Args:
+        department: 部门代码
+        
+    Returns:
+        是否成功清空
+    """
+    try:
+        log_file = _get_log_file(department)
+        if log_file.exists():
+            _write_department_logs(department, [])
+        return True
+    except Exception:
+        return False

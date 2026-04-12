@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from runner.logger import get_recent_logs, get_logs_by_tool, log_execution
+from runner.logger import get_recent_logs, get_logs_by_tool, log_execution, clear_department_logs
 
 try:
     import tkinter as tk
@@ -366,5 +366,17 @@ def get_tool_execution_logs(department: str, tool: str, limit: int = 10):
     try:
         logs = get_logs_by_tool(department.upper(), tool, limit=limit)
         return {"success": True, "logs": logs}
+    except Exception as error:
+        return {"success": False, "error": str(error)}
+
+
+@app.delete("/api/departments/{department}/logs")
+def clear_department_execution_logs(department: str):
+    """清空指定部门的所有执行记录"""
+    try:
+        success = clear_department_logs(department.upper())
+        if success:
+            return {"success": True, "message": "日志已清空"}
+        return {"success": False, "error": "清空日志失败"}
     except Exception as error:
         return {"success": False, "error": str(error)}

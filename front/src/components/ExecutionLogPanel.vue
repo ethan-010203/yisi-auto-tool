@@ -1,8 +1,10 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { getDepartmentLogs, getToolLogs } from '../api/index'
+import { getDepartmentLogs, getToolLogs, clearDepartmentLogs } from '../api/index'
 import UiCard from './ui/UiCard.vue'
 import UiBadge from './ui/UiBadge.vue'
+import UiDialog from './ui/UiDialog.vue'
+import UiButton from './ui/UiButton.vue'
 import { departments } from '../data/departments'
 
 const logs = ref([])
@@ -101,6 +103,33 @@ function formatTime(timestamp) {
   })
 }
 
+const clearDialogOpen = ref(false)
+const clearLoading = ref(false)
+
+function openClearDialog() {
+  clearDialogOpen.value = true
+}
+
+async function confirmClearLogs() {
+  if (!props.department) return
+  
+  clearLoading.value = true
+  try {
+    const response = await clearDepartmentLogs(props.department)
+    if (response?.success) {
+      logs.value = []
+      currentPage.value = 1
+      clearDialogOpen.value = false
+    } else {
+      error.value = response?.error || '清空失败'
+    }
+  } catch (err) {
+    error.value = err.message || '网络错误'
+  } finally {
+    clearLoading.value = false
+  }
+}
+
 function formatDuration(seconds) {
   if (seconds < 1) {
     return `${(seconds * 1000).toFixed(0)}ms`
@@ -126,15 +155,34 @@ defineExpose({
         <h3 class="log-title">执行记录</h3>
         <p class="log-subtitle">{{ props.department || '选择部门' }} 最近 {{ displayedLogs.length }} 次运行</p>
       </div>
-      <button class="log-refresh" @click="loadLogs" :disabled="loading">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-          <path d="M3 3v5h5"/>
-          <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
-          <path d="M16 16h5v5"/>
-        </svg>
-        刷新
-      </button>
+      <div class="log-actions">
+        <UiButton
+          variant="outline"
+          :loading="clearLoading"
+          :disabled="loading || logs.length === 0"
+          @click="openClearDialog"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+            <path d="M3 6h18"/>
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+          </svg>
+          清空
+        </UiButton>
+        <UiButton
+          variant="outline"
+          :loading="loading"
+          @click="loadLogs"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+            <path d="M16 16h5v5"/>
+          </svg>
+          刷新
+        </UiButton>
+      </div>
     </div>
 
     <div v-if="loading" class="log-loading">
@@ -179,6 +227,17 @@ defineExpose({
         下一页 →
       </button>
     </div>
+
+    <UiDialog
+      v-model:open="clearDialogOpen"
+      title="清空执行记录"
+      description="确定要清空当前所有的执行记录吗？此操作无法撤销。"
+    >
+      <template #footer>
+        <UiButton variant="outline" :disabled="clearLoading" @click="clearDialogOpen = false">取消</UiButton>
+        <UiButton :loading="clearLoading" @click="confirmClearLogs">确认清空</UiButton>
+      </template>
+    </UiDialog>
   </UiCard>
 </template>
 
@@ -229,6 +288,16 @@ defineExpose({
 .log-refresh:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.log-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.log-actions .ui-button {
+  flex-shrink: 0;
 }
 
 .log-refresh svg {

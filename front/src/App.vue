@@ -462,7 +462,7 @@ onBeforeUnmount(() => {
                   >
                     预览
                   </UiButton>
-                  <UiButton variant="outline" @click="configDialogOpen = true">
+                  <UiButton v-if="tool.configurable" variant="outline" @click="configDialogOpen = true">
                     配置
                   </UiButton>
                 </div>
@@ -475,6 +475,14 @@ onBeforeUnmount(() => {
               </template>
 
               <template v-else-if="tool.action === 'run_script'">
+                <UiButton
+                  v-if="tool.configurable"
+                  variant="outline"
+                  style="margin-right: auto;"
+                  @click="configDialogOpen = true"
+                >
+                  配置
+                </UiButton>
                 <UiButton
                   :loading="runningToolId === tool.id"
                   @click="runDepartmentScript(tool)"

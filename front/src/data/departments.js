@@ -84,7 +84,6 @@ export const departments = [
         tag: 'RPA',
         description: '识别英国与德国递延税单据，提取关键税务字段并输出结果。',
         action: 'run_script',
-        previewable: true,
         configurable: true,
       },
     ],

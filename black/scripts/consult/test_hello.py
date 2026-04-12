@@ -13,9 +13,9 @@ from datetime import datetime
 def run_test():
     """执行系统测试并输出结果"""
     
-    print("🚀 启动系统测试...")
-    print(f"📅 测试时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"🐍 Python版本: {sys.version}")
+    print("[启动] 系统测试...")
+    print(f"[时间] 测试时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"[Python] 版本: {sys.version}")
     print("-" * 50)
     
     # 模拟一些测试项目
@@ -32,7 +32,7 @@ def run_test():
     for i, item in enumerate(test_items, 1):
         # 模拟测试结果（90%概率通过）
         success = random.random() > 0.1
-        status = "✅ 通过" if success else "❌ 失败"
+        status = "[通过]" if success else "[失败]"
         print(f"  [{i}/4] {item} ... {status}")
         
         if success:
@@ -54,11 +54,11 @@ def run_test():
     }
     
     if failed == 0:
-        print(f"🎉 所有测试通过! (成功率: {result['success_rate']})")
+        print(f"[成功] 所有测试通过! (成功率: {result['success_rate']})")
     else:
-        print(f"⚠️ 部分测试失败 (成功率: {result['success_rate']})")
+        print(f"[警告] 部分测试失败 (成功率: {result['success_rate']})")
     
-    print(f"\n📊 测试摘要: {json.dumps(result, ensure_ascii=False)}")
+    print(f"\n[摘要] 测试摘要: {json.dumps(result, ensure_ascii=False)}")
     
     # 返回退出码
     return 0 if failed == 0 else 1
