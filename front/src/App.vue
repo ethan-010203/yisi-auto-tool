@@ -366,9 +366,6 @@ onBeforeUnmount(() => {
       <div class="page-copy">
         <UiBadge variant="secondary">Department Workspace</UiBadge>
         <h1>部门工具工作台</h1>
-        <p class="page-lead">
-          这次升级把顾问部“英德单据识别”的体验重点放在预览流畅度上，让页面先响应，再异步补数据。
-        </p>
       </div>
 
       <UiCard class="status-panel">
@@ -399,9 +396,6 @@ onBeforeUnmount(() => {
           <p class="section-label">Departments</p>
           <h2>部门切换</h2>
         </div>
-        <p class="section-note">
-          预览能力会在顾问部页签激活时提前预热，这样点击“预览”时不会再把等待感全部留给用户。
-        </p>
       </div>
 
       <div class="tabs-list" role="tablist" aria-label="部门切换">
