@@ -710,9 +710,7 @@ onBeforeUnmount(() => {
           >
             <div class="tool-card-head">
               <UiBadge variant="secondary">{{ tool.tag }}</UiBadge>
-              <UiBadge variant="outline">
-                {{ tool.previewable ? '支持预览' : '开发计划中' }}
-              </UiBadge>
+              <UiBadge v-if="tool.previewable" variant="outline">支持预览</UiBadge>
             </div>
             <div class="tool-card-body">
               <h3>{{ tool.name }}</h3>

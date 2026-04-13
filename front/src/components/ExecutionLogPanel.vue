@@ -307,12 +307,8 @@ function formatEndTime(timestamp, duration) {
 }
 
 function formatDuration(seconds) {
-  if (seconds === undefined || seconds === null) {
-    return '-'
-  }
-  if (seconds < 1) {
-    return `${(seconds * 1000).toFixed(0)}ms`
-  }
+  if (seconds === undefined || seconds === null) return '-'
+  if (seconds < 1) return `${(seconds * 1000).toFixed(0)}ms`
   return `${seconds.toFixed(1)}s`
 }
 
@@ -517,9 +513,16 @@ defineExpose({
       <table class="log-table">
         <thead>
           <tr>
-            <th class="col-time">时间</th>
-            <th class="col-task">任务</th>
-            <th class="col-status">结果</th>
+            <th class="col-task">
+              <div class="header-cell">
+                <span>任务</span>
+              </div>
+            </th>
+            <th class="col-status">
+              <div class="header-cell header-cell-status">
+                <span>结果</span>
+              </div>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -534,11 +537,10 @@ defineExpose({
             }"
             @click="openDetailDialog(log)"
           >
-            <td class="col-time">{{ formatTime(log.timestamp) }}</td>
             <td class="col-task">
               <span class="task-name" :title="getToolName(log.tool)">{{ getToolName(log.tool) }}</span>
             </td>
-            <td class="col-status">
+            <td class="col-status status-cell">
               <span
                 :class="[
                   'status-chip',
@@ -699,30 +701,6 @@ defineExpose({
   white-space: nowrap;
 }
 
-.log-refresh {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--card-muted);
-  font-size: 0.875rem;
-  color: var(--muted-foreground);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.log-refresh:hover {
-  border-color: var(--border-strong);
-  color: var(--foreground);
-}
-
-.log-refresh:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .log-actions {
   display: flex;
   gap: 8px;
@@ -731,14 +709,6 @@ defineExpose({
 
 .log-actions .ui-button {
   flex-shrink: 0;
-}
-
-.log-refresh svg {
-  transition: transform 0.3s ease;
-}
-
-.log-refresh:not(:disabled):hover svg {
-  transform: rotate(180deg);
 }
 
 .log-filter-bar {
@@ -822,7 +792,6 @@ defineExpose({
 
 .log-table {
   width: 100%;
-  min-width: 0;
   border-collapse: collapse;
   font-size: 0.875rem;
   table-layout: fixed;
@@ -836,7 +805,7 @@ defineExpose({
 
 .log-table th {
   background: var(--secondary);
-  padding: 12px 8px;
+  padding: 12px 12px;
   text-align: left;
   font-weight: 600;
   color: var(--foreground);
@@ -845,13 +814,25 @@ defineExpose({
 }
 
 .log-table td {
-  padding: 12px 8px;
+  padding: 12px 12px;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .log-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+.header-cell {
+  display: flex;
+  align-items: center;
+  min-height: 20px;
+}
+
+.header-cell-status {
+  justify-content: center;
 }
 
 .log-row-clickable {
@@ -881,15 +862,6 @@ defineExpose({
     var(--secondary);
 }
 
-.col-time {
-  width: 135px;
-  min-width: 135px;
-  max-width: 135px;
-  color: var(--muted);
-  white-space: nowrap;
-  font-size: 0.8rem;
-}
-
 .col-task {
   width: auto;
   color: var(--foreground);
@@ -901,22 +873,26 @@ defineExpose({
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
 }
 
 .col-status {
-  width: 84px;
-  min-width: 84px;
-  max-width: 84px;
-  text-align: right;
+  width: 116px;
+  text-align: center;
+}
+
+.status-cell {
+  padding-right: 12px;
+  padding-left: 12px;
 }
 
 .status-chip {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 6px;
-  font-size: 0.75rem;
+  width: 100%;
+  font-size: 0.78rem;
   font-weight: 600;
 }
 
@@ -954,24 +930,6 @@ defineExpose({
   50% {
     opacity: 0.5;
   }
-}
-
-.terminate-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 6px;
-  padding: 2px;
-  border: none;
-  background: transparent;
-  color: var(--danger);
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-}
-
-.terminate-btn:hover {
-  background: var(--danger-soft);
 }
 
 .log-table-container::-webkit-scrollbar {
@@ -1036,7 +994,7 @@ defineExpose({
 
 .detail-meta {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 
