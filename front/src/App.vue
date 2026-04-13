@@ -655,7 +655,6 @@ onBeforeUnmount(() => {
           @click="activeDepartmentCode = department.code"
         >
           <span>{{ department.name }}</span>
-          <small>{{ department.tone }}</small>
         </button>
       </div>
     </UiCard>
@@ -877,6 +876,7 @@ onBeforeUnmount(() => {
             :disabled="mailFolders.length === 0"
             :options="folderOptions"
             placeholder="请选择文件夹"
+            :searchable="false"
           />
           <small v-if="mailFoldersError" class="field-error">{{ mailFoldersError }}</small>
         </div>

@@ -146,7 +146,6 @@ watch(isOpen, (open) => {
   <div ref="triggerRef" class="ui-select-wrapper">
     <button
       type="button"
-      :id="id"
       class="ui-select-trigger"
       :disabled="disabled"
       @click="toggleOpen"
