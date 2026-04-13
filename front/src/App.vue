@@ -48,7 +48,7 @@ const connectionStatus = ref({
 
 const configData = ref({
   folderPath: '',
-  excelPath: '',
+  listExcelPath: '',
 })
 
 const previewCache = new Map()
@@ -77,15 +77,11 @@ const statusBadgeVariant = computed(() => {
 
 const configuredSummary = computed(() => {
   const hasFolder = Boolean(configData.value.folderPath)
-  const hasExcel = Boolean(configData.value.excelPath)
 
-  if (hasFolder && hasExcel) {
+  if (hasFolder) {
     return '已配置完成'
   }
 
-  if (hasFolder || hasExcel) {
-    return '部分已配置'
-  }
 
   return '待配置'
 })
@@ -154,7 +150,7 @@ async function loadInvoiceConfig() {
     if (response?.success && response.config) {
       configData.value = {
         folderPath: response.config.folderPath || '',
-        excelPath: response.config.excelPath || '',
+        listExcelPath: response.config.listExcelPath || '',
       }
     }
   } catch (error) {
@@ -518,21 +514,21 @@ onBeforeUnmount(() => {
     >
       <div class="config-form">
         <div class="form-field">
-          <UiLabel for="folder-path">源单据文件夹</UiLabel>
+          <UiLabel for="folder-path">选择递延数据所在总文件夹路径</UiLabel>
           <UiFileInput
             id="folder-path"
             v-model="configData.folderPath"
-            placeholder="选择需要识别的单据目录..."
+            placeholder="总文件夹/客户号文件夹/pdf"
             webkitdirectory
           />
         </div>
 
         <div class="form-field">
-          <UiLabel for="excel-path">Excel 输出文件</UiLabel>
+          <UiLabel for="list-excel-path">选择 Excel 清单文件</UiLabel>
           <UiFileInput
-            id="excel-path"
-            v-model="configData.excelPath"
-            placeholder="选择 Excel 输出位置..."
+            id="list-excel-path"
+            v-model="configData.listExcelPath"
+            placeholder="选择包含单据清单的 Excel 文件..."
             accept=".xlsx,.xls"
           />
         </div>
