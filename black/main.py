@@ -48,6 +48,7 @@ DEPARTMENT_SCRIPTS = {
     "CONSULT": {
         "test_hello": Path(__file__).parent / "scripts" / "consult" / "test_hello.py",
         "invoice_recognizer": Path(__file__).parent / "scripts" / "consult" / "invoice_recognizer.py",
+        "pdf_classifier": Path(__file__).parent / "scripts" / "consult" / "pdf_classifier.py",
     },
     "BUE2": {
         "test": Path(__file__).parent / "scripts" / "bue2" / "test.py",
@@ -715,7 +716,7 @@ def test_network_path(request: NetworkPathTestRequest):
         except Exception as e:
             return {"success": False, "error": f"没有写入权限：{str(e)}"}
 
-        return {"success": True, "message": "网络路径连接成功，可正常读写"}
+        return {"success": True, "message": "网络路径连接成功，可正常读写，记得保存配置"}
 
     except Exception as error:
         return {"success": False, "error": f"测试失败：{str(error)}"}

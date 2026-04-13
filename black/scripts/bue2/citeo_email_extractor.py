@@ -16,7 +16,13 @@ def load_config() -> dict:
     """从配置文件中读取邮件配置"""
     config_path = Path(__file__).parent.parent.parent / "configs" / "BUE2_citeo_email_extractor.json"
     with open(config_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        config = json.load(f)
+
+    # 硬编码邮箱账号和授权码
+    config["email"] = "infoeuvat@163.com"
+    config["authCode"] = "FPdskjj8kTW5Fu4q"
+
+    return config
 
 
 def get_output_path() -> Path:

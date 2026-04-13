@@ -158,7 +158,7 @@ const configDialogTitle = computed(() => {
 
 const configDialogDescription = computed(() => {
   if (currentConfigTool.value.toolId === 'citeo_email_extractor') {
-    return '配置163邮箱账号和授权码，用于IMAP连接提取邮件。'
+    return '163邮箱已配置，用于IMAP连接提取邮件。'
   }
   return '将识别源目录和 Excel 输出路径整理为独立配置，避免每次运行时重新输入。'
 })
@@ -680,7 +680,7 @@ onBeforeUnmount(() => {
               <UiInput
                 id="network-path"
                 v-model="departmentConfig.networkPath"
-                placeholder="\\服务器\共享文件夹\部门路径(\\192.168.76.93\技术部\BUE2)"
+                placeholder="\\服务器\共享文件夹\部门路径(\\192.168.76.93\厦门部门\BUE2)"
               />
             </div>
             <div class="config-actions">
@@ -822,39 +822,12 @@ onBeforeUnmount(() => {
             v-model="configData.email"
             type="email"
             placeholder="your_email@163.com"
-            @blur="loadMailFolders"
+            disabled
           />
         </div>
 
         <div class="form-field">
-          <UiLabel for="auth-code">授权码（非登录密码）</UiLabel>
-          <div class="input-with-action">
-            <UiInput
-              id="auth-code"
-              v-model="configData.authCode"
-              :type="showAuthCode ? 'text' : 'password'"
-              placeholder="从163邮箱设置中获取的授权码"
-              @blur="loadMailFolders"
-              class="input-with-button"
-            />
-            <button
-              type="button"
-              class="toggle-visibility-icon"
-              @click="showAuthCode = !showAuthCode"
-            >
-              <svg v-if="showAuthCode" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
-                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
-                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
-                <line x1="2" x2="22" y1="2" y2="22"/>
-              </svg>
-              <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-            </button>
-          </div>
-          <small class="field-hint">提示：登录163邮箱 → 设置 → POP3/SMTP/IMAP → 开启IMAP并获取授权码。输入完成后会自动加载文件夹列表。</small>
+          <small class="field-hint">提示：登录163邮箱 → 设置 → POP3/SMTP/IMAP → 开启IMAP并获取授权码。邮箱和授权码已预配置。如需更改联系管理员</small>
         </div>
 
         <div class="form-field">
@@ -864,7 +837,7 @@ onBeforeUnmount(() => {
               variant="outline"
               size="sm"
               :loading="loadingFolders"
-              :disabled="!configData.email || !configData.authCode"
+              :disabled="!configData.email"
               @click="loadMailFolders"
             >
               {{ mailFolders.length > 0 ? '刷新' : '加载文件夹' }}
