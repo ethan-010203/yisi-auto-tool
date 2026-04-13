@@ -505,12 +505,14 @@ async function runDepartmentScript(tool) {
   }
 
   runningToolId.value = tool.id
+  let isBackgroundTask = false
 
   try {
     const result = await runDepartmentTool(activeDepartmentCode.value, tool.id)
 
     if (result?.success && result?.status === 'running') {
       // 任务已启动，正在后台运行
+      isBackgroundTask = true
       pushToast({
         type: 'info',
         title: '任务已启动',
@@ -523,6 +525,7 @@ async function runDepartmentScript(tool) {
         logPanel.value?.refresh()
         console.log('Log panel refreshed')
       }, 100)
+      // 后台任务不清空runningToolId，等执行记录组件反馈完成状态
       return
     }
 
@@ -553,7 +556,9 @@ async function runDepartmentScript(tool) {
       duration: 5200,
     })
   } finally {
-    runningToolId.value = ''
+    if (!isBackgroundTask) {
+      runningToolId.value = ''
+    }
   }
 }
 
@@ -748,7 +753,7 @@ onBeforeUnmount(() => {
                   :loading="runningToolId === tool.id"
                   @click="runDepartmentScript(tool)"
                 >
-                  {{ tool.id === 'citeo_email_extractor' ? '运行' : '执行测试' }}
+                  {{ runningToolId === tool.id ? '运行中' : '运行' }}
                 </UiButton>
               </template>
 
@@ -765,7 +770,8 @@ onBeforeUnmount(() => {
         <ExecutionLogPanel 
           ref="logPanel"
           :department="activeDepartment.code"
-          :limit="10" 
+          :limit="10"
+          @task-complete="runningToolId = ''"
         />
       </UiCard>
     </section>

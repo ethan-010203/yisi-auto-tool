@@ -41,6 +41,8 @@ const props = defineProps({
   },
 })
 
+const emit = defineEmits(['task-complete'])
+
 // 筛选后的日志
 const filteredLogs = computed(() => {
   let result = logs.value
@@ -102,6 +104,13 @@ async function loadLogs() {
       const runningLogs = logs.value.filter(log => log.status === 'running')
       if (runningLogs.length > 0) {
         console.log('Running tasks:', runningLogs.map(log => ({ id: log.id, timestamp: log.timestamp, tool: log.tool })))
+      }
+      // 如果详情弹窗打开，同步更新selectedLog
+      if (detailDialogOpen.value && selectedLog.value) {
+        const updatedLog = logs.value.find(log => log.id === selectedLog.value.id)
+        if (updatedLog) {
+          selectedLog.value = updatedLog
+        }
       }
     } else {
       error.value = response?.error || '加载失败'
@@ -193,6 +202,9 @@ watch(() => props.department, () => {
   }
 }, { immediate: true })
 
+// 跟踪之前的运行状态，用于检测任务完成
+const hadRunningTasks = ref(false)
+
 // 监听日志变化，自动启停轮询
 watch(() => logs.value, (newLogs) => {
   const hasRunning = newLogs.some(log => log.status === 'running')
@@ -201,6 +213,11 @@ watch(() => logs.value, (newLogs) => {
   } else if (!hasRunning && pollInterval.value) {
     stopPolling()
   }
+  // 检测任务从运行中变为完成
+  if (hadRunningTasks.value && !hasRunning) {
+    emit('task-complete')
+  }
+  hadRunningTasks.value = hasRunning
 }, { deep: true })
 
 // 组件卸载时停止轮询

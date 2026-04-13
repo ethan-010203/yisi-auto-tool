@@ -1,13 +1,57 @@
 [
   {
-    "id": "1776065417.245345_test",
-    "timestamp": "2026-04-13T15:30:20.618076",
+    "id": "1776067585.1653893_test",
+    "timestamp": "2026-04-13T16:06:35.204915",
+    "department": "BUE2",
+    "tool": "test",
+    "config": {},
+    "status": "success",
+    "output": "[TEST] 测试任务启动...\n[TEST] 等待10秒钟...\n[TEST] 已等待 1 秒...\n[TEST] 已等待 2 秒...\n[TEST] 已等待 3 秒...\n[TEST] 已等待 4 秒...\n[TEST] 已等待 5 秒...\n[TEST] 已等待 6 秒...\n[TEST] 已等待 7 秒...\n[TEST] 已等待 8 秒...\n[TEST] 已等待 9 秒...\n[TEST] 已等待 10 秒...\n[TEST] 任务执行完成！\n[TEST] 输出: 测试成功\n",
+    "error": null,
+    "duration": 10.04
+  },
+  {
+    "id": "1776067399.76803_test",
+    "timestamp": "2026-04-13T16:04:19.829317",
+    "department": "BUE2",
+    "tool": "test",
+    "config": {},
+    "status": "success",
+    "output": "[TEST] 测试任务启动...\n[TEST] 等待1分钟...\n[TEST] 已等待 1 秒...\n[TEST] 已等待 2 秒...\n[TEST] 已等待 3 秒...\n[TEST] 已等待 4 秒...\n[TEST] 已等待 5 秒...\n[TEST] 已等待 6 秒...\n[TEST] 已等待 7 秒...\n[TEST] 已等待 8 秒...\n[TEST] 已等待 9 秒...\n[TEST] 已等待 10 秒...\n[TEST] 已等待 11 秒...\n[TEST] 已等待 12 秒...\n[TEST] 已等待 13 秒...\n[TEST] 已等待 14 秒...\n[TEST] 已等待 15 秒...\n[TEST] 已等待 16 秒...\n[TEST] 已等待 17 秒...\n[TEST] 已等待 18 秒...\n[TEST] 已等待 19 秒...\n[TEST] 已等待 20 秒...\n[TEST] 已等待 21 秒...\n[TEST] 已等待 22 秒...\n[TEST] 已等待 23 秒...\n[TEST] 已等待 24 秒...\n[TEST] 已等待 25 秒...\n[TEST] 已等待 26 秒...\n[TEST] 已等待 27 秒...\n[TEST] 已等待 28 秒...\n[TEST] 已等待 29 秒...\n[TEST] 已等待 30 秒...\n[TEST] 已等待 31 秒...\n[TEST] 已等待 32 秒...\n[TEST] 已等待 33 秒...\n[TEST] 已等待 34 秒...\n[TEST] 已等待 35 秒...\n[TEST] 已等待 36 秒...\n[TEST] 已等待 37 秒...\n[TEST] 已等待 38 秒...\n[TEST] 已等待 39 秒...\n[TEST] 已等待 40 秒...\n[TEST] 已等待 41 秒...\n[TEST] 已等待 42 秒...\n[TEST] 已等待 43 秒...\n[TEST] 已等待 44 秒...\n[TEST] 已等待 45 秒...\n[TEST] 已等待 46 秒...\n[TEST] 已等待 47 秒...\n[TEST] 已等待 48 秒...\n[TEST] 已等待 49 秒...\n[TEST] 已等待 50 秒...\n[TEST] 已等待 51 秒...\n[TEST] 已等待 52 秒...\n[TEST] 已等待 53 秒...\n[TEST] 已等待 54 秒...\n[TEST] 已等待 55 秒...\n[TEST] 已等待 56 秒...\n[TEST] 已等待 57 秒...\n[TEST] 已等待 58 秒...\n[TEST] 已等待 59 秒...\n[TEST] 已等待 60 秒...\n[TEST] 任务执行完成！\n[TEST] 输出: 测试成功\n",
+    "error": null,
+    "duration": 60.06
+  },
+  {
+    "id": "1776067265.41512_test",
+    "timestamp": "2026-04-13T16:02:05.432392",
     "department": "BUE2",
     "tool": "test",
     "config": {},
     "status": "failed",
-    "output": "[TEST] 测试任务启动...\n[TEST] 等待1分钟...\n[TEST] 已等待 1 秒...\n[TEST] 已等待 2 秒...\n[TEST] 已等待 3 秒...\n",
-    "error": "Unknown error",
-    "duration": 3.37
+    "output": "",
+    "error": "Script execution timeout",
+    "duration": 60.02
+  },
+  {
+    "id": "1776067044.273004_test",
+    "timestamp": "2026-04-13T15:58:24.282854",
+    "department": "BUE2",
+    "tool": "test",
+    "config": {},
+    "status": "failed",
+    "output": "",
+    "error": "Script execution timeout",
+    "duration": 60.01
+  },
+  {
+    "id": "1776067038.4389267_test",
+    "timestamp": "2026-04-13T15:57:20.503976",
+    "department": "BUE2",
+    "tool": "test",
+    "config": {},
+    "status": "failed",
+    "output": "[TEST] 测试任务启动...\n[TEST] 等待1分钟...\n[TEST] 已等待 1 秒...\n[TEST] 已等待 2 秒...\n",
+    "error": "用户手动终止流程",
+    "duration": 2.06
   }
 ]

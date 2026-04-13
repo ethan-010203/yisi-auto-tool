@@ -284,7 +284,7 @@ def _run_script_async(log_id: str, department: str, tool: str, script_path: Path
         register_active_process(log_id, process, department, tool, dt_start)
         
         # 等待进程完成
-        stdout, stderr = process.communicate(timeout=60)
+        stdout, stderr = process.communicate()
 
         duration = time.time() - start_time
         success = process.returncode == 0

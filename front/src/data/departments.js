@@ -20,7 +20,7 @@ export const departments = [
       { id: 'quote_builder', name: '报价助手', tag: 'Quote', description: '减少重复制作报价单的时间成本。' },
       {
         id: 'test',
-        name: '测试脚本',
+        name: 'test',
         tag: 'Test',
         description: '等待5秒钟测试异步执行和实时日志显示功能。',
         action: 'run_script',
