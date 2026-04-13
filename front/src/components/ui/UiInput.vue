@@ -58,36 +58,36 @@ const handleClick = (e) => {
   height: 40px;
   padding: 0 12px;
   border-radius: 10px;
-  border: 1px solid #e4e4e7;
-  background: white;
+  border: 1px solid var(--border);
+  background: var(--card);
   font-size: 0.875rem;
   line-height: 1.25rem;
-  color: #18181b;
+  color: var(--foreground);
   transition: all 0.15s ease;
   outline: none;
 }
 
 .ui-input::placeholder {
-  color: #a1a1aa;
+  color: var(--muted);
 }
 
 .ui-input:hover {
-  border-color: #d4d4d8;
+  border-color: var(--border-strong);
 }
 
 .ui-input:focus {
-  border-color: #18181b;
-  box-shadow: 0 0 0 2px rgba(24, 24, 27, 0.1);
+  border-color: var(--foreground);
+  box-shadow: 0 0 0 2px var(--ring);
 }
 
 .ui-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  background: #fafafa;
+  background: var(--card-muted);
 }
 
 .ui-input[readonly] {
   cursor: pointer;
-  background: #fafafa;
+  background: var(--card-muted);
 }
 </style>

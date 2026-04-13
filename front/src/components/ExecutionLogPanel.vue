@@ -555,7 +555,11 @@ defineExpose({
             v-for="log in displayedLogs"
             :key="log.id"
             class="log-row-clickable"
-            :class="{ 'log-row-failed': log.status !== 'success' }"
+            :class="{
+              'log-row-success': log.status === 'success',
+              'log-row-running': log.status === 'running',
+              'log-row-failed': log.status !== 'success' && log.status !== 'running'
+            }"
             @click="openDetailDialog(log)"
           >
             <td class="col-time">{{ formatTime(log.timestamp) }}</td>
@@ -563,7 +567,10 @@ defineExpose({
               <span class="task-name" :title="getToolName(log.tool)">{{ getToolName(log.tool) }}</span>
             </td>
             <td class="col-status">
-              <span :class="['status-dot', log.status === 'success' ? 'status-success' : log.status === 'running' ? 'status-running' : 'status-failed']"></span>
+              <span :class="['status-chip', log.status === 'success' ? 'status-success' : log.status === 'running' ? 'status-running' : 'status-failed']">
+                <span class="status-dot"></span>
+                <span>{{ log.status === 'success' ? '成功' : log.status === 'running' ? '运行中' : '失败' }}</span>
+              </span>
             </td>
           </tr>
         </tbody>
@@ -615,7 +622,7 @@ defineExpose({
             </div>
             <div class="meta-item">
               <span class="meta-label">执行结果</span>
-              <UiBadge :variant="selectedLog.status === 'success' ? 'success' : selectedLog.status === 'running' ? 'default' : 'warning'">
+              <UiBadge :variant="selectedLog.status === 'success' ? 'success' : selectedLog.status === 'running' ? 'warning' : 'danger'">
                 {{ selectedLog.status === 'success' ? '成功' : selectedLog.status === 'running' ? '运行中' : '失败' }}
               </UiBadge>
             </div>
@@ -717,14 +724,14 @@ defineExpose({
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
-  color: #18181b;
+  color: var(--foreground);
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .log-count {
   font-size: 0.875rem;
-  color: #71717a;
+  color: var(--muted);
   white-space: nowrap;
 }
 
@@ -733,18 +740,18 @@ defineExpose({
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: white;
+  background: var(--card-muted);
   font-size: 0.875rem;
-  color: #52525b;
+  color: var(--muted-foreground);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .log-refresh:hover {
-  border-color: #18181b;
-  color: #18181b;
+  border-color: var(--border-strong);
+  color: var(--foreground);
 }
 
 .log-refresh:disabled {
@@ -790,24 +797,24 @@ defineExpose({
 
 .filter-btn {
   padding: 6px 12px;
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: white;
+  background: var(--card-muted);
   font-size: 0.875rem;
-  color: #52525b;
+  color: var(--muted-foreground);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .filter-btn:hover {
-  border-color: #18181b;
-  color: #18181b;
+  border-color: var(--border-strong);
+  color: var(--foreground);
 }
 
 .filter-btn.active {
-  background: #18181b;
-  color: white;
-  border-color: #18181b;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  border-color: transparent;
 }
 
 .log-loading {
@@ -819,7 +826,7 @@ defineExpose({
 .log-skeleton {
   height: 48px;
   border-radius: 8px;
-  background: linear-gradient(90deg, #f4f4f5 25%, #e4e4e7 50%, #f4f4f5 75%);
+  background: linear-gradient(90deg, var(--card-muted) 25%, var(--secondary) 50%, var(--card-muted) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
@@ -833,7 +840,7 @@ defineExpose({
 .log-empty {
   text-align: center;
   padding: 32px 0;
-  color: #71717a;
+  color: var(--muted);
 }
 
 /* 表格样式 */
@@ -842,7 +849,8 @@ defineExpose({
   overflow-y: auto;
   overflow-x: hidden;
   border-radius: 8px;
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--border);
+  background: var(--card-muted);
 }
 
 .log-table {
@@ -860,18 +868,18 @@ defineExpose({
 }
 
 .log-table th {
-  background: #f4f4f5;
+  background: var(--secondary);
   padding: 12px 8px;
   text-align: left;
   font-weight: 600;
-  color: #18181b;
-  border-bottom: 1px solid #e4e4e7;
+  color: var(--foreground);
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
 .log-table td {
   padding: 12px 8px;
-  border-bottom: 1px solid #f4f4f5;
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
@@ -885,29 +893,39 @@ defineExpose({
 }
 
 .log-row-clickable:hover {
-  background-color: #f4f4f5;
+  background-color: var(--secondary);
+}
+
+.log-row-success {
+  background: linear-gradient(0deg, rgba(74, 222, 128, 0.04), rgba(74, 222, 128, 0.04));
+}
+
+.log-row-running {
+  background: linear-gradient(0deg, rgba(251, 191, 36, 0.04), rgba(251, 191, 36, 0.04));
 }
 
 .log-row-failed {
-  background-color: #fef2f2;
+  background-color: var(--danger-soft);
 }
 
 .log-row-failed:hover {
-  background-color: #fee2e2;
+  background:
+    linear-gradient(0deg, var(--danger-soft), var(--danger-soft)),
+    var(--secondary);
 }
 
 .col-time {
   width: 135px;
   min-width: 135px;
   max-width: 135px;
-  color: #71717a;
+  color: var(--muted);
   white-space: nowrap;
   font-size: 0.8rem;
 }
 
 .col-task {
   width: auto;
-  color: #18181b;
+  color: var(--foreground);
 }
 
 .task-name {
@@ -920,10 +938,31 @@ defineExpose({
 }
 
 .col-status {
-  width: 50px;
-  min-width: 50px;
-  max-width: 50px;
-  text-align: center;
+  width: 84px;
+  min-width: 84px;
+  max-width: 84px;
+  text-align: right;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-success {
+  color: var(--success);
+}
+
+.status-failed {
+  color: var(--danger);
+}
+
+.status-running {
+  color: var(--warning);
 }
 
 .status-dot {
@@ -931,18 +970,11 @@ defineExpose({
   width: 8px;
   height: 8px;
   border-radius: 50%;
+  background-color: currentColor;
+  animation: none;
 }
 
-.status-success {
-  background-color: #22c55e;
-}
-
-.status-failed {
-  background-color: #ef4444;
-}
-
-.status-running {
-  background-color: #f59e0b;
+.status-running .status-dot {
   animation: pulse 1.5s infinite;
 }
 
@@ -959,14 +991,14 @@ defineExpose({
   padding: 2px;
   border: none;
   background: transparent;
-  color: #ef4444;
+  color: var(--danger);
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.15s ease;
 }
 
 .terminate-btn:hover {
-  background: #fef2f2;
+  background: var(--danger-soft);
 }
 
 .log-table-container::-webkit-scrollbar {
@@ -974,12 +1006,12 @@ defineExpose({
 }
 
 .log-table-container::-webkit-scrollbar-track {
-  background: #f4f4f5;
+  background: var(--card-muted);
   border-radius: 3px;
 }
 
 .log-table-container::-webkit-scrollbar-thumb {
-  background: #d4d4d8;
+  background: var(--border-strong);
   border-radius: 3px;
 }
 
@@ -989,23 +1021,23 @@ defineExpose({
   align-items: center;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #e4e4e7;
+  border-top: 1px solid var(--border);
 }
 
 .page-btn {
   padding: 6px 12px;
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: white;
+  background: var(--card-muted);
   font-size: 0.875rem;
-  color: #52525b;
+  color: var(--muted-foreground);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .page-btn:hover:not(:disabled) {
-  border-color: #18181b;
-  color: #18181b;
+  border-color: var(--border-strong);
+  color: var(--foreground);
 }
 
 .page-btn:disabled {
@@ -1015,7 +1047,7 @@ defineExpose({
 
 .page-info {
   font-size: 0.875rem;
-  color: #71717a;
+  color: var(--muted);
 }
 
 /* 详情弹窗样式 */
@@ -1027,7 +1059,7 @@ defineExpose({
 .detail-header {
   margin-bottom: 16px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #e4e4e7;
+  border-bottom: 1px solid var(--border);
 }
 
 .detail-meta {
@@ -1044,13 +1076,13 @@ defineExpose({
 
 .meta-label {
   font-size: 0.75rem;
-  color: #71717a;
+  color: var(--muted);
   text-transform: uppercase;
 }
 
 .meta-value {
   font-size: 0.875rem;
-  color: #18181b;
+  color: var(--foreground);
   font-weight: 500;
 }
 
@@ -1060,19 +1092,19 @@ defineExpose({
 
 .detail-section.empty {
   text-align: center;
-  color: #71717a;
+  color: var(--muted);
   padding: 24px;
 }
 
 .section-title {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #18181b;
+  color: var(--foreground);
   margin: 0 0 8px 0;
 }
 
 .section-title.error-title {
-  color: #dc2626;
+  color: var(--danger);
 }
 
 .section-header {
@@ -1087,29 +1119,31 @@ defineExpose({
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--border);
   border-radius: 4px;
-  background: white;
+  background: var(--card-muted);
   font-size: 0.75rem;
-  color: #52525b;
+  color: var(--muted-foreground);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .copy-btn:hover {
-  border-color: #18181b;
-  color: #18181b;
-  background: #f4f4f5;
+  border-color: var(--border-strong);
+  color: var(--foreground);
+  background: var(--secondary);
 }
 
 .log-output,
 .log-error-detail {
-  background: #f4f4f5;
+  background: var(--card-muted);
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 12px;
   font-family: 'SF Mono', Monaco, Inconsolata, 'Fira Code', monospace;
   font-size: 0.8rem;
   line-height: 1.5;
+  color: var(--muted-foreground);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 300px;
@@ -1118,9 +1152,9 @@ defineExpose({
 }
 
 .log-error-detail {
-  background: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: var(--danger-border);
 }
 
 .running-section {
@@ -1135,14 +1169,14 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 12px;
-  color: #f59e0b;
+  color: var(--warning);
   font-size: 0.875rem;
 }
 
 .spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid #f59e0b;
+  border: 2px solid var(--warning);
   border-top-color: transparent;
   border-radius: 50%;
   animation: spin 1s linear infinite;

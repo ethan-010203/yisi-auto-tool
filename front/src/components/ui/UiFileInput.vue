@@ -96,26 +96,26 @@ const handleClick = () => {
   height: 40px;
   padding: 0 12px;
   border-radius: 10px;
-  border: 1px solid #e4e4e7;
-  background: white;
+  border: 1px solid var(--border);
+  background: var(--card);
   font-size: 0.875rem;
-  color: #18181b;
+  color: var(--foreground);
   cursor: pointer;
   outline: none;
   transition: all 0.15s ease;
 }
 
 .ui-file-input-field::placeholder {
-  color: #a1a1aa;
+  color: var(--muted);
 }
 
 .ui-file-input:hover .ui-file-input-field {
-  border-color: #d4d4d8;
+  border-color: var(--border-strong);
 }
 
 .ui-file-input-field:focus {
-  border-color: #18181b;
-  box-shadow: 0 0 0 2px rgba(24, 24, 27, 0.1);
+  border-color: var(--foreground);
+  box-shadow: 0 0 0 2px var(--ring);
 }
 
 .ui-file-input-button {
@@ -126,19 +126,19 @@ const handleClick = () => {
   height: 40px;
   padding: 0 14px;
   border-radius: 10px;
-  border: 1px solid #d4d4d8;
-  background: white;
+  border: 1px solid var(--border-strong);
+  background: var(--card);
   font-size: 0.88rem;
   font-weight: 500;
-  color: #18181b;
+  color: var(--foreground);
   cursor: pointer;
   transition: all 0.18s ease;
   flex-shrink: 0;
 }
 
 .ui-file-input-button:hover {
-  background: #f4f4f5;
-  border-color: #18181b;
+  background: var(--secondary);
+  border-color: var(--foreground);
 }
 
 .ui-file-input-button svg {

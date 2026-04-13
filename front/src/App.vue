@@ -13,6 +13,8 @@ import UiLabel from './components/ui/UiLabel.vue'
 import UiSelect from './components/ui/UiSelect.vue'
 import UiToastStack from './components/ui/UiToastStack.vue'
 import { departments } from './data/departments'
+import GalaxyBackground from './components/GalaxyBackground.vue'
+import { Sun, Moon, Monitor } from 'lucide-vue-next'
 
 const PREVIEW_TOOL_ID = 'invoice_recognizer'
 const PREVIEW_DEPARTMENT = 'CONSULT'
@@ -30,6 +32,64 @@ const getSavedDepartment = () => {
   }
   return departments[0].code
 }
+
+// Theme logic
+const THEME_STORAGE_KEY = 'yisi-auto-tool:theme'
+const themeMode = ref('system') // 'light', 'dark', 'system'
+
+const getSavedTheme = () => {
+  try {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY)
+    if (saved && ['light', 'dark', 'system'].includes(saved)) {
+      return saved
+    }
+  } catch {
+    // localStorage 不可用
+  }
+  return 'system'
+}
+
+themeMode.value = getSavedTheme()
+
+const isDark = computed(() => {
+  if (themeMode.value === 'dark') return true
+  if (themeMode.value === 'light') return false
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+})
+
+const applyTheme = () => {
+  const html = document.documentElement
+  if (isDark.value) {
+    html.setAttribute('data-theme', 'dark')
+  } else {
+    html.removeAttribute('data-theme')
+  }
+}
+
+const cycleTheme = () => {
+  const modes = ['light', 'dark', 'system']
+  const currentIndex = modes.indexOf(themeMode.value)
+  const nextIndex = (currentIndex + 1) % modes.length
+  themeMode.value = modes[nextIndex]
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, themeMode.value)
+  } catch {
+    // localStorage 不可用
+  }
+  applyTheme()
+}
+
+const themeIcon = computed(() => {
+  if (themeMode.value === 'dark') return Moon
+  if (themeMode.value === 'light') return Sun
+  return Monitor
+})
+
+const themeLabel = computed(() => {
+  if (themeMode.value === 'dark') return '深色'
+  if (themeMode.value === 'light') return '浅色'
+  return '跟随系统'
+})
 
 const activeDepartmentCode = ref(getSavedDepartment())
 const runningToolId = ref('')
@@ -160,7 +220,7 @@ const configDialogDescription = computed(() => {
   if (currentConfigTool.value.toolId === 'citeo_email_extractor') {
     return '163邮箱已配置，用于IMAP连接提取邮件。'
   }
-  return '将识别源目录和 Excel 输出路径整理为独立配置，避免每次运行时重新输入。'
+  return ''
 })
 
 function getToolKey(departmentCode, toolId) {
@@ -588,6 +648,10 @@ onMounted(async () => {
   await warmToolPreview(findPreviewTool())
   // 加载当前部门配置
   await loadDepartmentConfig(activeDepartmentCode.value)
+  // Apply initial theme
+  applyTheme()
+  // Listen for system theme changes
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme)
 })
 
 // 监听部门切换，加载对应配置
@@ -608,10 +672,33 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="page-shell">
+    <GalaxyBackground
+      :mouse-repulsion="true"
+      :mouse-interaction="true"
+      :density="0.88"
+      :glow-intensity="0.18"
+      :saturation="0"
+      :hue-shift="0"
+      :twinkle-intensity="0.12"
+      :rotation-speed="0.04"
+      :repulsion-strength="1.2"
+      :auto-center-repulsion="0"
+      :star-speed="0.28"
+      :speed="0.72"
+      :transparent="true"
+      v-if="isDark"
+    />
     <header class="page-header">
       <div class="page-copy">
         <UiBadge variant="secondary">Department Workspace</UiBadge>
         <h1>部门工具工作台</h1>
+      </div>
+
+      <div class="header-actions">
+        <UiButton variant="outline" class="theme-toggle" @click="cycleTheme">
+          <component :is="themeIcon" :size="16" />
+          <span>{{ themeLabel }}</span>
+        </UiButton>
       </div>
 
       <UiCard class="status-panel">
@@ -827,7 +914,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="form-field">
-          <small class="field-hint">提示：登录163邮箱 → 设置 → POP3/SMTP/IMAP → 开启IMAP并获取授权码。邮箱和授权码已预配置。如需更改联系管理员</small>
+          <small class="field-hint">提示：点击加载文件夹---选择存放注销邮箱的文件夹---填写获取邮件数量(可自行前往163查看对应文件夹数量有多少)---保存配置即可运行。邮箱和授权码已预配置。如需更改联系管理员</small>
         </div>
 
         <div class="form-field">
@@ -871,18 +958,51 @@ onBeforeUnmount(() => {
       </template>
     </UiDialog>
 
-    <UiToastStack :toasts="toasts" @dismiss="dismissToast" />
+    <UiToastStack class="page-toast-stack" :toasts="toasts" @dismiss="dismissToast" />
   </div>
 </template>
 
 <style scoped>
+/* Page shell with Galaxy background */
+.page-shell {
+  position: relative;
+  min-height: 100vh;
+  padding: 1.5rem;
+}
+
+.page-shell > *:not(.galaxy-container):not(.page-toast-stack) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Header actions for theme toggle */
+.header-actions {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 10;
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.theme-toggle span {
+  min-width: 4em;
+  text-align: center;
+}
+
 /* 部门局域网路径配置样式 */
 .department-config-section {
   margin: 1.5rem 0;
   padding: 1rem;
-  background: #fafafa;
+  background: var(--card-muted);
   border-radius: 8px;
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--border);
 }
 
 .config-row {
@@ -905,30 +1025,33 @@ onBeforeUnmount(() => {
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
   font-size: 0.875rem;
+  border: 1px solid transparent;
 }
 
 .test-result.success {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--success-soft);
+  border-color: var(--success-border);
+  color: var(--success);
 }
 
 .test-result.error {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+  color: var(--danger);
 }
 
 .field-hint {
   display: block;
   margin-top: 0.25rem;
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--muted);
 }
 
 .field-error {
   display: block;
   margin-top: 0.25rem;
   font-size: 0.75rem;
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .folder-select-header {
@@ -954,20 +1077,20 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: 40px;
   height: 40px;
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: white;
+  background: var(--card);
   cursor: pointer;
-  color: #71717a;
+  color: var(--muted);
   transition: all 0.15s ease;
 }
 
 .toggle-visibility-icon:hover {
-  border-color: #d4d4d8;
-  color: #18181b;
+  border-color: var(--border-strong);
+  color: var(--foreground);
 }
 
 .toggle-visibility-icon:active {
-  background: #fafafa;
+  background: var(--card-muted);
 }
 </style>

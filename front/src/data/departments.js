@@ -27,7 +27,7 @@ export const departments = [
         id: 'citeo_email_extractor',
         name: 'FR-Citeo-注销成功名单邮件提取',
         tag: 'Email',
-        description: '连接163邮箱IMAP，提取主题包含指定关键词的邮件并解析注销成功名单。',
+        description: "连接163邮箱，提取主题包含'Citeo - Réf. client n°'关键词的邮件并解析注销成功名单。",
         action: 'run_script',
         configurable: true,
       },

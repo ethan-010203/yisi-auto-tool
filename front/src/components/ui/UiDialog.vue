@@ -74,7 +74,7 @@ const handleInteractOutside = (event) => {
 .ui-dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.6);
   animation: overlayShow 150ms cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 40;
 }
@@ -86,9 +86,9 @@ const handleInteractOutside = (event) => {
   transform: translate(-50%, -50%);
   width: min(calc(100vw - 32px), 425px);
   max-height: 85vh;
-  background: white;
+  background: var(--card);
   border-radius: 16px;
-  border: 1px solid #e4e4e7;
+  border: 1px solid var(--border);
   box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
   padding: 24px;
   animation: contentShow 150ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -113,13 +113,13 @@ const handleInteractOutside = (event) => {
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: -0.02em;
-  color: #18181b;
+  color: var(--foreground);
 }
 
 .ui-dialog-description {
   margin: 0;
   font-size: 0.875rem;
-  color: #71717a;
+  color: var(--muted);
   line-height: 1.4;
 }
 
@@ -135,7 +135,7 @@ const handleInteractOutside = (event) => {
   gap: 12px;
   margin-top: 24px;
   padding-top: 16px;
-  border-top: 1px solid #f4f4f5;
+  border-top: 1px solid var(--border);
 }
 
 .ui-dialog-close-btn {
@@ -150,15 +150,15 @@ const handleInteractOutside = (event) => {
   border-radius: 6px;
   border: none;
   background: transparent;
-  color: #71717a;
+  color: var(--muted);
   cursor: pointer;
   transition: all 0.15s ease;
   padding: 0;
 }
 
 .ui-dialog-close-btn:hover {
-  background: #f4f4f5;
-  color: #18181b;
+  background: var(--secondary);
+  color: var(--foreground);
 }
 
 @keyframes overlayShow {

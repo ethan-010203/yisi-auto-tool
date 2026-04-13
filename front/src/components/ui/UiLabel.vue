@@ -19,7 +19,7 @@ const props = defineProps({
   font-size: 0.875rem;
   font-weight: 500;
   line-height: 1;
-  color: #27272a;
+  color: var(--foreground);
   margin-bottom: 8px;
 }
 </style>

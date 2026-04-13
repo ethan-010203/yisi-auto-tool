@@ -45,8 +45,8 @@ const emit = defineEmits(['dismiss'])
   gap: 14px;
   padding: 14px 16px;
   border-radius: 16px;
-  border: 1px solid #e4e4e7;
-  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--border);
+  background: var(--card);
   box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
   backdrop-filter: blur(14px);
 }
@@ -57,12 +57,12 @@ const emit = defineEmits(['dismiss'])
 }
 
 .ui-toast-copy strong {
-  color: #111827;
+  color: var(--foreground);
 }
 
 .ui-toast-copy p {
   margin: 0;
-  color: #52525b;
+  color: var(--muted-foreground);
   font-size: 0.9rem;
   line-height: 1.45;
 }
@@ -71,19 +71,25 @@ const emit = defineEmits(['dismiss'])
   border: 0;
   padding: 0;
   background: transparent;
-  color: #71717a;
+  color: var(--muted);
   cursor: pointer;
   font-size: 0.82rem;
   white-space: nowrap;
 }
 
 .ui-toast--success {
-  border-color: rgba(22, 101, 52, 0.16);
+  border-color: var(--success-border);
+  background: linear-gradient(0deg, var(--success-soft), var(--success-soft)), var(--card);
 }
 
-.ui-toast--error,
 .ui-toast--warning {
-  border-color: rgba(180, 83, 9, 0.18);
+  border-color: var(--warning-border);
+  background: linear-gradient(0deg, var(--warning-soft), var(--warning-soft)), var(--card);
+}
+
+.ui-toast--error {
+  border-color: var(--danger-border);
+  background: linear-gradient(0deg, var(--danger-soft), var(--danger-soft)), var(--card);
 }
 
 @media (max-width: 720px) {

@@ -238,29 +238,29 @@ watch(isOpen, (open) => {
   height: 40px;
   padding: 0 12px;
   border-radius: 10px;
-  border: 1px solid #e4e4e7;
-  background: white;
+  border: 1px solid var(--border);
+  background: var(--card);
   font-size: 0.875rem;
   line-height: 1.25rem;
-  color: #18181b;
+  color: var(--foreground);
   transition: all 0.15s ease;
   outline: none;
   cursor: pointer;
 }
 
 .ui-select-trigger:hover {
-  border-color: #d4d4d8;
+  border-color: var(--border-strong);
 }
 
 .ui-select-trigger:focus {
-  border-color: #18181b;
-  box-shadow: 0 0 0 2px rgba(24, 24, 27, 0.1);
+  border-color: var(--foreground);
+  box-shadow: 0 0 0 2px var(--ring);
 }
 
 .ui-select-trigger:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  background: #fafafa;
+  background: var(--card-muted);
 }
 
 .select-label {
@@ -272,13 +272,13 @@ watch(isOpen, (open) => {
 }
 
 .select-label.placeholder {
-  color: #a1a1aa;
+  color: var(--muted);
 }
 
 .select-icon {
   flex-shrink: 0;
   margin-left: 8px;
-  color: #71717a;
+  color: var(--muted);
   transition: transform 0.2s ease;
 }
 
@@ -287,8 +287,8 @@ watch(isOpen, (open) => {
 }
 
 .ui-select-content {
-  background: white;
-  border: 1px solid #e4e4e7;
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   max-height: 300px;
@@ -315,8 +315,8 @@ watch(isOpen, (open) => {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border-bottom: 1px solid #f4f4f5;
-  color: #71717a;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
 }
 
 .search-input {
@@ -324,12 +324,12 @@ watch(isOpen, (open) => {
   border: none;
   outline: none;
   font-size: 0.875rem;
-  color: #18181b;
+  color: var(--foreground);
   background: transparent;
 }
 
 .search-input::placeholder {
-  color: #a1a1aa;
+  color: var(--muted);
 }
 
 .select-options {
@@ -350,7 +350,7 @@ watch(isOpen, (open) => {
 }
 
 .select-options::-webkit-scrollbar-thumb {
-  background: #e4e4e7;
+  background: var(--border);
   border-radius: 3px;
 }
 
@@ -362,7 +362,7 @@ watch(isOpen, (open) => {
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.875rem;
-  color: #18181b;
+  color: var(--foreground);
   transition: all 0.12s ease;
   user-select: none;
   -webkit-user-select: none;
@@ -370,24 +370,24 @@ watch(isOpen, (open) => {
 }
 
 .select-option:hover:not(.disabled) {
-  background: #f4f4f5;
+  background: var(--secondary);
 }
 
 .select-option:active:not(.disabled) {
-  background: #e4e4e7;
+  background: var(--border);
 }
 
 .select-option.selected {
-  background: #f4f4f5;
+  background: var(--secondary);
 }
 
 .select-option.special {
-  color: #3b82f6;
+  color: var(--accent);
 }
 
 .select-option.special .option-badge {
-  background: #eff6ff;
-  color: #3b82f6;
+  background: var(--secondary);
+  color: var(--accent);
 }
 
 .select-option.disabled {
@@ -406,20 +406,20 @@ watch(isOpen, (open) => {
   flex-shrink: 0;
   font-size: 0.75rem;
   padding: 2px 8px;
-  background: #f4f4f5;
+  background: var(--secondary);
   border-radius: 4px;
-  color: #71717a;
+  color: var(--muted);
 }
 
 .check-icon {
   flex-shrink: 0;
-  color: #3b82f6;
+  color: var(--accent);
 }
 
 .select-empty {
   padding: 16px;
   text-align: center;
   font-size: 0.875rem;
-  color: #a1a1aa;
+  color: var(--muted);
 }
 </style>

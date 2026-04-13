@@ -12,19 +12,65 @@
   --secondary: #f4f4f5;
   --secondary-foreground: #27272a;
   --success: #166534;
+  --success-soft: rgba(22, 101, 52, 0.08);
+  --success-border: rgba(22, 101, 52, 0.16);
   --warning: #9a3412;
+  --warning-soft: rgba(154, 52, 18, 0.08);
+  --warning-border: rgba(154, 52, 18, 0.16);
+  --danger: #dc2626;
+  --danger-soft: rgba(220, 38, 38, 0.08);
+  --danger-border: rgba(220, 38, 38, 0.16);
   --ring: rgba(24, 24, 27, 0.1);
+  --page-glow-top: radial-gradient(circle at top, rgba(24, 24, 27, 0.04), transparent 28%);
+  --page-glow-bottom: radial-gradient(circle at 85% 18%, rgba(24, 24, 27, 0.03), transparent 24%);
+  --page-haze: linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0));
+  --tab-hover-bg: rgba(24, 24, 27, 0.04);
+  --tab-active-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   font-family: "Inter", "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color: var(--foreground);
-  background:
-    radial-gradient(circle at top, rgba(24, 24, 27, 0.04), transparent 28%),
-    var(--background);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark theme */
+[data-theme="dark"] {
+  --background: #050505;
+  --foreground: #f3f3f3;
+  --muted: #8c8c8c;
+  --muted-foreground: #b2b2b2;
+  --card: rgba(18, 18, 18, 0.82);
+  --card-muted: rgba(12, 12, 12, 0.72);
+  --border: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.22);
+  --accent: #f1f1f1;
+  --accent-foreground: #060606;
+  --secondary: rgba(24, 24, 24, 0.84);
+  --secondary-foreground: #dfdfdf;
+  --success: #4ade80;
+  --success-soft: rgba(74, 222, 128, 0.12);
+  --success-border: rgba(74, 222, 128, 0.24);
+  --warning: #fbbf24;
+  --warning-soft: rgba(251, 191, 36, 0.12);
+  --warning-border: rgba(251, 191, 36, 0.24);
+  --danger: #fb7185;
+  --danger-soft: rgba(251, 113, 133, 0.12);
+  --danger-border: rgba(251, 113, 133, 0.24);
+  --ring: rgba(255, 255, 255, 0.12);
+  --page-glow-top: radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.08), transparent 30%);
+  --page-glow-bottom: radial-gradient(circle at 86% 12%, rgba(255, 255, 255, 0.05), transparent 26%);
+  --page-haze: linear-gradient(180deg, rgba(255, 255, 255, 0.01), rgba(0, 0, 0, 0.48));
+  --tab-hover-bg: rgba(255, 255, 255, 0.05);
+  --tab-active-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+  --card-shadow: 0 18px 38px rgba(0, 0, 0, 0.36);
 }
 
 * {
@@ -40,6 +86,15 @@ body,
 body {
   margin: 0;
   min-width: 320px;
+  color: var(--foreground);
+  background:
+    var(--page-glow-top),
+    var(--page-glow-bottom),
+    var(--page-haze),
+    var(--background);
+  transition:
+    background 0.25s ease,
+    color 0.25s ease;
 }
 
 button,
@@ -70,6 +125,31 @@ button {
   width: min(1200px, calc(100% - 32px));
   margin: 0 auto;
   padding: 32px 0 48px;
+  isolation: isolate;
+}
+
+.page-shell::before,
+.page-shell::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+[data-theme="dark"] .page-shell::before {
+  opacity: 1;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.05), transparent 24%),
+    radial-gradient(circle at 82% 14%, rgba(255, 255, 255, 0.04), transparent 20%),
+    radial-gradient(circle at 50% 100%, rgba(255, 255, 255, 0.03), transparent 28%);
+}
+
+[data-theme="dark"] .page-shell::after {
+  opacity: 1;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(8, 8, 8, 0.18) 38%, rgba(2, 2, 2, 0.44));
 }
 
 .page-header {
@@ -197,14 +277,13 @@ button {
 }
 
 .tab-trigger:hover {
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--tab-hover-bg);
+  color: var(--foreground);
 }
 
 .tab-trigger.active {
   background: var(--card);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.05),
-    0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+  box-shadow: var(--tab-active-shadow);
 }
 
 .tab-trigger span {
@@ -362,12 +441,16 @@ button {
   border: 1px solid var(--border);
   border-radius: 18px;
   background: var(--card);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--card-shadow);
   padding: 20px;
 }
 
 .ui-card--muted {
   background: var(--card-muted);
+}
+
+[data-theme="dark"] .ui-card {
+  backdrop-filter: blur(18px);
 }
 
 .ui-badge {
@@ -401,13 +484,18 @@ button {
 }
 
 .ui-badge--success {
-  background: rgba(22, 101, 52, 0.08);
+  background: var(--success-soft);
   color: var(--success);
 }
 
 .ui-badge--warning {
-  background: rgba(154, 52, 18, 0.08);
+  background: var(--warning-soft);
   color: var(--warning);
+}
+
+.ui-badge--danger {
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .ui-button {
@@ -446,7 +534,7 @@ button {
 }
 
 .ui-button--outline {
-  background: var(--card);
+  background: var(--card-muted);
   border-color: var(--border-strong);
   color: var(--foreground);
 }
