@@ -1,13 +1,12 @@
 ﻿<script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { getData, getToolConfig, getToolPreview, runDepartmentTool, saveConfig, getDepartmentConfig, saveDepartmentConfig, testNetworkPath } from './api/index'
+import { getData, getToolConfig, getToolPreview, runDepartmentTool, saveConfig, getDepartmentConfig, saveDepartmentConfig, selectFile, selectFolder, testNetworkPath } from './api/index'
 import ExecutionLogPanel from './components/ExecutionLogPanel.vue'
 import ToolPreviewDialog from './components/preview/ToolPreviewDialog.vue'
 import UiBadge from './components/ui/UiBadge.vue'
 import UiButton from './components/ui/UiButton.vue'
 import UiCard from './components/ui/UiCard.vue'
 import UiDialog from './components/ui/UiDialog.vue'
-import UiFileInput from './components/ui/UiFileInput.vue'
 import UiInput from './components/ui/UiInput.vue'
 import UiLabel from './components/ui/UiLabel.vue'
 import UiSelect from './components/ui/UiSelect.vue'
@@ -77,6 +76,8 @@ const mailFolders = ref([])
 const loadingFolders = ref(false)
 const mailFoldersError = ref('')
 const showAuthCode = ref(false)
+const selectingFolder = ref(false)
+const selectingExcelFile = ref(false)
 
 // 将邮件文件夹列表转换为 UiSelect 需要的 options 格式
 const folderOptions = computed(() => {
@@ -403,6 +404,60 @@ async function saveConfiguration() {
       title: '保存失败',
       message: error.message || '请检查配置内容后重试。',
     })
+  }
+}
+
+async function chooseInvoiceFolder() {
+  selectingFolder.value = true
+  try {
+    const response = await selectFolder()
+    if (response?.success && response.path) {
+      configData.value.folderPath = response.path
+      return
+    }
+
+    if (response?.error) {
+      pushToast({
+        type: 'error',
+        title: '选择文件夹失败',
+        message: response.error,
+      })
+    }
+  } catch (error) {
+    pushToast({
+      type: 'error',
+      title: '选择文件夹失败',
+      message: error.message || '无法打开系统文件夹选择器。',
+    })
+  } finally {
+    selectingFolder.value = false
+  }
+}
+
+async function chooseInvoiceExcelFile() {
+  selectingExcelFile.value = true
+  try {
+    const response = await selectFile('excel')
+    if (response?.success && response.path) {
+      configData.value.listExcelPath = response.path
+      return
+    }
+
+    if (response?.error) {
+      pushToast({
+        type: 'error',
+        title: '选择文件失败',
+        message: response.error,
+      })
+    }
+  } catch (error) {
+    pushToast({
+      type: 'error',
+      title: '选择文件失败',
+      message: error.message || '无法打开系统文件选择器。',
+    })
+  } finally {
+    selectingExcelFile.value = false
   }
 }
 
@@ -791,23 +846,45 @@ onBeforeUnmount(() => {
       <!-- 顾问部单据识别配置 -->
       <div v-if="currentConfigTool.toolId !== 'citeo_email_extractor'" class="config-form">
         <div class="form-field">
-          <UiLabel for="folder-path">选择递延税单据所在总文件夹路径</UiLabel>
-          <UiFileInput
-            id="folder-path"
-            v-model="configData.folderPath"
-            placeholder="总文件夹/客户号文件夹/pdf"
-            webkitdirectory
-          />
+          <UiLabel for="folder-path">递延税单据总文件夹</UiLabel>
+          <div class="input-with-action">
+            <UiInput
+              id="folder-path"
+              v-model="configData.folderPath"
+              class="input-with-button"
+              placeholder="点击右侧按钮选择文件夹"
+            />
+            <UiButton
+              class="path-picker-button"
+              type="button"
+              variant="outline"
+              :loading="selectingFolder"
+              @click="chooseInvoiceFolder"
+            >
+              选择文件夹
+            </UiButton>
+          </div>
         </div>
 
         <div class="form-field">
-          <UiLabel for="list-excel-path">选择 Excel 清单文件</UiLabel>
-          <UiFileInput
-            id="list-excel-path"
-            v-model="configData.listExcelPath"
-            placeholder="选择包含单据清单的 Excel 文件..."
-            accept=".xlsx,.xls"
-          />
+          <UiLabel for="list-excel-path">Excel 清单文件</UiLabel>
+          <div class="input-with-action">
+            <UiInput
+              id="list-excel-path"
+              v-model="configData.listExcelPath"
+              class="input-with-button"
+              placeholder="点击右侧按钮选择 Excel 文件"
+            />
+            <UiButton
+              class="path-picker-button"
+              type="button"
+              variant="outline"
+              :loading="selectingExcelFile"
+              @click="chooseInvoiceExcelFile"
+            >
+              选择文件
+            </UiButton>
+          </div>
         </div>
       </div>
 
@@ -980,6 +1057,14 @@ onBeforeUnmount(() => {
 
 .input-with-button {
   flex: 1;
+}
+
+.path-picker-button {
+  min-width: 108px;
+  min-height: 40px;
+  height: 40px;
+  padding-inline: 14px;
+  align-self: stretch;
 }
 
 .toggle-visibility-icon {

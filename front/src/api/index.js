@@ -101,3 +101,18 @@ export function terminateExecution(logId, signal) {
     signal,
   })
 }
+
+export function selectFolder(signal) {
+  return requestJson(`${API_BASE_URL}/select-folder`, {
+    method: 'POST',
+    signal,
+  })
+}
+
+export function selectFile(fileType = 'any', signal) {
+  return requestJson(`${API_BASE_URL}/select-file`, {
+    method: 'POST',
+    body: JSON.stringify({ fileType }),
+    signal,
+  })
+}

@@ -80,8 +80,8 @@ export const departments = [
   {
     code: 'CONSULT',
     name: '顾问部',
-    tone: '单据自动化',
-    summary: '把跨境单据处理流程从手工核对升级为可配置、可预览、可执行的自动化作业。',
+    tone: '顾问部',
+    summary: '把跨境单据处理流程从手工核对升级为可配置、可执行的自动化作业。',
     tools: [
       {
         id: 'test_hello',
@@ -96,7 +96,6 @@ export const departments = [
         tag: 'RPA',
         description: '识别英国与德国递延税单据，提取关键税务字段并输出结果。',
         action: 'run_script',
-        previewable: true,
         configurable: true,
       },
     ],

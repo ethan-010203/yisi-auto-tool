@@ -1,5 +1,38 @@
 [
   {
+    "id": "1776084346.8453531_test",
+    "timestamp": "2026-04-13T20:45:51.883491",
+    "department": "BUE2",
+    "tool": "test",
+    "config": {},
+    "status": "success",
+    "output": "[TEST] 测试任务启动...\n[TEST] 等待10秒钟...\n[TEST] 已等待 1 秒...\n[TEST] 已等待 2 秒...\n[TEST] 已等待 3 秒...\n[TEST] 已等待 4 秒...\n[TEST] 已等待 5 秒...\n[TEST] 任务执行完成！\n[TEST] 输出: 测试成功\n",
+    "error": null,
+    "duration": 5.04
+  },
+  {
+    "id": "1776084333.3914177_test",
+    "timestamp": "2026-04-13T20:45:43.441730",
+    "department": "BUE2",
+    "tool": "test",
+    "config": {},
+    "status": "success",
+    "output": "[TEST] 测试任务启动...\n[TEST] 等待10秒钟...\n[TEST] 已等待 1 秒...\n[TEST] 已等待 2 秒...\n[TEST] 已等待 3 秒...\n[TEST] 已等待 4 秒...\n[TEST] 已等待 5 秒...\n[TEST] 已等待 6 秒...\n[TEST] 已等待 7 秒...\n[TEST] 已等待 8 秒...\n[TEST] 已等待 9 秒...\n[TEST] 已等待 10 秒...\n[TEST] 任务执行完成！\n[TEST] 输出: 测试成功\n",
+    "error": null,
+    "duration": 10.05
+  },
+  {
+    "id": "1776084314.73426_test",
+    "timestamp": "2026-04-13T20:45:24.793383",
+    "department": "BUE2",
+    "tool": "test",
+    "config": {},
+    "status": "success",
+    "output": "[TEST] 测试任务启动...\n[TEST] 等待10秒钟...\n[TEST] 已等待 1 秒...\n[TEST] 已等待 2 秒...\n[TEST] 已等待 3 秒...\n[TEST] 已等待 4 秒...\n[TEST] 已等待 5 秒...\n[TEST] 已等待 6 秒...\n[TEST] 已等待 7 秒...\n[TEST] 已等待 8 秒...\n[TEST] 已等待 9 秒...\n[TEST] 已等待 10 秒...\n[TEST] 任务执行完成！\n[TEST] 输出: 测试成功\n",
+    "error": null,
+    "duration": 10.06
+  },
+  {
     "id": "1776083256.1612332_test",
     "timestamp": "2026-04-13T20:27:46.196094",
     "department": "BUE2",

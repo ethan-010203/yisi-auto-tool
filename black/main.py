@@ -238,12 +238,12 @@ def _build_preview_payload(department: str, tool: str, config: Optional[dict]) -
 
 @app.get("/")
 def read_root():
-    return {"message": "Hello World"}
+    return {"message": ""}
 
 
 @app.get("/api/health")
 def read_health():
-    return {"message": "Hello World"}
+    return {"message": ""}
 
 
 @app.get("/api/departments/{department}/tools")
