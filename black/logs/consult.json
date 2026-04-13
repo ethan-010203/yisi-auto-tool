@@ -1,5 +1,65 @@
 [
   {
+    "id": "1776093609.5343285_invoice_recognizer",
+    "timestamp": "2026-04-13T23:20:10.185970",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "success",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] 递延税单据总文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\n[CONSULT] Excel 清单文件路径: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\已出草稿-2（英德单据+其他平台+分站点核算）.xlsx\n[CONSULT] 客户号文件夹数量: 8\n[CONSULT] 总清单客户号数量: 552\n[CONSULT] 未在总清单命中的客户号数量: 1\n[CONSULT] 发票个数为0的客户号数量: 1\n[CONSULT] 汇总表已更新: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\汇总表.xlsx\n",
+    "error": null,
+    "duration": 0.65
+  },
+  {
+    "id": "1776092612.3501954_invoice_recognizer",
+    "timestamp": "2026-04-13T23:03:33.090729",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "success",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] 递延税单据总文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\n[CONSULT] Excel 清单文件路径: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\已出草稿-2（英德单据+其他平台+分站点核算）.xlsx\n[CONSULT] 客户号文件夹数量: 8\n[CONSULT] 总清单客户号数量: 552\n[CONSULT] 未在总清单命中的客户号数量: 1\n[CONSULT] 发票个数为0的客户号数量: 1\n[CONSULT] 汇总表已更新: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\汇总表.xlsx\n",
+    "error": null,
+    "duration": 0.74
+  },
+  {
+    "id": "1776092597.5883248_invoice_recognizer",
+    "timestamp": "2026-04-13T23:03:19.114163",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "failed",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] 执行失败: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\汇总表.xlsx'\n",
+    "error": "[CONSULT] 执行失败: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\汇总表.xlsx'",
+    "duration": 1.52
+  },
+  {
     "id": "1776087720.444115_invoice_recognizer",
     "timestamp": "2026-04-13T21:42:00.843024",
     "department": "CONSULT",

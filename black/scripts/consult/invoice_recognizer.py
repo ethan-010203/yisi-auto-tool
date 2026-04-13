@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 from xml.sax.saxutils import escape
 from zipfile import ZIP_DEFLATED, ZipFile
+
+import fitz
 
 
 CONFIG_FILE = Path(__file__).resolve().parents[2] / "configs" / "CONSULT_invoice_recognizer.json"
@@ -57,6 +60,9 @@ SUMMARY_CUSTOMER_COLUMN_INDEX = 2
 SUMMARY_STATUS_COLUMN_INDEX = 13
 MISSING_CUSTOMER_MESSAGE = "在总清单未找到该客户号"
 ZERO_PDF_MESSAGE = "发票个数为0"
+PDF_PAGE_LIMIT_MESSAGE = "PDF页数超过20，不符合规范"
+INVALID_COUNTRY_MESSAGE = "当前申报国家不是英国或德国"
+PDF_PAGE_LIMIT = 20
 SPREADSHEET_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 RELATIONSHIP_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 PACKAGE_RELATIONSHIP_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
@@ -65,6 +71,9 @@ NAMESPACES = {
     "rel": RELATIONSHIP_NS,
     "pkg": PACKAGE_RELATIONSHIP_NS,
 }
+UK_MRN_PATTERN = re.compile(r"\d{2}[A-Z0-9]{13}[A-Z]{2}\d")
+UK_DATE_DASH_PATTERN = re.compile(r"\d{2}-\d{2}-\d{4}")
+UK_DATE_SLASH_PATTERN = re.compile(r"\b(?:0[1-9]|[12]\d|3[01])\/(?:0[1-9]|1[0-2])\/\d{4}\b")
 
 
 def load_config() -> dict:
@@ -359,12 +368,43 @@ def collect_customer_folders(folder_path: Path) -> list[tuple[str, Path]]:
     return customer_folders
 
 
-def count_customer_pdf_files(customer_folder_path: Path) -> int:
-    return sum(
-        1
-        for item in customer_folder_path.iterdir()
-        if item.is_file() and item.suffix.lower() == ".pdf"
+def collect_customer_pdf_files(customer_folder_path: Path) -> list[Path]:
+    return sorted(
+        [
+            item
+            for item in customer_folder_path.iterdir()
+            if item.is_file() and item.suffix.lower() == ".pdf"
+        ],
+        key=lambda path: path.name.lower(),
     )
+
+
+def count_customer_pdf_files(customer_folder_path: Path) -> int:
+    return len(collect_customer_pdf_files(customer_folder_path))
+
+
+def count_pdf_pages(pdf_path: Path) -> int:
+    with fitz.open(pdf_path) as document:
+        return document.page_count
+
+
+def extract_pdf_text(pdf_path: Path) -> str:
+    text_parts: list[str] = []
+
+    with fitz.open(pdf_path) as document:
+        for page in document:
+            page_text = page.get_text("text", sort=True).strip()
+            if page_text:
+                text_parts.append(page_text)
+
+    return "\n".join(text_parts)
+
+
+def extract_first_match(pattern: re.Pattern[str], text: str) -> str:
+    match = pattern.search(text)
+    if match is None:
+        return ""
+    return match.group(0)
 
 
 def build_missing_customer_summary_row(customer_id: str) -> list[str]:
@@ -392,10 +432,95 @@ def build_zero_pdf_summary_row(customer_id: str, customer_record: dict[str, str]
     ]
 
 
-def initialize_customer_result_workbook(customer_folder_path: Path, customer_id: str) -> Path:
-    result_workbook_path = customer_folder_path / f"{customer_id}{RESULT_FILE_SUFFIX}"
-    write_workbook(result_workbook_path, RESULT_SHEET_NAME, [RESULT_HEADERS])
-    return result_workbook_path
+def build_customer_summary_row(
+    customer_id: str,
+    customer_record: dict[str, str],
+    pdf_count: int,
+    success_count: int,
+    failure_count: int,
+) -> list[str]:
+    return [
+        customer_record["agent"],
+        customer_id,
+        customer_record["declaration_country"],
+        customer_record["company_name_cn"],
+        customer_record["declaration_period"],
+        customer_record["declaration_method"],
+        customer_record["tax_number"],
+        str(pdf_count),
+        str(success_count),
+        str(failure_count),
+        "",
+        "",
+        "",
+    ]
+
+
+def build_result_output_path(customer_folder_path: Path, customer_id: str) -> Path:
+    return customer_folder_path / f"{customer_id}{RESULT_FILE_SUFFIX}"
+
+
+def build_result_row(
+    customer_id: str,
+    country: str,
+    company_name: str,
+    declaration_period: str,
+    tax_number: str,
+    pdf_file_name: str,
+    document_date: str = "",
+    company_name_exists: str = "",
+    mrn_number: str = "",
+    original_amount: str = "",
+    document_type: str = "",
+    deferred_document: str = "",
+    deductible_document: str = "",
+    error_message: str = "",
+) -> list[str]:
+    return [
+        customer_id,
+        country,
+        company_name,
+        declaration_period,
+        tax_number,
+        pdf_file_name,
+        document_date,
+        company_name_exists,
+        mrn_number,
+        original_amount,
+        document_type,
+        deferred_document,
+        deductible_document,
+        error_message,
+    ]
+
+
+def process_uk_pdf(
+    customer_id: str,
+    customer_record: dict[str, str],
+    pdf_file_path: Path,
+) -> list[str]:
+    pdf_text = extract_pdf_text(pdf_file_path)
+    original_amount = ""
+    document_type = ""
+    processed_amount = ""
+    mrn_number = extract_first_match(UK_MRN_PATTERN, pdf_text)
+    document_date = extract_first_match(UK_DATE_DASH_PATTERN, pdf_text)
+    if not document_date:
+        document_date = extract_first_match(UK_DATE_SLASH_PATTERN, pdf_text)
+
+    return build_result_row(
+        customer_id=customer_id,
+        country=customer_record["declaration_country"],
+        company_name=customer_record["company_name_en"],
+        declaration_period=customer_record["declaration_period"],
+        tax_number=customer_record["tax_number"],
+        pdf_file_name=pdf_file_path.name,
+        document_date=document_date,
+        mrn_number=mrn_number,
+        original_amount=original_amount,
+        document_type=document_type,
+        deferred_document=processed_amount,
+    )
 
 
 def process_customer_folders(
@@ -413,13 +538,91 @@ def process_customer_folders(
             missing_customer_count += 1
             continue
 
-        pdf_count = count_customer_pdf_files(customer_folder_path)
+        pdf_file_paths = collect_customer_pdf_files(customer_folder_path)
+        pdf_count = len(pdf_file_paths)
         if pdf_count == 0:
             rows.append(build_zero_pdf_summary_row(customer_id, customer_record, pdf_count))
             zero_pdf_count += 1
             continue
 
-        initialize_customer_result_workbook(customer_folder_path, customer_id)
+        result_rows = [RESULT_HEADERS]
+        success_count = 0
+        failure_count = 0
+        customer_id_upper = customer_id.upper()
+
+        for pdf_file_path in pdf_file_paths:
+            try:
+                pdf_page_count = count_pdf_pages(pdf_file_path)
+            except Exception as error:
+                result_rows.append(
+                    build_result_row(
+                        customer_id=customer_id,
+                        country=customer_record["declaration_country"],
+                        company_name=customer_record["company_name_en"],
+                        declaration_period=customer_record["declaration_period"],
+                        tax_number=customer_record["tax_number"],
+                        pdf_file_name=pdf_file_path.name,
+                        error_message=str(error),
+                    )
+                )
+                failure_count += 1
+                continue
+
+            if pdf_page_count >= PDF_PAGE_LIMIT:
+                result_rows.append(
+                    build_result_row(
+                        customer_id=customer_id,
+                        country="",
+                        company_name=customer_record["company_name_en"],
+                        declaration_period=customer_record["declaration_period"],
+                        tax_number=customer_record["tax_number"],
+                        pdf_file_name=pdf_file_path.name,
+                        error_message=PDF_PAGE_LIMIT_MESSAGE,
+                    )
+                )
+                failure_count += 1
+                continue
+
+            if "GT" not in customer_id_upper and "DT" not in customer_id_upper:
+                result_rows.append(
+                    build_result_row(
+                        customer_id=customer_id,
+                        country=customer_record["declaration_country"],
+                        company_name=customer_record["company_name_en"],
+                        declaration_period=customer_record["declaration_period"],
+                        tax_number=customer_record["tax_number"],
+                        pdf_file_name=pdf_file_path.name,
+                        error_message=INVALID_COUNTRY_MESSAGE,
+                    )
+                )
+                failure_count += 1
+                continue
+
+            if "GT" in customer_id_upper:
+                try:
+                    result_rows.append(process_uk_pdf(customer_id, customer_record, pdf_file_path))
+                    success_count += 1
+                except Exception as error:
+                    result_rows.append(
+                        build_result_row(
+                            customer_id=customer_id,
+                            country=customer_record["declaration_country"],
+                            company_name=customer_record["company_name_en"],
+                            declaration_period=customer_record["declaration_period"],
+                            tax_number=customer_record["tax_number"],
+                            pdf_file_name=pdf_file_path.name,
+                            error_message=str(error),
+                        )
+                    )
+                    failure_count += 1
+                continue
+
+        write_workbook(
+            build_result_output_path(customer_folder_path, customer_id),
+            RESULT_SHEET_NAME,
+            result_rows,
+        )
+        rows.append(build_customer_summary_row(customer_id, customer_record, pdf_count, success_count, failure_count))
 
     return rows, missing_customer_count, zero_pdf_count
 
