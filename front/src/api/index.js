@@ -71,3 +71,33 @@ export function clearDepartmentLogs(department, signal) {
     signal,
   })
 }
+
+// 部门配置 API
+export function getDepartmentConfig(department, signal) {
+  return requestJson(`${API_BASE_URL}/departments/${department}/config`, {
+    signal,
+  })
+}
+
+export function saveDepartmentConfig(department, config, signal) {
+  return requestJson(`${API_BASE_URL}/departments/${department}/config`, {
+    method: 'POST',
+    body: JSON.stringify(config),
+    signal,
+  })
+}
+
+export function testNetworkPath(path, signal) {
+  return requestJson(`${API_BASE_URL}/test-network-path`, {
+    method: 'POST',
+    body: JSON.stringify({ path }),
+    signal,
+  })
+}
+
+export function terminateExecution(logId, signal) {
+  return requestJson(`${API_BASE_URL}/executions/${logId}/terminate`, {
+    method: 'POST',
+    signal,
+  })
+}

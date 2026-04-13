@@ -1,0 +1,13 @@
+[
+  {
+    "id": "1776065417.245345_test",
+    "timestamp": "2026-04-13T15:30:20.618076",
+    "department": "BUE2",
+    "tool": "test",
+    "config": {},
+    "status": "failed",
+    "output": "[TEST] 测试任务启动...\n[TEST] 等待1分钟...\n[TEST] 已等待 1 秒...\n[TEST] 已等待 2 秒...\n[TEST] 已等待 3 秒...\n",
+    "error": "Unknown error",
+    "duration": 3.37
+  }
+]

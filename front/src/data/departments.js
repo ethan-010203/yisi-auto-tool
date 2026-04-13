@@ -18,7 +18,21 @@ export const departments = [
     tools: [
       { id: 'schedule_board', name: '排期看板', tag: 'Schedule', description: '掌握项目节点、资源占用和交付风险。' },
       { id: 'quote_builder', name: '报价助手', tag: 'Quote', description: '减少重复制作报价单的时间成本。' },
-      { id: 'review_queue', name: '审核视图', tag: 'Review', description: '把待审核事项按优先级清晰排队。' },
+      {
+        id: 'test',
+        name: '测试脚本',
+        tag: 'Test',
+        description: '等待5秒钟测试异步执行和实时日志显示功能。',
+        action: 'run_script',
+      },
+      {
+        id: 'citeo_email_extractor',
+        name: 'FR-Citeo-注销成功名单邮件提取',
+        tag: 'Email',
+        description: '连接163邮箱IMAP，提取主题包含指定关键词的邮件并解析注销成功名单。',
+        action: 'run_script',
+        configurable: true,
+      },
     ],
   },
   {

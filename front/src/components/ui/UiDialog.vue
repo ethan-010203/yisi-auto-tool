@@ -31,6 +31,11 @@ const openValue = computed({
   get: () => props.open,
   set: (value) => emit('update:open', value),
 })
+
+const handleInteractOutside = (event) => {
+  // 阻止点击遮罩层关闭弹窗
+  event.preventDefault()
+}
 </script>
 
 <template>
@@ -43,6 +48,7 @@ const openValue = computed({
       <DialogContent
         class="ui-dialog-content"
         :class="`ui-dialog-content--${props.size}`"
+        @interact-outside="handleInteractOutside"
       >
         <div class="ui-dialog-header">
           <DialogTitle class="ui-dialog-title">{{ title }}</DialogTitle>

@@ -1,5 +1,19 @@
 [
   {
+    "id": "2026-04-13T12:24:30.570547_invoice_recognizer",
+    "timestamp": "2026-04-13T12:24:30.570547",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "",
+      "excelPath": ""
+    },
+    "status": "failed",
+    "output": "",
+    "error": "Unknown error",
+    "duration": 0.06
+  },
+  {
     "id": "2026-04-12T20:46:04.895200_test_hello",
     "timestamp": "2026-04-12T20:46:04.895200",
     "department": "CONSULT",

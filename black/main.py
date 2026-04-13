@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import subprocess
 import sys
 import time
@@ -13,7 +14,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from runner.logger import get_recent_logs, get_logs_by_tool, log_execution, clear_department_logs
+from runner.logger import (
+    get_recent_logs, get_logs_by_tool, log_execution, clear_department_logs,
+    register_active_process, terminate_process, get_active_processes, unregister_process,
+    is_manual_terminated
+)
 
 try:
     import tkinter as tk
@@ -43,13 +48,24 @@ DEPARTMENT_SCRIPTS = {
     "CONSULT": {
         "test_hello": Path(__file__).parent / "scripts" / "consult" / "test_hello.py",
         "invoice_recognizer": Path(__file__).parent / "scripts" / "consult" / "invoice_recognizer.py",
+    },
+    "BUE2": {
+        "test": Path(__file__).parent / "scripts" / "bue2" / "test.py",
+        "citeo_email_extractor": Path(__file__).parent / "scripts" / "bue2" / "citeo_email_extractor.py",
     }
 }
 
 
 class ConfigRequest(BaseModel):
-    folderPath: str
-    excelPath: str
+    folderPath: Optional[str] = None
+    excelPath: Optional[str] = None
+    listExcelPath: Optional[str] = None
+    # BUE2 email extractor fields
+    email: Optional[str] = None
+    authCode: Optional[str] = None
+    maxEmails: Optional[int] = None
+    subjectKeyword: Optional[str] = None
+    selectedFolder: Optional[str] = None
 
 
 class FileSelectRequest(BaseModel):
@@ -68,6 +84,16 @@ def _config_payload(model: BaseModel) -> dict:
 
 def _read_tool_config(department: str, tool: str) -> Optional[dict]:
     config_file = _config_file(department, tool)
+    if not config_file.exists():
+        return None
+
+    with open(config_file, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+def _read_department_config(department: str) -> Optional[dict]:
+    """读取部门配置"""
+    config_file = _department_config_file(department)
     if not config_file.exists():
         return None
 
@@ -142,6 +168,70 @@ def _build_preview_payload(department: str, tool: str, config: Optional[dict]) -
             },
         }
 
+    if department.upper() == "BUE2" and tool == "citeo_email_extractor":
+        email = (config or {}).get("email", "")
+        auth_code = (config or {}).get("authCode", "")
+        max_emails = (config or {}).get("maxEmails", 50)
+        subject_keyword = (config or {}).get("subjectKeyword", "")
+        configured = bool(email and auth_code)
+
+        # 隐藏授权码显示
+        masked_auth = "已设置" if auth_code else "未设置"
+
+        return {
+            "success": True,
+            "preview": {
+                "eyebrow": "BUE2 Automation",
+                "title": "FR-Citeo-注销成功名单邮件提取",
+                "summary": "通过IMAP协议连接163邮箱，自动提取主题包含指定关键词的邮件，解析注销成功名单信息。",
+                "configured": configured,
+                "metrics": [
+                    {
+                        "label": "连接方式",
+                        "value": "IMAP SSL",
+                        "detail": "使用163邮箱IMAP服务，端口993",
+                    },
+                    {
+                        "label": "认证方式",
+                        "value": "授权码登录",
+                        "detail": "使用邮箱授权码而非密码，更安全",
+                    },
+                    {
+                        "label": "邮件筛选",
+                        "value": "主题关键词匹配",
+                        "detail": "只处理主题包含指定关键词的邮件",
+                    },
+                ],
+                "stages": [
+                    {
+                        "name": "Step 1 · 测试IMAP连接",
+                        "description": "验证邮箱账号和授权码是否正确，确保可以正常连接163邮箱服务器。",
+                    },
+                    {
+                        "name": "Step 2 · 搜索邮件",
+                        "description": "获取收件箱邮件列表，按日期倒序处理最新的N封邮件。",
+                    },
+                    {
+                        "name": "Step 3 · 提取注销名单",
+                        "description": "解析邮件正文，提取包含'注销成功'相关的名单信息。",
+                    },
+                ],
+                "checklist": [
+                    "已配置163邮箱账号（格式：xxx@163.com）",
+                    "已获取并配置邮箱授权码（非登录密码）",
+                    "邮件数量限制合理（建议50-200封）",
+                    "主题关键词配置正确（如：注销成功）",
+                ],
+                "inputs": [
+                    {"label": "邮箱账号", "value": email or "未设置"},
+                    {"label": "授权码", "value": masked_auth},
+                    {"label": "邮件数量", "value": str(max_emails)},
+                    {"label": "主题关键词", "value": subject_keyword or "无"},
+                    {"label": "配置完整度", "value": "已齐备" if configured else "仍需补全"},
+                ],
+            },
+        }
+
     return {"success": False, "error": f"Preview not available for {department}/{tool}"}
 
 
@@ -173,6 +263,89 @@ def list_tools(department: str):
     return {"department": department, "tools": tools}
 
 
+def _run_script_async(log_id: str, department: str, tool: str, script_path: Path, env: dict, config: dict):
+    """在后台线程中运行脚本"""
+    start_time = time.time()
+    process = None
+    from datetime import datetime
+    dt_start = datetime.now()
+
+    try:
+        # 启动进程
+        process = subprocess.Popen(
+            [sys.executable, str(script_path)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+        )
+
+        # 注册活跃进程（传入开始时间）
+        register_active_process(log_id, process, department, tool, dt_start)
+        
+        # 等待进程完成
+        stdout, stderr = process.communicate(timeout=60)
+
+        duration = time.time() - start_time
+        success = process.returncode == 0
+
+        # 检查是否被用户手动终止
+        manual_terminated = is_manual_terminated(log_id)
+        if not success and manual_terminated:
+            error_msg = "用户手动终止流程"
+        elif not success:
+            error_msg = stderr or "Unknown error"
+        else:
+            error_msg = None
+
+        # 记录执行结果
+        log_execution(
+            department=department,
+            tool=tool,
+            config=config,
+            status="success" if success else "failed",
+            output=stdout or "",
+            error=error_msg,
+            duration=duration,
+            log_id=log_id,
+        )
+        
+    except subprocess.TimeoutExpired:
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=3)
+            except:
+                process.kill()
+                process.wait()
+        
+        duration = time.time() - start_time
+        log_execution(
+            department=department,
+            tool=tool,
+            config=config,
+            status="failed",
+            output="",
+            error="Script execution timeout",
+            duration=duration,
+            log_id=log_id,
+        )
+    except Exception as error:
+        duration = time.time() - start_time
+        log_execution(
+            department=department,
+            tool=tool,
+            config=config,
+            status="failed",
+            output="",
+            error=str(error),
+            duration=duration,
+            log_id=log_id,
+        )
+    finally:
+        unregister_process(log_id)
+
+
 @app.post("/api/departments/{department}/tools/{tool}/run")
 def run_tool(department: str, tool: str):
     dept_scripts = DEPARTMENT_SCRIPTS.get(department.upper())
@@ -183,69 +356,38 @@ def run_tool(department: str, tool: str):
     if not script_path or not script_path.exists():
         return {"success": False, "error": f"Tool {tool} not found for department {department}"}
 
-    # 读取配置用于记录
+    # 读取工具配置和部门配置
     config = _read_tool_config(department, tool)
+    dept_config = _read_department_config(department)
+    network_path = dept_config.get("networkPath", "") if dept_config else ""
     
-    start_time = time.time()
+    # 准备环境变量
+    env = os.environ.copy()
+    env["YISI_DEPT_NETWORK_PATH"] = network_path
+    env["YISI_TOOL_ID"] = tool
+    env["YISI_DEPARTMENT"] = department.upper()
     
-    try:
-        result = subprocess.run(
-            [sys.executable, str(script_path)],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        
-        duration = time.time() - start_time
-        success = result.returncode == 0
-        
-        # 记录执行日志
-        log_execution(
-            department=department.upper(),
-            tool=tool,
-            config=config,
-            status="success" if success else "failed",
-            output=result.stdout if success else result.stderr,
-            error=None if success else (result.stderr or "Unknown error"),
-            duration=duration,
-        )
-        
-        return {
-            "success": success,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "returncode": result.returncode,
-        }
-    except subprocess.TimeoutExpired:
-        duration = time.time() - start_time
-        error_msg = "Script execution timeout"
-        
-        log_execution(
-            department=department.upper(),
-            tool=tool,
-            config=config,
-            status="failed",
-            output="",
-            error=error_msg,
-            duration=duration,
-        )
-        
-        return {"success": False, "error": error_msg}
-    except Exception as error:
-        duration = time.time() - start_time
-        error_msg = str(error)
-        
-        log_execution(
-            department=department.upper(),
-            tool=tool,
-            config=config,
-            status="failed",
-            output="",
-            error=error_msg,
-            duration=duration,
-        )
-        
-        return {"success": False, "error": error_msg}
+    # 生成任务ID
+    log_id = f"{time.time()}_{tool}"
+    
+    # 在后台线程启动脚本
+    executor.submit(_run_script_async, log_id, department.upper(), tool, script_path, env, config)
+    
+    return {
+        "success": True,
+        "logId": log_id,
+        "message": "任务已启动",
+        "status": "running",
+    }
+
+
+@app.post("/api/executions/{log_id}/terminate")
+def terminate_execution(log_id: str):
+    """终止正在运行的任务"""
+    success = terminate_process(log_id)
+    if success:
+        return {"success": True, "message": "任务已终止"}
+    return {"success": False, "error": "任务不存在或已结束"}
 
 
 @app.post("/api/departments/{department}/tools/{tool}/config")
@@ -380,3 +522,200 @@ def clear_department_execution_logs(department: str):
         return {"success": False, "error": "清空日志失败"}
     except Exception as error:
         return {"success": False, "error": str(error)}
+
+
+class ImapTestRequest(BaseModel):
+    email: str
+    authCode: str
+
+
+def decode_imap_utf7(s: str) -> str:
+    """解码IMAP RFC 2060 UTF-7编码的字符串"""
+    import binascii
+
+    def decode_chunk(chunk):
+        # 将IMAP Base64编码转换为标准Base64
+        # IMAP使用,代替/
+        b64 = chunk.replace(',', '/').encode('ascii')
+        # 添加填充
+        pad_len = (4 - len(b64) % 4) % 4
+        b64 += b'=' * pad_len
+        try:
+            decoded_bytes = binascii.a2b_base64(b64)
+            # 将UTF-16BE转换为字符串
+            return decoded_bytes.decode('utf-16-be', errors='ignore')
+        except:
+            return chunk
+
+    result = []
+    i = 0
+    while i < len(s):
+        if s[i] == '&' and i + 1 < len(s):
+            # 找到编码块
+            end = s.find('-', i + 1)
+            if end == -1:
+                result.append(s[i])
+                i += 1
+                continue
+
+            encoded = s[i + 1:end]
+            if encoded == '':
+                # &-
+                result.append('&')
+            else:
+                result.append(decode_chunk(encoded))
+            i = end + 1
+        else:
+            result.append(s[i])
+            i += 1
+
+    return ''.join(result)
+
+
+@app.post("/api/list-mail-folders")
+def list_mail_folders_endpoint(request: ImapTestRequest):
+    """获取163邮箱所有文件夹列表"""
+    try:
+        import imaplib
+        import re
+
+        # 验证邮箱格式
+        if not re.match(r"^[\w.-]+@163\.com$", request.email):
+            return {"success": False, "error": "请输入有效的163邮箱地址"}
+
+        if not request.authCode:
+            return {"success": False, "error": "授权码不能为空"}
+
+        # 连接IMAP服务器
+        mail = imaplib.IMAP4_SSL("imap.163.com", 993)
+        mail.login(request.email, request.authCode)
+
+        # 获取文件夹列表
+        status, folders = mail.list()
+        if status != "OK":
+            mail.logout()
+            return {"success": False, "error": "无法获取文件夹列表"}
+
+        folder_list = []
+        for folder in folders:
+            try:
+                folder_str = folder.decode()
+                # 解析文件夹名称（通常在最后一个引号中）
+                parts = folder_str.split('"')
+                if len(parts) >= 2:
+                    encoded_name = parts[-2]
+                    decoded_name = decode_imap_utf7(encoded_name)
+                    # 标记常用文件夹
+                    folder_type = "other"
+                    if decoded_name in ["INBOX", "收件箱"]:
+                        folder_type = "inbox"
+                    elif decoded_name in ["Sent", "已发送", "&XfJT0ZAB-"]:
+                        folder_type = "sent"
+                    elif decoded_name in ["Drafts", "草稿箱", "&g0l6P3ux-"]:
+                        folder_type = "drafts"
+                    elif decoded_name in ["Trash", "已删除", "Deleted"]:
+                        folder_type = "trash"
+
+                    folder_list.append({
+                        "encoded": encoded_name,
+                        "display": decoded_name,
+                        "type": folder_type
+                    })
+            except:
+                continue
+
+        mail.logout()
+
+        # 排序：inbox优先，其他按名称排序
+        folder_list.sort(key=lambda x: (0 if x["type"] == "inbox" else 1, x["display"]))
+
+        return {"success": True, "folders": folder_list}
+
+    except imaplib.IMAP4.error as e:
+        error_msg = str(e)
+        if "authentication failed" in error_msg.lower() or "login error" in error_msg.lower() or "password error" in error_msg.lower():
+            friendly_error = "登录失败：邮箱账号或授权码错误，请检查后重试"
+        elif "not enabled" in error_msg.lower():
+            friendly_error = "登录失败：IMAP服务未开启，请前往163邮箱设置中开启"
+        else:
+            friendly_error = f"登录失败：{error_msg}"
+        return {"success": False, "error": friendly_error}
+    except Exception as error:
+        return {"success": False, "error": f"获取文件夹列表失败：{str(error)}"}
+
+
+class DepartmentConfig(BaseModel):
+    """部门配置模型"""
+    networkPath: Optional[str] = None
+
+
+class NetworkPathTestRequest(BaseModel):
+    """测试网络路径请求"""
+    path: str
+
+
+def _department_config_file(department: str) -> Path:
+    """获取部门配置文件路径"""
+    return CONFIG_DIR / f"{department}_config.json"
+
+
+@app.post("/api/departments/{department}/config")
+def save_department_config(department: str, config: DepartmentConfig):
+    """保存部门配置"""
+    try:
+        config_file = _department_config_file(department)
+        with open(config_file, "w", encoding="utf-8") as f:
+            json.dump(_config_payload(config), f, ensure_ascii=False, indent=2)
+        return {"success": True, "message": "部门配置已保存"}
+    except Exception as error:
+        return {"success": False, "error": str(error)}
+
+
+@app.get("/api/departments/{department}/config")
+def get_department_config(department: str):
+    """获取部门配置"""
+    try:
+        config_file = _department_config_file(department)
+        if not config_file.exists():
+            return {"success": True, "config": {}}
+        with open(config_file, "r", encoding="utf-8") as f:
+            return {"success": True, "config": json.load(f)}
+    except Exception as error:
+        return {"success": False, "error": str(error)}
+
+
+@app.post("/api/test-network-path")
+def test_network_path(request: NetworkPathTestRequest):
+    """测试网络路径是否可访问"""
+    try:
+        path = request.path.strip()
+        if not path:
+            return {"success": False, "error": "路径不能为空"}
+
+        # 验证UNC路径格式 (\\server\share)
+        if not path.startswith(r"\\"):
+            return {"success": False, "error": "路径格式错误：请使用有效的局域网路径格式，如 \\\\\\服务器\\\\共享文件夹"}
+
+        # 将路径转换为 Path 对象
+        test_path = Path(path)
+
+        # 检查路径是否存在（不自动创建）
+        if not test_path.exists():
+            return {"success": False, "error": "路径不存在，请检查路径是否正确"}
+
+        # 检查是否是目录
+        if not test_path.is_dir():
+            return {"success": False, "error": "路径不是有效的文件夹"}
+
+        # 尝试创建一个临时文件来测试写入权限
+        test_file = test_path / ".write_test"
+        try:
+            test_file.write_text("test", encoding="utf-8")
+            test_file.unlink()  # 删除测试文件
+        except Exception as e:
+            return {"success": False, "error": f"没有写入权限：{str(e)}"}
+
+        return {"success": True, "message": "网络路径连接成功，可正常读写"}
+
+    except Exception as error:
+        return {"success": False, "error": f"测试失败：{str(error)}"}

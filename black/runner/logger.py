@@ -3,11 +3,87 @@ import json
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional
+import threading
 
 LOGS_DIR = Path(__file__).parent.parent / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
 
 MAX_LOG_ENTRIES = 100  # 每个部门保留最近100条记录
+
+# 活跃进程跟踪 {log_id: {"process": subprocess.Popen, "start_time": datetime, "manual_terminated": bool}}
+_active_processes: Dict[str, Dict[str, Any]] = {}
+_processes_lock = threading.Lock()
+
+
+def register_active_process(log_id: str, process: Any, department: str, tool: str, start_time: Optional[datetime] = None) -> None:
+    """注册正在运行的进程"""
+    with _processes_lock:
+        _active_processes[log_id] = {
+            "process": process,
+            "start_time": start_time or datetime.now(),
+            "department": department,
+            "tool": tool,
+            "manual_terminated": False,
+        }
+
+
+def terminate_process(log_id: str) -> bool:
+    """终止正在运行的进程"""
+    with _processes_lock:
+        if log_id not in _active_processes:
+            return False
+        proc_info = _active_processes[log_id]
+        process = proc_info["process"]
+        # 标记为用户手动终止
+        proc_info["manual_terminated"] = True
+        try:
+            # 先尝试优雅终止
+            process.terminate()
+            try:
+                process.wait(timeout=3)
+            except:
+                # 强制终止
+                process.kill()
+                process.wait()
+            return True
+        except Exception:
+            return False
+        finally:
+            # 不立即删除，让 _run_script_async 来清理并记录日志
+            pass
+
+
+def get_active_processes(department: Optional[str] = None) -> List[Dict[str, Any]]:
+    """获取活跃进程列表"""
+    with _processes_lock:
+        processes = []
+        for log_id, info in _active_processes.items():
+            if department is None or info["department"] == department:
+                duration = (datetime.now() - info["start_time"]).total_seconds()
+                processes.append({
+                    "id": log_id,
+                    "department": info["department"],
+                    "tool": info["tool"],
+                    "duration": round(duration, 1),
+                    "status": "running",
+                    "timestamp": info["start_time"].isoformat(),
+                    "manual_terminated": info.get("manual_terminated", False),
+                })
+        return processes
+
+
+def unregister_process(log_id: str) -> None:
+    """注销进程"""
+    with _processes_lock:
+        if log_id in _active_processes:
+            del _active_processes[log_id]
+
+def is_manual_terminated(log_id: str) -> bool:
+    """检查进程是否被用户手动终止"""
+    with _processes_lock:
+        if log_id in _active_processes:
+            return _active_processes[log_id].get("manual_terminated", False)
+        return False
 
 
 def _get_log_file(department: str) -> Path:
@@ -23,18 +99,19 @@ def log_execution(
     output: str,
     error: Optional[str] = None,
     duration: float = 0.0,
+    log_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """记录一次脚本执行到对应部门的日志文件"""
     timestamp = datetime.now().isoformat()
-    
+
     log_entry = {
-        "id": f"{timestamp}_{tool}",
+        "id": log_id or f"{timestamp}_{tool}",
         "timestamp": timestamp,
         "department": department,
         "tool": tool,
         "config": config or {},
-        "status": status,  # "success" | "failed"
-        "output": output[:2000] if output else "",  # 限制长度
+        "status": status,  # "success" | "failed" | "running"
+        "output": output[:2000] if output else "",
         "error": error[:1000] if error else None,
         "duration": round(duration, 2),
     }
@@ -55,26 +132,39 @@ def log_execution(
     return log_entry
 
 
-def get_recent_logs(limit: int = 20, department: Optional[str] = None) -> List[Dict[str, Any]]:
-    """获取最近的执行记录
-    
+def get_recent_logs(limit: int = 20, department: Optional[str] = None, include_running: bool = True) -> List[Dict[str, Any]]:
+    """获取最近的执行记录，包括运行中的任务
+
     Args:
         limit: 返回记录数量限制
         department: 指定部门，为None则返回所有部门
+        include_running: 是否包含运行中的任务
     """
+    logs = []
+
+    # 添加运行中的任务
+    if include_running:
+        active = get_active_processes(department)
+        logs.extend(active)
+
+    # 读取已完成的日志
     if department:
-        return _read_department_logs(department)[:limit]
-    
-    # 获取所有部门的日志并合并
-    all_logs = []
-    for log_file in LOGS_DIR.glob("*.json"):
-        dept = log_file.stem.upper()
-        dept_logs = _read_department_logs(dept)
-        all_logs.extend(dept_logs)
-    
-    # 按时间排序
-    all_logs.sort(key=lambda x: x["timestamp"], reverse=True)
-    return all_logs[:limit]
+        logs.extend(_read_department_logs(department))
+    else:
+        for log_file in LOGS_DIR.glob("*.json"):
+            dept = log_file.stem.upper()
+            dept_logs = _read_department_logs(dept)
+            logs.extend(dept_logs)
+
+    # 按时间排序（运行中的任务没有timestamp，使用当前时间）
+    def get_time(log):
+        ts = log.get("timestamp")
+        if ts:
+            return ts
+        return datetime.now().isoformat()
+
+    logs.sort(key=get_time, reverse=True)
+    return logs[:limit]
 
 
 def get_logs_by_tool(department: str, tool: str, limit: int = 10) -> List[Dict[str, Any]]:

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { getData, getToolConfig, getToolPreview, runDepartmentTool, saveConfig } from './api/index'
+import { getData, getToolConfig, getToolPreview, runDepartmentTool, saveConfig, getDepartmentConfig, saveDepartmentConfig, testNetworkPath } from './api/index'
 import ExecutionLogPanel from './components/ExecutionLogPanel.vue'
 import ToolPreviewDialog from './components/preview/ToolPreviewDialog.vue'
 import UiBadge from './components/ui/UiBadge.vue'
@@ -8,7 +8,9 @@ import UiButton from './components/ui/UiButton.vue'
 import UiCard from './components/ui/UiCard.vue'
 import UiDialog from './components/ui/UiDialog.vue'
 import UiFileInput from './components/ui/UiFileInput.vue'
+import UiInput from './components/ui/UiInput.vue'
 import UiLabel from './components/ui/UiLabel.vue'
+import UiSelect from './components/ui/UiSelect.vue'
 import UiToastStack from './components/ui/UiToastStack.vue'
 import { departments } from './data/departments'
 
@@ -46,9 +48,63 @@ const connectionStatus = ref({
   detail: '正在确认自动化服务是否可用。',
 })
 
+// 部门局域网配置
+const departmentConfig = ref({
+  networkPath: ''
+})
+const testingNetworkPath = ref(false)
+const networkPathTestResult = ref(null)
+
 const configData = ref({
   folderPath: '',
   listExcelPath: '',
+  // BUE2 email extractor config
+  email: '',
+  authCode: '',
+  maxEmails: 50,
+  subjectKeyword: '注销成功',
+  selectedFolder: '',  // 用户选择的邮箱文件夹(encoded)
+})
+
+const currentConfigTool = ref({ department: '', toolId: '' })
+const mailFolders = ref([])
+const loadingFolders = ref(false)
+const mailFoldersError = ref('')
+const showAuthCode = ref(false)
+
+// 将mailFolders转换为UiSelect需要的options格式
+const folderOptions = computed(() => {
+  if (mailFolders.value.length === 0) {
+    return [{ value: '', label: '请先输入邮箱和授权码', disabled: true }]
+  }
+  
+  // 转换并排序：系统文件夹（蓝色）排在最前面
+  const options = mailFolders.value.map(folder => {
+    // 系统文件夹显示中文名称，其他显示解码后的名称
+    const label = folder.type === 'inbox' ? '收件箱' :
+                  folder.type === 'sent' ? '已发送' :
+                  folder.type === 'drafts' ? '草稿箱' :
+                  folder.type === 'trash' ? '垃圾桶' :
+                  folder.display
+    return {
+      value: folder.encoded,
+      label: label,
+      type: folder.type,
+      badge: null // 不再单独显示badge，直接作为label
+    }
+  })
+  
+  // 排序：系统文件夹(type !== 'other')排在前面，然后按名称排序
+  return options.sort((a, b) => {
+    const aIsSystem = a.type !== 'other'
+    const bIsSystem = b.type !== 'other'
+    
+    if (aIsSystem && !bIsSystem) return -1
+    if (!aIsSystem && bIsSystem) return 1
+    
+    // 同类型按名称排序
+    return a.label.localeCompare(b.label, 'zh-CN')
+  })
 })
 
 const previewCache = new Map()
@@ -76,14 +132,35 @@ const statusBadgeVariant = computed(() => {
 })
 
 const configuredSummary = computed(() => {
-  const hasFolder = Boolean(configData.value.folderPath)
+  const config = configData.value
 
-  if (hasFolder) {
+  // Check CONSULT config
+  const hasFolder = Boolean(config.folderPath)
+  if (activeDepartmentCode.value === 'CONSULT' && hasFolder) {
     return '已配置完成'
   }
 
+  // Check BUE2 config
+  const hasEmail = Boolean(config.email && config.authCode)
+  if (activeDepartmentCode.value === 'BUE2' && hasEmail) {
+    return '已配置完成'
+  }
 
   return '待配置'
+})
+
+const configDialogTitle = computed(() => {
+  if (currentConfigTool.value.toolId === 'citeo_email_extractor') {
+    return '邮箱配置'
+  }
+  return '英德单据识别配置'
+})
+
+const configDialogDescription = computed(() => {
+  if (currentConfigTool.value.toolId === 'citeo_email_extractor') {
+    return '配置163邮箱账号和授权码，用于IMAP连接提取邮件。'
+  }
+  return '将识别源目录和 Excel 输出路径整理为独立配置，避免每次运行时重新输入。'
 })
 
 function getToolKey(departmentCode, toolId) {
@@ -144,13 +221,91 @@ async function loadConnectionStatus() {
   }
 }
 
-async function loadInvoiceConfig() {
+async function loadDepartmentConfig(department) {
   try {
-    const response = await getToolConfig(PREVIEW_DEPARTMENT, PREVIEW_TOOL_ID)
+    const response = await getDepartmentConfig(department)
     if (response?.success && response.config) {
+      departmentConfig.value = {
+        networkPath: response.config.networkPath || ''
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load department config:', error)
+  }
+}
+
+async function saveDepartmentConfiguration() {
+  const dept = activeDepartmentCode.value
+  try {
+    const response = await saveDepartmentConfig(dept, {
+      networkPath: departmentConfig.value.networkPath
+    })
+    if (response?.success) {
+      pushToast({
+        type: 'success',
+        title: '部门配置已保存',
+        message: '局域网路径已更新。',
+      })
+    } else {
+      throw new Error(response?.error || '保存失败')
+    }
+  } catch (error) {
+    console.error('Failed to save department config:', error)
+    pushToast({
+      type: 'error',
+      title: '保存失败',
+      message: error.message || '无法保存部门配置。',
+    })
+  }
+}
+
+async function testDeptNetworkPath() {
+  const path = departmentConfig.value.networkPath
+  if (!path) {
+    networkPathTestResult.value = { success: false, message: '请先输入网络路径' }
+    return
+  }
+
+  testingNetworkPath.value = true
+  networkPathTestResult.value = null
+
+  try {
+    const response = await testNetworkPath(path)
+    networkPathTestResult.value = {
+      success: response?.success,
+      message: response?.message || response?.error || '测试完成'
+    }
+    if (response?.success) {
+      pushToast({
+        type: 'success',
+        title: '连接成功',
+        message: '网络路径可正常访问。',
+      })
+    }
+  } catch (error) {
+    networkPathTestResult.value = {
+      success: false,
+      message: error.message || '网络请求失败'
+    }
+  } finally {
+    testingNetworkPath.value = false
+  }
+}
+
+async function loadToolConfig(department, toolId) {
+  try {
+    const response = await getToolConfig(department, toolId)
+    if (response?.success && response.config) {
+      const cfg = response.config
+      // Merge with defaults
       configData.value = {
-        folderPath: response.config.folderPath || '',
-        listExcelPath: response.config.listExcelPath || '',
+        folderPath: cfg.folderPath || '',
+        listExcelPath: cfg.listExcelPath || '',
+        email: cfg.email || '',
+        authCode: cfg.authCode || '',
+        maxEmails: cfg.maxEmails || 50,
+        subjectKeyword: cfg.subjectKeyword || '注销成功',
+        selectedFolder: cfg.selectedFolder || '',
       }
     }
   } catch (error) {
@@ -158,9 +313,73 @@ async function loadInvoiceConfig() {
   }
 }
 
-async function saveConfiguration() {
+// Legacy support
+async function loadInvoiceConfig() {
+  await loadToolConfig(PREVIEW_DEPARTMENT, PREVIEW_TOOL_ID)
+}
+
+function openConfigDialog(tool) {
+  currentConfigTool.value = {
+    department: activeDepartmentCode.value,
+    toolId: tool.id,
+  }
+  mailFolders.value = []
+  // Load config for this specific tool
+  loadToolConfig(activeDepartmentCode.value, tool.id)
+  configDialogOpen.value = true
+  // If BUE2 tool, auto-load folders if credentials available
+  if (tool.id === 'citeo_email_extractor') {
+    nextTick(() => {
+      if (configData.value.email && configData.value.authCode) {
+        loadMailFolders()
+      }
+    })
+  }
+}
+
+async function loadMailFolders() {
+  const { email, authCode } = configData.value
+  if (!email || !authCode) {
+    return
+  }
+
+  loadingFolders.value = true
+  mailFoldersError.value = ''
   try {
-    const response = await saveConfig(PREVIEW_DEPARTMENT, PREVIEW_TOOL_ID, configData.value)
+    const response = await fetch('/api/list-mail-folders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, authCode }),
+    })
+
+    const result = await response.json()
+    if (result?.success && result.folders && result.folders.length > 0) {
+      mailFolders.value = result.folders
+      mailFoldersError.value = ''
+      // Auto-select first inbox if none selected
+      const inbox = result.folders.find(f => f.type === 'inbox')
+      if (inbox && !configData.value.selectedFolder) {
+        configData.value.selectedFolder = inbox.encoded
+      }
+    } else {
+      mailFolders.value = []
+      mailFoldersError.value = result?.error || '无法获取文件夹列表，请检查邮箱账号和授权码是否正确，以及IMAP服务是否已开启'
+    }
+  } catch (error) {
+    mailFolders.value = []
+    mailFoldersError.value = '网络请求失败，请检查网络连接'
+  } finally {
+    loadingFolders.value = false
+  }
+}
+
+async function saveConfiguration() {
+  const { department, toolId } = currentConfigTool.value
+  const targetDept = department || PREVIEW_DEPARTMENT
+  const targetTool = toolId || PREVIEW_TOOL_ID
+
+  try {
+    const response = await saveConfig(targetDept, targetTool, configData.value)
     if (!response?.success) {
       throw new Error(response?.error || '保存失败')
     }
@@ -168,12 +387,11 @@ async function saveConfiguration() {
     configDialogOpen.value = false
     pushToast({
       type: 'success',
-      title: '配置已保存',
-      message: '识别目录和 Excel 输出位置已经更新。',
+      title: '配置已保存'
     })
 
-    previewCache.delete(getToolKey(PREVIEW_DEPARTMENT, PREVIEW_TOOL_ID))
-    if (previewDialogOpen.value && previewTargetKey.value === getToolKey(PREVIEW_DEPARTMENT, PREVIEW_TOOL_ID)) {
+    previewCache.delete(getToolKey(targetDept, targetTool))
+    if (previewDialogOpen.value && previewTargetKey.value === getToolKey(targetDept, targetTool)) {
       await openToolPreview(findPreviewTool(), { force: true })
     }
   } catch (error) {
@@ -290,6 +508,24 @@ async function runDepartmentScript(tool) {
 
   try {
     const result = await runDepartmentTool(activeDepartmentCode.value, tool.id)
+
+    if (result?.success && result?.status === 'running') {
+      // 任务已启动，正在后台运行
+      pushToast({
+        type: 'info',
+        title: '任务已启动',
+        message: `${tool.name} 正在后台运行，请查看右侧执行记录。`,
+        duration: 3000,
+      })
+      // 立即刷新日志显示运行中的任务
+      console.log('Refreshing log panel after run...', logPanel.value)
+      setTimeout(() => {
+        logPanel.value?.refresh()
+        console.log('Log panel refreshed')
+      }, 100)
+      return
+    }
+
     const summary = getOutputSnippet(result)
 
     if (result?.success) {
@@ -318,8 +554,6 @@ async function runDepartmentScript(tool) {
     })
   } finally {
     runningToolId.value = ''
-    // 刷新执行日志
-    logPanel.value?.refresh()
   }
 }
 
@@ -345,6 +579,15 @@ watch(previewDialogOpen, (open) => {
 onMounted(async () => {
   await Promise.all([loadConnectionStatus(), loadInvoiceConfig()])
   await warmToolPreview(findPreviewTool())
+  // 加载当前部门配置
+  await loadDepartmentConfig(activeDepartmentCode.value)
+})
+
+// 监听部门切换，加载对应配置
+watch(activeDepartmentCode, async (newDept) => {
+  await loadDepartmentConfig(newDept)
+  // 清空测试结果
+  networkPathTestResult.value = null
 })
 
 onBeforeUnmount(() => {
@@ -421,7 +664,35 @@ onBeforeUnmount(() => {
             <h2>{{ activeDepartment.name }}</h2>
             <p>{{ activeDepartment.summary }}</p>
           </div>
+        </div>
 
+        <!-- 部门局域网路径配置 -->
+        <div class="department-config-section">
+          <div class="config-row">
+            <div class="config-field">
+              <UiLabel for="network-path">部门局域网路径</UiLabel>
+              <UiInput
+                id="network-path"
+                v-model="departmentConfig.networkPath"
+                placeholder="\\服务器\共享文件夹\部门路径(\\192.168.76.93\技术部\BUE2)"
+              />
+            </div>
+            <div class="config-actions">
+              <UiButton
+                variant="outline"
+                :loading="testingNetworkPath"
+                @click="testDeptNetworkPath"
+              >
+                测试连接
+              </UiButton>
+              <UiButton @click="saveDepartmentConfiguration">
+                保存配置
+              </UiButton>
+            </div>
+          </div>
+          <div v-if="networkPathTestResult" class="test-result" :class="{ success: networkPathTestResult.success, error: !networkPathTestResult.success }">
+            {{ networkPathTestResult.message }}
+          </div>
         </div>
 
         <div class="tool-grid">
@@ -452,7 +723,7 @@ onBeforeUnmount(() => {
                   >
                     预览
                   </UiButton>
-                  <UiButton v-if="tool.configurable" variant="outline" @click="configDialogOpen = true">
+                  <UiButton v-if="tool.configurable" variant="outline" @click="openConfigDialog(tool)">
                     配置
                   </UiButton>
                 </div>
@@ -469,7 +740,7 @@ onBeforeUnmount(() => {
                   v-if="tool.configurable"
                   variant="outline"
                   style="margin-right: auto;"
-                  @click="configDialogOpen = true"
+                  @click="openConfigDialog(tool)"
                 >
                   配置
                 </UiButton>
@@ -477,7 +748,7 @@ onBeforeUnmount(() => {
                   :loading="runningToolId === tool.id"
                   @click="runDepartmentScript(tool)"
                 >
-                  执行测试
+                  {{ tool.id === 'citeo_email_extractor' ? '运行' : '执行测试' }}
                 </UiButton>
               </template>
 
@@ -509,10 +780,11 @@ onBeforeUnmount(() => {
     <UiDialog
       v-model:open="configDialogOpen"
       keep-mounted
-      title="英德单据识别配置"
-      description="将识别源目录和 Excel 输出路径整理为独立配置，避免每次运行时重新输入。"
+      :title="configDialogTitle"
+      :description="configDialogDescription"
     >
-      <div class="config-form">
+      <!-- CONSULT Invoice Recognizer Config -->
+      <div v-if="currentConfigTool.toolId !== 'citeo_email_extractor'" class="config-form">
         <div class="form-field">
           <UiLabel for="folder-path">选择递延数据所在总文件夹路径</UiLabel>
           <UiFileInput
@@ -534,6 +806,84 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <!-- BUE2 Email Extractor Config -->
+      <div v-else class="config-form">
+        <div class="form-field">
+          <UiLabel for="email">163邮箱账号</UiLabel>
+          <UiInput
+            id="email"
+            v-model="configData.email"
+            type="email"
+            placeholder="your_email@163.com"
+            @blur="loadMailFolders"
+          />
+        </div>
+
+        <div class="form-field">
+          <UiLabel for="auth-code">授权码（非登录密码）</UiLabel>
+          <div class="input-with-action">
+            <UiInput
+              id="auth-code"
+              v-model="configData.authCode"
+              :type="showAuthCode ? 'text' : 'password'"
+              placeholder="从163邮箱设置中获取的授权码"
+              @blur="loadMailFolders"
+              class="input-with-button"
+            />
+            <button
+              type="button"
+              class="toggle-visibility-icon"
+              @click="showAuthCode = !showAuthCode"
+            >
+              <svg v-if="showAuthCode" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
+                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
+                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
+                <line x1="2" x2="22" y1="2" y2="22"/>
+              </svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
+          <small class="field-hint">提示：登录163邮箱 → 设置 → POP3/SMTP/IMAP → 开启IMAP并获取授权码。输入完成后会自动加载文件夹列表。</small>
+        </div>
+
+        <div class="form-field">
+          <div class="folder-select-header">
+            <UiLabel for="mail-folder">选择邮件文件夹(存放注销邮件的文件夹)</UiLabel>
+            <UiButton
+              variant="outline"
+              size="sm"
+              :loading="loadingFolders"
+              :disabled="!configData.email || !configData.authCode"
+              @click="loadMailFolders"
+            >
+              {{ mailFolders.length > 0 ? '刷新' : '加载文件夹' }}
+            </UiButton>
+          </div>
+          <UiSelect
+            id="mail-folder"
+            v-model="configData.selectedFolder"
+            :disabled="mailFolders.length === 0"
+            :options="folderOptions"
+            placeholder="请选择文件夹"
+          />
+          <small v-if="mailFoldersError" class="field-error">{{ mailFoldersError }}</small>
+        </div>
+
+        <div class="form-field">
+          <UiLabel for="max-emails">邮件数量限制</UiLabel>
+          <UiInput
+            id="max-emails"
+            v-model="configData.maxEmails"
+            type="number"
+            placeholder="50"
+          />
+        </div>
+      </div>
+
       <template #footer>
         <UiButton variant="outline" @click="configDialogOpen = false">取消</UiButton>
         <UiButton @click="saveConfiguration">保存配置</UiButton>
@@ -543,3 +893,100 @@ onBeforeUnmount(() => {
     <UiToastStack :toasts="toasts" @dismiss="dismissToast" />
   </div>
 </template>
+
+<style scoped>
+/* 部门局域网路径配置样式 */
+.department-config-section {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #e4e4e7;
+}
+
+.config-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.config-field {
+  flex: 1;
+}
+
+.config-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.test-result {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+.test-result.success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.test-result.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.field-error {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #ef4444;
+}
+
+.folder-select-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.input-with-action {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.input-with-button {
+  flex: 1;
+}
+
+.toggle-visibility-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #e4e4e7;
+  border-radius: 10px;
+  background: white;
+  cursor: pointer;
+  color: #71717a;
+  transition: all 0.15s ease;
+}
+
+.toggle-visibility-icon:hover {
+  border-color: #d4d4d8;
+  color: #18181b;
+}
+
+.toggle-visibility-icon:active {
+  background: #fafafa;
+}
+</style>

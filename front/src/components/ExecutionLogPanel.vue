@@ -1,17 +1,30 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
-import { getDepartmentLogs, getToolLogs, clearDepartmentLogs } from '../api/index'
+import { computed, onMounted, ref, watch, onUnmounted } from 'vue'
+import { getDepartmentLogs, getToolLogs, clearDepartmentLogs, terminateExecution } from '../api/index'
 import UiCard from './ui/UiCard.vue'
 import UiBadge from './ui/UiBadge.vue'
 import UiDialog from './ui/UiDialog.vue'
 import UiButton from './ui/UiButton.vue'
+import UiInput from './ui/UiInput.vue'
+import UiToastStack from './ui/UiToastStack.vue'
 import { departments } from '../data/departments'
 
 const logs = ref([])
 const loading = ref(false)
 const error = ref(null)
 const currentPage = ref(1)
-const itemsPerPage = 5  // 每页显示5条
+const itemsPerPage = 10  // 每页显示10条
+const searchQuery = ref('')
+const statusFilter = ref('all') // all, success, failed, running
+
+// 轮询定时器
+const pollInterval = ref(null)
+const POLL_DELAY = 2000 // 2秒轮询一次
+
+// 计算是否有运行中的任务
+const hasRunningTasks = computed(() => {
+  return logs.value.some(log => log.status === 'running')
+})
 
 const props = defineProps({
   department: {
@@ -24,16 +37,39 @@ const props = defineProps({
   },
   limit: {
     type: Number,
-    default: 20,
+    default: 50,
   },
 })
 
-const totalPages = computed(() => Math.ceil(logs.value.length / itemsPerPage))
+// 筛选后的日志
+const filteredLogs = computed(() => {
+  let result = logs.value
+  
+  // 状态筛选
+  if (statusFilter.value !== 'all') {
+    result = result.filter(log => log.status === statusFilter.value)
+  }
+  
+  // 搜索筛选
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase()
+    result = result.filter(log => {
+      const toolName = getToolName(log.tool).toLowerCase()
+      const output = (log.output || '').toLowerCase()
+      const errorMsg = (log.error || '').toLowerCase()
+      return toolName.includes(query) || output.includes(query) || errorMsg.includes(query)
+    })
+  }
+  
+  return result
+})
+
+const totalPages = computed(() => Math.ceil(filteredLogs.value.length / itemsPerPage))
 
 const displayedLogs = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage
   const end = start + itemsPerPage
-  return logs.value.slice(start, end)
+  return filteredLogs.value.slice(start, end)
 })
 
 // 获取工具中文名
@@ -49,10 +85,7 @@ async function loadLogs() {
     logs.value = []
     return
   }
-  
-  loading.value = true
-  error.value = null
-  
+
   try {
     let response
     if (props.tool) {
@@ -62,16 +95,91 @@ async function loadLogs() {
       // 获取整个部门的日志
       response = await getDepartmentLogs(props.department, props.limit)
     }
-    
+
     if (response?.success) {
       logs.value = response.logs || []
+      // 调试：检查运行中任务的时间戳
+      const runningLogs = logs.value.filter(log => log.status === 'running')
+      if (runningLogs.length > 0) {
+        console.log('Running tasks:', runningLogs.map(log => ({ id: log.id, timestamp: log.timestamp, tool: log.tool })))
+      }
     } else {
       error.value = response?.error || '加载失败'
     }
   } catch (err) {
     error.value = err.message || '网络错误'
+  }
+}
+
+// 启动轮询
+function startPolling() {
+  stopPolling()
+  pollInterval.value = setInterval(() => {
+    loadLogs()
+  }, POLL_DELAY)
+}
+
+// 停止轮询
+function stopPolling() {
+  if (pollInterval.value) {
+    clearInterval(pollInterval.value)
+    pollInterval.value = null
+  }
+}
+
+// 打开终止确认弹窗
+function openTerminateDialog(logId) {
+  terminateTargetId.value = logId
+  terminateDialogOpen.value = true
+}
+
+// 关闭终止确认弹窗
+function closeTerminateDialog() {
+  terminateDialogOpen.value = false
+  terminateTargetId.value = null
+  terminateLoading.value = false
+}
+
+// 确认终止执行
+async function confirmTerminate() {
+  if (!terminateTargetId.value) return
+  
+  terminateLoading.value = true
+  try {
+    const response = await terminateExecution(terminateTargetId.value)
+    if (response?.success) {
+      // 关闭弹窗和详情弹窗
+      closeTerminateDialog()
+      detailDialogOpen.value = false
+      selectedLog.value = null
+      // 刷新日志
+      setTimeout(() => {
+        loadLogs()
+      }, 100)
+      // 显示成功提示
+      pushToast({
+        type: 'success',
+        title: '任务已终止',
+        message: '任务已成功终止并记录到日志中。',
+        duration: 3000,
+      })
+    } else {
+      pushToast({
+        type: 'error',
+        title: '终止失败',
+        message: response?.error || '无法终止任务',
+        duration: 4000,
+      })
+    }
+  } catch (err) {
+    pushToast({
+      type: 'error',
+      title: '网络错误',
+      message: err.message || '请检查网络连接',
+      duration: 4000,
+    })
   } finally {
-    loading.value = false
+    terminateLoading.value = false
   }
 }
 
@@ -79,7 +187,26 @@ async function loadLogs() {
 watch(() => props.department, () => {
   currentPage.value = 1
   loadLogs()
+  // 如果有运行中的任务，启动轮询
+  if (hasRunningTasks.value) {
+    startPolling()
+  }
 }, { immediate: true })
+
+// 监听日志变化，自动启停轮询
+watch(() => logs.value, (newLogs) => {
+  const hasRunning = newLogs.some(log => log.status === 'running')
+  if (hasRunning && !pollInterval.value) {
+    startPolling()
+  } else if (!hasRunning && pollInterval.value) {
+    stopPolling()
+  }
+}, { deep: true })
+
+// 组件卸载时停止轮询
+onUnmounted(() => {
+  stopPolling()
+})
 
 function prevPage() {
   if (currentPage.value > 1) {
@@ -94,20 +221,87 @@ function nextPage() {
 }
 
 function formatTime(timestamp) {
+  if (!timestamp) {
+    return '-'
+  }
   const date = new Date(timestamp)
+  if (isNaN(date.getTime())) {
+    return '-'
+  }
   return date.toLocaleString('zh-CN', {
-    month: 'short',
-    day: 'numeric',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-  })
+    second: '2-digit',
+  }).replace(/\//g, '-')
+}
+
+function formatEndTime(timestamp, duration) {
+  if (!timestamp || duration === undefined || duration === null) {
+    return '-'
+  }
+  const date = new Date(timestamp)
+  if (isNaN(date.getTime())) {
+    return '-'
+  }
+  // 计算结束时间：开始时间 + 时长（秒）
+  const endDate = new Date(date.getTime() + duration * 1000)
+  return endDate.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).replace(/\//g, '-')
 }
 
 const clearDialogOpen = ref(false)
 const clearLoading = ref(false)
+const detailDialogOpen = ref(false)
+const selectedLog = ref(null)
+const terminateDialogOpen = ref(false)
+const terminateLoading = ref(false)
+const terminateTargetId = ref(null)
+
+// Toast 通知系统
+const toasts = ref([])
+const toastTimers = new Map()
+
+function pushToast({ type = 'info', title, message = '', duration = 4200 }) {
+  const id = `toast-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  toasts.value = [...toasts.value, { id, type, title, message }]
+
+  if (duration > 0) {
+    const timer = setTimeout(() => dismissToast(id), duration)
+    toastTimers.set(id, timer)
+  }
+}
+
+function dismissToast(id) {
+  const timer = toastTimers.get(id)
+  if (timer) {
+    clearTimeout(timer)
+    toastTimers.delete(id)
+  }
+
+  toasts.value = toasts.value.filter((toast) => toast.id !== id)
+}
 
 function openClearDialog() {
   clearDialogOpen.value = true
+}
+
+function openDetailDialog(log) {
+  selectedLog.value = log
+  detailDialogOpen.value = true
+}
+
+function closeDetailDialog() {
+  detailDialogOpen.value = false
+  selectedLog.value = null
 }
 
 async function confirmClearLogs() {
@@ -130,11 +324,109 @@ async function confirmClearLogs() {
   }
 }
 
+function exportLogs() {
+  // 导出日志为CSV
+  const csvContent = [
+    ['执行时间', '任务名称', '状态', '执行时长', '输出'],
+    ...filteredLogs.value.map(log => [
+      formatTime(log.timestamp),
+      getToolName(log.tool),
+      log.status === 'success' ? '成功' : '失败',
+      formatDuration(log.duration),
+      (log.output || '').replace(/\n/g, ' ')
+    ])
+  ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n')
+  
+  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = `执行记录_${props.department}_${new Date().toISOString().slice(0, 10)}.csv`
+  link.click()
+}
+
 function formatDuration(seconds) {
+  if (seconds === undefined || seconds === null) {
+    return '-'
+  }
   if (seconds < 1) {
     return `${(seconds * 1000).toFixed(0)}ms`
   }
   return `${seconds.toFixed(1)}s`
+}
+
+const copySuccess = ref(false)
+
+async function copyError() {
+  const text = selectedLog.value?.error || selectedLog.value?.output
+  if (!text) {
+    console.warn('copyError: no text to copy')
+    return
+  }
+
+  console.log('Attempting to copy text length:', text.length)
+
+  try {
+    const blob = new Blob([text], { type: 'text/plain' })
+    const clipboardItem = new ClipboardItem({ 'text/plain': blob })
+    await navigator.clipboard.write([clipboardItem])
+    copySuccess.value = true
+    setTimeout(() => copySuccess.value = false, 1500)
+    console.log('ClipboardItem API succeeded')
+  } catch (err) {
+    console.warn('ClipboardItem API failed:', err)
+
+    try {
+      await navigator.clipboard.writeText(text)
+      copySuccess.value = true
+      setTimeout(() => copySuccess.value = false, 1500)
+      console.log('writeText API succeeded')
+    } catch (err2) {
+      console.warn('writeText API failed:', err2)
+      console.log('Trying fallback copy...')
+      const ok = fallbackCopy(text)
+      if (ok) {
+        copySuccess.value = true
+        setTimeout(() => copySuccess.value = false, 1500)
+      } else {
+        pushToast({
+          type: 'error',
+          title: '复制失败',
+          message: '请手动复制内容',
+          duration: 3000,
+        })
+      }
+    }
+  }
+}
+
+function fallbackCopy(text) {
+  const el = document.createElement('textarea')
+  el.value = text
+  el.style.cssText = 'position:fixed;left:-9999px;top:0;'
+  document.body.appendChild(el)
+
+  const range = document.createRange()
+  range.selectNode(el)
+
+  const selection = window.getSelection()
+  selection.removeAllRanges()
+  selection.addRange(range)
+
+  el.select()
+  el.setSelectionRange(0, el.value.length)
+
+  let ok = false
+  try {
+    ok = document.execCommand('copy')
+    console.log('execCommand result:', ok)
+  } catch (e) {
+    console.error('execCommand copy failed:', e)
+  }
+
+  selection.removeAllRanges()
+  document.body.removeChild(el)
+
+  return ok
 }
 
 onMounted(() => {
@@ -152,8 +444,10 @@ defineExpose({
   <UiCard class="log-panel">
     <div class="log-header">
       <div>
-        <h3 class="log-title">执行记录</h3>
-        <p class="log-subtitle">{{ props.department || '选择部门' }} 最近 {{ displayedLogs.length }} 次运行</p>
+        <div class="log-title-wrapper">
+          <h3 class="log-title">执行记录</h3>
+        </div>
+        <span class="log-count" v-if="filteredLogs.length > 0">共 {{ filteredLogs.length }} 条记录</span>
       </div>
       <div class="log-actions">
         <UiButton
@@ -185,8 +479,28 @@ defineExpose({
       </div>
     </div>
 
+    <!-- 筛选栏 -->
+    <div class="log-filter-bar">
+      <UiInput
+        v-model="searchQuery"
+        placeholder="搜索任务名称或日志内容..."
+        class="search-input"
+      />
+      <div class="status-filter">
+        <button
+          v-for="option in [{value: 'all', label: '全部'}, {value: 'running', label: '运行中'}, {value: 'success', label: '成功'}, {value: 'failed', label: '失败'}]"
+          :key="option.value"
+          class="filter-btn"
+          :class="{ active: statusFilter === option.value }"
+          @click="statusFilter = option.value"
+        >
+          {{ option.label }}
+        </button>
+      </div>
+    </div>
+
     <div v-if="loading" class="log-loading">
-      <div class="log-skeleton" v-for="i in 3" :key="i" />
+      <div class="log-skeleton" v-for="i in 5" :key="i" />
     </div>
 
     <div v-else-if="error" class="log-error">
@@ -194,21 +508,38 @@ defineExpose({
     </div>
 
     <div v-else-if="displayedLogs.length === 0" class="log-empty">
-      <p>暂无执行记录</p>
+      <p>{{ searchQuery || statusFilter !== 'all' ? '没有找到匹配的记录' : (hasRunningTasks ? '任务运行中...' : '暂无执行记录') }}</p>
     </div>
 
-    <ul v-else class="log-list">
-      <li v-for="log in displayedLogs" :key="log.id" class="log-item">
-        <div class="log-row">
-          <span class="log-time">{{ formatTime(log.timestamp) }}</span>
-          <span class="log-name">{{ getToolName(log.tool) }}</span>
-          <UiBadge :variant="log.status === 'success' ? 'success' : 'warning'" class="log-status">
-            {{ log.status === 'success' ? '✓' : '✗' }}
-          </UiBadge>
-          <span class="log-duration">{{ formatDuration(log.duration) }}</span>
-        </div>
-      </li>
-    </ul>
+    <!-- 表格布局 -->
+    <div v-else class="log-table-container">
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th class="col-time">时间</th>
+            <th class="col-task">任务</th>
+            <th class="col-status">结果</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="log in displayedLogs"
+            :key="log.id"
+            class="log-row-clickable"
+            :class="{ 'log-row-failed': log.status !== 'success' }"
+            @click="openDetailDialog(log)"
+          >
+            <td class="col-time">{{ formatTime(log.timestamp) }}</td>
+            <td class="col-task">
+              <span class="task-name" :title="getToolName(log.tool)">{{ getToolName(log.tool) }}</span>
+            </td>
+            <td class="col-status">
+              <span :class="['status-dot', log.status === 'success' ? 'status-success' : log.status === 'running' ? 'status-running' : 'status-failed']"></span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <div v-if="totalPages > 1" class="log-pagination">
       <button 
@@ -228,6 +559,7 @@ defineExpose({
       </button>
     </div>
 
+    <!-- 清空确认弹窗 -->
     <UiDialog
       v-model:open="clearDialogOpen"
       title="清空执行记录"
@@ -238,7 +570,92 @@ defineExpose({
         <UiButton :loading="clearLoading" @click="confirmClearLogs">确认清空</UiButton>
       </template>
     </UiDialog>
+
+    <!-- 详情弹窗 -->
+    <UiDialog
+      v-model:open="detailDialogOpen"
+      :title="selectedLog ? getToolName(selectedLog.tool) : '日志详情'"
+      @update:open="!$event && closeDetailDialog()"
+    >
+      <div v-if="selectedLog" class="log-detail-content">
+        <div class="detail-header">
+          <div class="detail-meta">
+            <div class="meta-item">
+              <span class="meta-label">执行时间</span>
+              <span class="meta-value">{{ formatTime(selectedLog.timestamp) }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">执行结果</span>
+              <UiBadge :variant="selectedLog.status === 'success' ? 'success' : selectedLog.status === 'running' ? 'default' : 'warning'">
+                {{ selectedLog.status === 'success' ? '成功' : selectedLog.status === 'running' ? '运行中' : '失败' }}
+              </UiBadge>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">执行时长</span>
+              <span class="meta-value">{{ formatDuration(selectedLog.duration) }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">结束时间</span>
+              <span class="meta-value">{{ selectedLog.status === 'running' ? '-' : formatEndTime(selectedLog.timestamp, selectedLog.duration) }}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div v-if="selectedLog.status === 'running'" class="detail-section running-section">
+          <div class="running-indicator">
+            <div class="spinner"></div>
+            <span>任务正在执行中...</span>
+          </div>
+          <UiButton variant="outline" size="sm" @click="openTerminateDialog(selectedLog.id)">
+            终止执行
+          </UiButton>
+        </div>
+
+        <div v-if="selectedLog.status === 'success' && selectedLog.output" class="detail-section">
+          <h4 class="section-title">输出日志</h4>
+          <pre class="log-output">{{ selectedLog.output }}</pre>
+        </div>
+
+        <div v-if="selectedLog.error" class="detail-section">
+          <div class="section-header">
+            <h4 class="section-title error-title">错误信息</h4>
+            <button class="copy-btn" :class="{ 'copy-success': copySuccess }" @click="copyError" title="复制错误信息">
+              <svg v-if="!copySuccess" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              {{ copySuccess ? '已复制' : '复制' }}
+            </button>
+          </div>
+          <pre class="log-error-detail">{{ selectedLog.error }}</pre>
+        </div>
+
+        <div v-if="selectedLog.status !== 'running' && !selectedLog.output && !selectedLog.error" class="detail-section empty">
+          <p>没有输出日志</p>
+        </div>
+      </div>
+      <template #footer>
+        <UiButton variant="outline" @click="closeDetailDialog">关闭</UiButton>
+      </template>
+    </UiDialog>
+
+    <!-- 终止确认弹窗 -->
+    <UiDialog
+      v-model:open="terminateDialogOpen"
+      title="确认终止任务"
+      description="确定要终止当前正在运行的任务吗？此操作无法撤销。"
+    >
+      <template #footer>
+        <UiButton variant="outline" :disabled="terminateLoading" @click="closeTerminateDialog">取消</UiButton>
+        <UiButton :loading="terminateLoading" @click="confirmTerminate">确认终止</UiButton>
+      </template>
+    </UiDialog>
   </UiCard>
+
+  <UiToastStack :toasts="toasts" @dismiss="dismissToast" />
 </template>
 
 <style scoped>
@@ -251,6 +668,20 @@ defineExpose({
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 16px;
+  gap: 12px;
+}
+
+.log-header > div:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.log-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 
 .log-title {
@@ -258,12 +689,14 @@ defineExpose({
   font-size: 1rem;
   font-weight: 600;
   color: #18181b;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.log-subtitle {
-  margin: 4px 0 0;
+.log-count {
   font-size: 0.875rem;
   color: #71717a;
+  white-space: nowrap;
 }
 
 .log-refresh {
@@ -308,6 +741,46 @@ defineExpose({
   transform: rotate(180deg);
 }
 
+/* 筛选栏 */
+.log-filter-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.status-filter {
+  display: flex;
+  gap: 4px;
+}
+
+.filter-btn {
+  padding: 6px 12px;
+  border: 1px solid #e4e4e7;
+  border-radius: 6px;
+  background: white;
+  font-size: 0.875rem;
+  color: #52525b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-btn:hover {
+  border-color: #18181b;
+  color: #18181b;
+}
+
+.filter-btn.active {
+  background: #18181b;
+  color: white;
+  border-color: #18181b;
+}
+
 .log-loading {
   display: flex;
   flex-direction: column;
@@ -315,7 +788,7 @@ defineExpose({
 }
 
 .log-skeleton {
-  height: 60px;
+  height: 48px;
   border-radius: 8px;
   background: linear-gradient(90deg, #f4f4f5 25%, #e4e4e7 50%, #f4f4f5 75%);
   background-size: 200% 100%;
@@ -334,69 +807,151 @@ defineExpose({
   color: #71717a;
 }
 
-.log-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 280px;
+/* 表格样式 */
+.log-table-container {
+  max-height: 400px;
   overflow-y: auto;
-  padding-right: 4px;
+  overflow-x: hidden;
+  border-radius: 8px;
+  border: 1px solid #e4e4e7;
 }
 
-.log-item {
-  padding: 8px 0;
+.log-table {
+  width: 100%;
+  min-width: 0;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  table-layout: fixed;
+}
+
+.log-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.log-table th {
+  background: #f4f4f5;
+  padding: 12px 8px;
+  text-align: left;
+  font-weight: 600;
+  color: #18181b;
   border-bottom: 1px solid #e4e4e7;
+  white-space: nowrap;
 }
 
-.log-item:last-child {
+.log-table td {
+  padding: 12px 8px;
+  border-bottom: 1px solid #f4f4f5;
+  white-space: nowrap;
+}
+
+.log-table tbody tr:last-child td {
   border-bottom: none;
 }
 
-.log-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 0.875rem;
+.log-row-clickable {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
-.log-time {
+.log-row-clickable:hover {
+  background-color: #f4f4f5;
+}
+
+.log-row-failed {
+  background-color: #fef2f2;
+}
+
+.log-row-failed:hover {
+  background-color: #fee2e2;
+}
+
+.col-time {
+  width: 135px;
+  min-width: 135px;
+  max-width: 135px;
   color: #71717a;
+  white-space: nowrap;
   font-size: 0.8rem;
-  min-width: 100px;
 }
 
-.log-name {
-  flex: 1;
+.col-task {
+  width: auto;
   color: #18181b;
+}
+
+.task-name {
+  display: block;
   font-weight: 500;
-  text-transform: uppercase;
-}
-
-.log-status {
-  font-size: 0.75rem;
-  padding: 2px 8px;
-  border-radius: 4px;
-}
-
-.log-duration {
-  color: #a1a1aa;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 0.8rem;
-  min-width: 45px;
-  text-align: right;
 }
 
-.log-list::-webkit-scrollbar {
-  width: 4px;
+.col-status {
+  width: 50px;
+  min-width: 50px;
+  max-width: 50px;
+  text-align: center;
 }
 
-.log-list::-webkit-scrollbar-track {
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-success {
+  background-color: #22c55e;
+}
+
+.status-failed {
+  background-color: #ef4444;
+}
+
+.status-running {
+  background-color: #f59e0b;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.terminate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: #ef4444;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.terminate-btn:hover {
+  background: #fef2f2;
+}
+
+.log-table-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.log-table-container::-webkit-scrollbar-track {
   background: #f4f4f5;
-  border-radius: 2px;
+  border-radius: 3px;
 }
 
-.log-list::-webkit-scrollbar-thumb {
+.log-table-container::-webkit-scrollbar-thumb {
   background: #d4d4d8;
-  border-radius: 2px;
+  border-radius: 3px;
 }
 
 .log-pagination {
@@ -432,5 +987,139 @@ defineExpose({
 .page-info {
   font-size: 0.875rem;
   color: #71717a;
+}
+
+/* 详情弹窗样式 */
+.log-detail-content {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.detail-header {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e4e4e7;
+}
+
+.detail-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meta-label {
+  font-size: 0.75rem;
+  color: #71717a;
+  text-transform: uppercase;
+}
+
+.meta-value {
+  font-size: 0.875rem;
+  color: #18181b;
+  font-weight: 500;
+}
+
+.detail-section {
+  margin-bottom: 16px;
+}
+
+.detail-section.empty {
+  text-align: center;
+  color: #71717a;
+  padding: 24px;
+}
+
+.section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #18181b;
+  margin: 0 0 8px 0;
+}
+
+.section-title.error-title {
+  color: #dc2626;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid #e4e4e7;
+  border-radius: 4px;
+  background: white;
+  font-size: 0.75rem;
+  color: #52525b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.copy-btn:hover {
+  border-color: #18181b;
+  color: #18181b;
+  background: #f4f4f5;
+}
+
+.log-output,
+.log-error-detail {
+  background: #f4f4f5;
+  border-radius: 6px;
+  padding: 12px;
+  font-family: 'SF Mono', Monaco, Inconsolata, 'Fira Code', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 0;
+}
+
+.log-error-detail {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.running-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px;
+}
+
+.running-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #f59e0b;
+  font-size: 0.875rem;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f59e0b;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>
