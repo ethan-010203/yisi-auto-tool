@@ -1,4 +1,10 @@
 {
-  "folderPath": "",
-  "excelPath": ""
+  "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+  "excelPath": null,
+  "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+  "email": "",
+  "authCode": "",
+  "maxEmails": 50,
+  "subjectKeyword": "注销成功",
+  "selectedFolder": ""
 }

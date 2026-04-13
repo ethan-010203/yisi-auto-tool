@@ -271,6 +271,17 @@ def _run_script_async(log_id: str, department: str, tool: str, script_path: Path
     from datetime import datetime
     dt_start = datetime.now()
 
+    def extract_error_message(stdout: str, stderr: str) -> str:
+        if stderr and stderr.strip():
+            return stderr.strip()
+
+        if stdout and stdout.strip():
+            lines = [line.strip() for line in stdout.splitlines() if line.strip()]
+            if lines:
+                return lines[-1]
+
+        return "Unknown error"
+
     try:
         # 启动进程
         process = subprocess.Popen(
@@ -295,7 +306,7 @@ def _run_script_async(log_id: str, department: str, tool: str, script_path: Path
         if not success and manual_terminated:
             error_msg = "用户手动终止流程"
         elif not success:
-            error_msg = stderr or "Unknown error"
+            error_msg = extract_error_message(stdout, stderr)
         else:
             error_msg = None
 

@@ -1,71 +1,82 @@
 [
   {
-    "id": "1776076528.833537_test_hello",
-    "timestamp": "2026-04-13T18:35:28.882183",
-    "department": "CONSULT",
-    "tool": "test_hello",
-    "config": {},
-    "status": "success",
-    "output": "[启动] 系统测试...\n[时间] 测试时间: 2026-04-13 18:35:28\n[Python] 版本: 3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)]\n--------------------------------------------------\n  [1/4] 检查系统环境 ... [通过]\n  [2/4] 验证依赖模块 ... [通过]\n  [3/4] 测试数据解析 ... [通过]\n  [4/4] 检查输出路径 ... [通过]\n--------------------------------------------------\n[成功] 所有测试通过! (成功率: 100%)\n\n[摘要] 测试摘要: {\"test_time\": \"2026-04-13T18:35:28.877230\", \"python_version\": \"3.14.3\", \"total_tests\": 4, \"passed\": 4, \"failed\": 0, \"success_rate\": \"100%\", \"status\": \"SUCCESS\"}\n",
-    "error": null,
-    "duration": 0.05
-  },
-  {
-    "id": "1776071748.6089244_test_hello",
-    "timestamp": "2026-04-13T17:15:48.673759",
-    "department": "CONSULT",
-    "tool": "test_hello",
-    "config": {},
-    "status": "success",
-    "output": "[启动] 系统测试...\n[时间] 测试时间: 2026-04-13 17:15:48\n[Python] 版本: 3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)]\n--------------------------------------------------\n  [1/4] 检查系统环境 ... [通过]\n  [2/4] 验证依赖模块 ... [通过]\n  [3/4] 测试数据解析 ... [通过]\n  [4/4] 检查输出路径 ... [通过]\n--------------------------------------------------\n[成功] 所有测试通过! (成功率: 100%)\n\n[摘要] 测试摘要: {\"test_time\": \"2026-04-13T17:15:48.669072\", \"python_version\": \"3.14.3\", \"total_tests\": 4, \"passed\": 4, \"failed\": 0, \"success_rate\": \"100%\", \"status\": \"SUCCESS\"}\n",
-    "error": null,
-    "duration": 0.06
-  },
-  {
-    "id": "1776068268.7753384_invoice_recognizer",
-    "timestamp": "2026-04-13T16:17:48.817192",
+    "id": "1776087720.444115_invoice_recognizer",
+    "timestamp": "2026-04-13T21:42:00.843024",
     "department": "CONSULT",
     "tool": "invoice_recognizer",
     "config": {
-      "folderPath": "",
-      "excelPath": ""
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "success",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] 递延税单据总文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\n[CONSULT] Excel 清单文件路径: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\已出草稿-2（英德单据+其他平台+分站点核算）.xlsx\n[CONSULT] 客户号文件夹数量: 8\n[CONSULT] 总清单客户号数量: 552\n[CONSULT] 未在总清单命中的客户号数量: 1\n[CONSULT] 发票个数为0的客户号数量: 1\n[CONSULT] 汇总表已更新: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\汇总表.xlsx\n",
+    "error": null,
+    "duration": 0.4
+  },
+  {
+    "id": "1776087688.2638047_invoice_recognizer",
+    "timestamp": "2026-04-13T21:41:28.601412",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "success",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] 递延税单据总文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\n[CONSULT] Excel 清单文件路径: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\已出草稿-2（英德单据+其他平台+分站点核算）.xlsx\n[CONSULT] 客户号文件夹数量: 8\n[CONSULT] 总清单客户号数量: 552\n[CONSULT] 未在总清单命中的客户号数量: 2\n[CONSULT] 发票个数为0的客户号数量: 0\n[CONSULT] 汇总表已更新: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\汇总表.xlsx\n",
+    "error": null,
+    "duration": 0.34
+  },
+  {
+    "id": "1776086541.2853713_invoice_recognizer",
+    "timestamp": "2026-04-13T21:22:22.132324",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "success",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] 递延税单据总文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\n[CONSULT] Excel 清单文件路径: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\已出草稿-2（英德单据+其他平台+分站点核算）.xlsx\n[CONSULT] 客户号文件夹数量: 8\n[CONSULT] 总清单客户号数量: 552\n[CONSULT] 未在总清单命中的客户号数量: 2\n[CONSULT] 汇总表已更新: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\汇总表.xlsx\n",
+    "error": null,
+    "duration": 0.85
+  },
+  {
+    "id": "1776086536.680762_invoice_recognizer",
+    "timestamp": "2026-04-13T21:22:16.775604",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
     },
     "status": "failed",
-    "output": "[CONSULT] 英德单据识别任务启动中...\n[CONSULT] 配置检查失败: 缺少源单据文件夹配置。\n",
-    "error": "Unknown error",
-    "duration": 0.04
-  },
-  {
-    "id": "1776068256.416963_test_hello",
-    "timestamp": "2026-04-13T16:17:36.458090",
-    "department": "CONSULT",
-    "tool": "test_hello",
-    "config": {},
-    "status": "failed",
-    "output": "[启动] 系统测试...\n[时间] 测试时间: 2026-04-13 16:17:36\n[Python] 版本: 3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)]\n--------------------------------------------------\n  [1/4] 检查系统环境 ... [通过]\n  [2/4] 验证依赖模块 ... [失败]\n  [3/4] 测试数据解析 ... [通过]\n  [4/4] 检查输出路径 ... [通过]\n--------------------------------------------------\n[警告] 部分测试失败 (成功率: 75%)\n\n[摘要] 测试摘要: {\"test_time\": \"2026-04-13T16:17:36.453564\", \"python_version\": \"3.14.3\", \"total_tests\": 4, \"passed\": 3, \"failed\": 1, \"success_rate\": \"75%\", \"status\": \"PARTIAL\"}\n",
-    "error": "Unknown error",
-    "duration": 0.04
-  },
-  {
-    "id": "1776068255.3861508_test_hello",
-    "timestamp": "2026-04-13T16:17:35.429188",
-    "department": "CONSULT",
-    "tool": "test_hello",
-    "config": {},
-    "status": "success",
-    "output": "[启动] 系统测试...\n[时间] 测试时间: 2026-04-13 16:17:35\n[Python] 版本: 3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)]\n--------------------------------------------------\n  [1/4] 检查系统环境 ... [通过]\n  [2/4] 验证依赖模块 ... [通过]\n  [3/4] 测试数据解析 ... [通过]\n  [4/4] 检查输出路径 ... [通过]\n--------------------------------------------------\n[成功] 所有测试通过! (成功率: 100%)\n\n[摘要] 测试摘要: {\"test_time\": \"2026-04-13T16:17:35.424676\", \"python_version\": \"3.14.3\", \"total_tests\": 4, \"passed\": 4, \"failed\": 0, \"success_rate\": \"100%\", \"status\": \"SUCCESS\"}\n",
-    "error": null,
-    "duration": 0.04
-  },
-  {
-    "id": "1776068253.2339568_test_hello",
-    "timestamp": "2026-04-13T16:17:33.271469",
-    "department": "CONSULT",
-    "tool": "test_hello",
-    "config": {},
-    "status": "success",
-    "output": "[启动] 系统测试...\n[时间] 测试时间: 2026-04-13 16:17:33\n[Python] 版本: 3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)]\n--------------------------------------------------\n  [1/4] 检查系统环境 ... [通过]\n  [2/4] 验证依赖模块 ... [通过]\n  [3/4] 测试数据解析 ... [通过]\n  [4/4] 检查输出路径 ... [通过]\n--------------------------------------------------\n[成功] 所有测试通过! (成功率: 100%)\n\n[摘要] 测试摘要: {\"test_time\": \"2026-04-13T16:17:33.266977\", \"python_version\": \"3.14.3\", \"total_tests\": 4, \"passed\": 4, \"failed\": 0, \"success_rate\": \"100%\", \"status\": \"SUCCESS\"}\n",
-    "error": null,
-    "duration": 0.04
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] 执行失败: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\汇总表.xlsx'\n",
+    "error": "[CONSULT] 执行失败: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\汇总表.xlsx'",
+    "duration": 0.09
   }
 ]
