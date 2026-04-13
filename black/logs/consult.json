@@ -1,7 +1,7 @@
 [
   {
-    "id": "2026-04-13T12:24:30.570547_invoice_recognizer",
-    "timestamp": "2026-04-13T12:24:30.570547",
+    "id": "1776068268.7753384_invoice_recognizer",
+    "timestamp": "2026-04-13T16:17:48.817192",
     "department": "CONSULT",
     "tool": "invoice_recognizer",
     "config": {
@@ -9,41 +9,41 @@
       "excelPath": ""
     },
     "status": "failed",
-    "output": "",
+    "output": "[CONSULT] 英德单据识别任务启动中...\n[CONSULT] 配置检查失败: 缺少源单据文件夹配置。\n",
     "error": "Unknown error",
-    "duration": 0.06
-  },
-  {
-    "id": "2026-04-12T20:46:04.895200_test_hello",
-    "timestamp": "2026-04-12T20:46:04.895200",
-    "department": "CONSULT",
-    "tool": "test_hello",
-    "config": {},
-    "status": "success",
-    "output": "[启动] 系统测试...\n[时间] 测试时间: 2026-04-12 20:46:04\n[Python] 版本: 3.12.7 | packaged by Anaconda, Inc. | (main, Oct  4 2024, 13:17:27) [MSC v.1929 64 bit (AMD64)]\n--------------------------------------------------\n  [1/4] 检查系统环境 ... [通过]\n  [2/4] 验证依赖模块 ... [通过]\n  [3/4] 测试数据解析 ... [通过]\n  [4/4] 检查输出路径 ... [通过]\n--------------------------------------------------\n[成功] 所有测试通过! (成功率: 100%)\n\n[摘要] 测试摘要: {\"test_time\": \"2026-04-12T20:46:04.891169\", \"python_version\": \"3.12.7\", \"total_tests\": 4, \"passed\": 4, \"failed\": 0, \"success_rate\": \"100%\", \"status\": \"SUCCESS\"}\n",
-    "error": null,
     "duration": 0.04
   },
   {
-    "id": "2026-04-12T20:11:42.914849_test_hello",
-    "timestamp": "2026-04-12T20:11:42.914849",
-    "department": "CONSULT",
-    "tool": "test_hello",
-    "config": {},
-    "status": "success",
-    "output": "[启动] 系统测试...\n[时间] 测试时间: 2026-04-12 20:11:42\n[Python] 版本: 3.12.7 | packaged by Anaconda, Inc. | (main, Oct  4 2024, 13:17:27) [MSC v.1929 64 bit (AMD64)]\n--------------------------------------------------\n  [1/4] 检查系统环境 ... [通过]\n  [2/4] 验证依赖模块 ... [通过]\n  [3/4] 测试数据解析 ... [通过]\n  [4/4] 检查输出路径 ... [通过]\n--------------------------------------------------\n[成功] 所有测试通过! (成功率: 100%)\n\n[摘要] 测试摘要: {\"test_time\": \"2026-04-12T20:11:42.909834\", \"python_version\": \"3.12.7\", \"total_tests\": 4, \"passed\": 4, \"failed\": 0, \"success_rate\": \"100%\", \"status\": \"SUCCESS\"}\n",
-    "error": null,
-    "duration": 0.04
-  },
-  {
-    "id": "2026-04-12T20:11:41.277125_test_hello",
-    "timestamp": "2026-04-12T20:11:41.277125",
+    "id": "1776068256.416963_test_hello",
+    "timestamp": "2026-04-13T16:17:36.458090",
     "department": "CONSULT",
     "tool": "test_hello",
     "config": {},
     "status": "failed",
-    "output": "",
+    "output": "[启动] 系统测试...\n[时间] 测试时间: 2026-04-13 16:17:36\n[Python] 版本: 3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)]\n--------------------------------------------------\n  [1/4] 检查系统环境 ... [通过]\n  [2/4] 验证依赖模块 ... [失败]\n  [3/4] 测试数据解析 ... [通过]\n  [4/4] 检查输出路径 ... [通过]\n--------------------------------------------------\n[警告] 部分测试失败 (成功率: 75%)\n\n[摘要] 测试摘要: {\"test_time\": \"2026-04-13T16:17:36.453564\", \"python_version\": \"3.14.3\", \"total_tests\": 4, \"passed\": 3, \"failed\": 1, \"success_rate\": \"75%\", \"status\": \"PARTIAL\"}\n",
     "error": "Unknown error",
-    "duration": 0.05
+    "duration": 0.04
+  },
+  {
+    "id": "1776068255.3861508_test_hello",
+    "timestamp": "2026-04-13T16:17:35.429188",
+    "department": "CONSULT",
+    "tool": "test_hello",
+    "config": {},
+    "status": "success",
+    "output": "[启动] 系统测试...\n[时间] 测试时间: 2026-04-13 16:17:35\n[Python] 版本: 3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)]\n--------------------------------------------------\n  [1/4] 检查系统环境 ... [通过]\n  [2/4] 验证依赖模块 ... [通过]\n  [3/4] 测试数据解析 ... [通过]\n  [4/4] 检查输出路径 ... [通过]\n--------------------------------------------------\n[成功] 所有测试通过! (成功率: 100%)\n\n[摘要] 测试摘要: {\"test_time\": \"2026-04-13T16:17:35.424676\", \"python_version\": \"3.14.3\", \"total_tests\": 4, \"passed\": 4, \"failed\": 0, \"success_rate\": \"100%\", \"status\": \"SUCCESS\"}\n",
+    "error": null,
+    "duration": 0.04
+  },
+  {
+    "id": "1776068253.2339568_test_hello",
+    "timestamp": "2026-04-13T16:17:33.271469",
+    "department": "CONSULT",
+    "tool": "test_hello",
+    "config": {},
+    "status": "success",
+    "output": "[启动] 系统测试...\n[时间] 测试时间: 2026-04-13 16:17:33\n[Python] 版本: 3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)]\n--------------------------------------------------\n  [1/4] 检查系统环境 ... [通过]\n  [2/4] 验证依赖模块 ... [通过]\n  [3/4] 测试数据解析 ... [通过]\n  [4/4] 检查输出路径 ... [通过]\n--------------------------------------------------\n[成功] 所有测试通过! (成功率: 100%)\n\n[摘要] 测试摘要: {\"test_time\": \"2026-04-13T16:17:33.266977\", \"python_version\": \"3.14.3\", \"total_tests\": 4, \"passed\": 4, \"failed\": 0, \"success_rate\": \"100%\", \"status\": \"SUCCESS\"}\n",
+    "error": null,
+    "duration": 0.04
   }
 ]

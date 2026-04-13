@@ -1,5 +1,36 @@
 [
   {
+    "id": "1776068339.3251173_test",
+    "timestamp": "2026-04-13T16:19:09.361605",
+    "department": "BUE2",
+    "tool": "test",
+    "config": {},
+    "status": "success",
+    "output": "[TEST] 测试任务启动...\n[TEST] 等待10秒钟...\n[TEST] 已等待 1 秒...\n[TEST] 已等待 2 秒...\n[TEST] 已等待 3 秒...\n[TEST] 已等待 4 秒...\n[TEST] 已等待 5 秒...\n[TEST] 已等待 6 秒...\n[TEST] 已等待 7 秒...\n[TEST] 已等待 8 秒...\n[TEST] 已等待 9 秒...\n[TEST] 已等待 10 秒...\n[TEST] 任务执行完成！\n[TEST] 输出: 测试成功\n",
+    "error": null,
+    "duration": 10.04
+  },
+  {
+    "id": "1776068278.8907957_citeo_email_extractor",
+    "timestamp": "2026-04-13T16:18:06.151311",
+    "department": "BUE2",
+    "tool": "citeo_email_extractor",
+    "config": {
+      "folderPath": "",
+      "excelPath": null,
+      "listExcelPath": "",
+      "email": "infoeuvat@163.com",
+      "authCode": "FPdskjj8kTW5Fu4q",
+      "maxEmails": 100,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": "Citeo-&bOiVAA-"
+    },
+    "status": "success",
+    "output": "任务执行完成\n提取会员号数量: 100\nExcel文件路径: \\\\192.168.76.93\\技术部\\BUE2\\FR-Citeo-注销成功名单邮件提取\\注销成功名单_20260413_161805.xlsx\n",
+    "error": null,
+    "duration": 7.26
+  },
+  {
     "id": "1776067585.1653893_test",
     "timestamp": "2026-04-13T16:06:35.204915",
     "department": "BUE2",

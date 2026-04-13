@@ -519,12 +519,14 @@ async function runDepartmentScript(tool) {
         message: `${tool.name} 正在后台运行，请查看右侧执行记录。`,
         duration: 3000,
       })
-      // 立即刷新日志显示运行中的任务
+      // 立即标记任务启动，确保能检测到完成状态
+      logPanel.value?.onTaskStarted()
+      // 刷新日志显示运行中的任务
       console.log('Refreshing log panel after run...', logPanel.value)
-      setTimeout(() => {
-        logPanel.value?.refresh()
+      setTimeout(async () => {
+        await logPanel.value?.refresh()
         console.log('Log panel refreshed')
-      }, 100)
+      }, 200)
       // 后台任务不清空runningToolId，等执行记录组件反馈完成状态
       return
     }

@@ -192,18 +192,23 @@ async function confirmTerminate() {
   }
 }
 
+// 跟踪之前的运行状态，用于检测任务完成
+const hadRunningTasks = ref(false)
+
 // 监听部门变化，自动重新加载
 watch(() => props.department, () => {
   currentPage.value = 1
-  loadLogs()
-  // 如果有运行中的任务，启动轮询
-  if (hasRunningTasks.value) {
-    startPolling()
-  }
+  // 重置运行状态跟踪
+  hadRunningTasks.value = false
+  loadLogs().then(() => {
+    // 加载完成后初始化运行状态
+    hadRunningTasks.value = hasRunningTasks.value
+    // 如果有运行中的任务，启动轮询
+    if (hasRunningTasks.value) {
+      startPolling()
+    }
+  })
 }, { immediate: true })
-
-// 跟踪之前的运行状态，用于检测任务完成
-const hadRunningTasks = ref(false)
 
 // 监听日志变化，自动启停轮询
 watch(() => logs.value, (newLogs) => {
@@ -448,12 +453,19 @@ function fallbackCopy(text) {
 
 onMounted(() => {
   if (props.department) {
-    loadLogs()
+    loadLogs().then(() => {
+      // 初始化运行状态跟踪
+      hadRunningTasks.value = hasRunningTasks.value
+    })
   }
 })
 
 defineExpose({
   refresh: loadLogs,
+  onTaskStarted: () => {
+    // 任务启动后立即标记为运行中，确保能检测到后续完成状态
+    hadRunningTasks.value = true
+  },
 })
 </script>
 

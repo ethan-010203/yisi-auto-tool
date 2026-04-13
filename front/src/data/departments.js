@@ -16,8 +16,6 @@ export const departments = [
     tone: 'Quote Flow',
     summary: '聚焦报价协同、排期沟通和交付节奏，让跨团队协作更顺畅。',
     tools: [
-      { id: 'schedule_board', name: '排期看板', tag: 'Schedule', description: '掌握项目节点、资源占用和交付风险。' },
-      { id: 'quote_builder', name: '报价助手', tag: 'Quote', description: '减少重复制作报价单的时间成本。' },
       {
         id: 'test',
         name: 'test',
