@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getData, getToolConfig, getToolPreview, runDepartmentTool, saveConfig, getDepartmentConfig, saveDepartmentConfig, testNetworkPath } from './api/index'
 import ExecutionLogPanel from './components/ExecutionLogPanel.vue'
@@ -13,8 +13,6 @@ import UiLabel from './components/ui/UiLabel.vue'
 import UiSelect from './components/ui/UiSelect.vue'
 import UiToastStack from './components/ui/UiToastStack.vue'
 import { departments } from './data/departments'
-import GalaxyBackground from './components/GalaxyBackground.vue'
-import { Sun, Moon, Monitor } from 'lucide-vue-next'
 
 const PREVIEW_TOOL_ID = 'invoice_recognizer'
 const PREVIEW_DEPARTMENT = 'CONSULT'
@@ -28,68 +26,16 @@ const getSavedDepartment = () => {
       return saved
     }
   } catch {
-    // localStorage 不可用，使用默认值
+    // localStorage 不可用时回退到默认部门
   }
   return departments[0].code
 }
 
-// Theme logic
-const THEME_STORAGE_KEY = 'yisi-auto-tool:theme'
-const themeMode = ref('system') // 'light', 'dark', 'system'
-
-const getSavedTheme = () => {
-  try {
-    const saved = localStorage.getItem(THEME_STORAGE_KEY)
-    if (saved && ['light', 'dark', 'system'].includes(saved)) {
-      return saved
-    }
-  } catch {
-    // localStorage 不可用
-  }
-  return 'system'
-}
-
-themeMode.value = getSavedTheme()
-
-const isDark = computed(() => {
-  if (themeMode.value === 'dark') return true
-  if (themeMode.value === 'light') return false
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
-})
+const isDark = computed(() => false)
 
 const applyTheme = () => {
-  const html = document.documentElement
-  if (isDark.value) {
-    html.setAttribute('data-theme', 'dark')
-  } else {
-    html.removeAttribute('data-theme')
-  }
+  document.documentElement.removeAttribute('data-theme')
 }
-
-const cycleTheme = () => {
-  const modes = ['light', 'dark', 'system']
-  const currentIndex = modes.indexOf(themeMode.value)
-  const nextIndex = (currentIndex + 1) % modes.length
-  themeMode.value = modes[nextIndex]
-  try {
-    localStorage.setItem(THEME_STORAGE_KEY, themeMode.value)
-  } catch {
-    // localStorage 不可用
-  }
-  applyTheme()
-}
-
-const themeIcon = computed(() => {
-  if (themeMode.value === 'dark') return Moon
-  if (themeMode.value === 'light') return Sun
-  return Monitor
-})
-
-const themeLabel = computed(() => {
-  if (themeMode.value === 'dark') return '深色'
-  if (themeMode.value === 'light') return '浅色'
-  return '跟随系统'
-})
 
 const activeDepartmentCode = ref(getSavedDepartment())
 const runningToolId = ref('')
@@ -123,7 +69,7 @@ const configData = ref({
   authCode: '',
   maxEmails: 50,
   subjectKeyword: '注销成功',
-  selectedFolder: '',  // 用户选择的邮箱文件夹(encoded)
+  selectedFolder: '',
 })
 
 const currentConfigTool = ref({ department: '', toolId: '' })
@@ -132,37 +78,33 @@ const loadingFolders = ref(false)
 const mailFoldersError = ref('')
 const showAuthCode = ref(false)
 
-// 将mailFolders转换为UiSelect需要的options格式
+// 将邮件文件夹列表转换为 UiSelect 需要的 options 格式
 const folderOptions = computed(() => {
   if (mailFolders.value.length === 0) {
     return [{ value: '', label: '请先输入邮箱和授权码', disabled: true }]
   }
-  
-  // 转换并排序：系统文件夹（蓝色）排在最前面
+
   const options = mailFolders.value.map(folder => {
-    // 系统文件夹显示中文名称，其他显示解码后的名称
     const label = folder.type === 'inbox' ? '收件箱' :
                   folder.type === 'sent' ? '已发送' :
                   folder.type === 'drafts' ? '草稿箱' :
-                  folder.type === 'trash' ? '垃圾桶' :
+                  folder.type === 'trash' ? '垃圾箱' :
                   folder.display
     return {
       value: folder.encoded,
       label: label,
       type: folder.type,
-      badge: null // 不再单独显示badge，直接作为label
+      badge: null
     }
   })
-  
-  // 排序：系统文件夹(type !== 'other')排在前面，然后按名称排序
+
   return options.sort((a, b) => {
     const aIsSystem = a.type !== 'other'
     const bIsSystem = b.type !== 'other'
-    
+
     if (aIsSystem && !bIsSystem) return -1
     if (!aIsSystem && bIsSystem) return 1
-    
-    // 同类型按名称排序
+
     return a.label.localeCompare(b.label, 'zh-CN')
   })
 })
@@ -218,7 +160,7 @@ const configDialogTitle = computed(() => {
 
 const configDialogDescription = computed(() => {
   if (currentConfigTool.value.toolId === 'citeo_email_extractor') {
-    return '163邮箱已配置，用于IMAP连接提取邮件。'
+    return '163邮箱已配置，用于 IMAP 连接提取邮件。'
   }
   return ''
 })
@@ -276,7 +218,7 @@ async function loadConnectionStatus() {
     connectionStatus.value = {
       state: 'offline',
       label: '服务离线',
-      detail: '未能连到后端服务，请确认 FastAPI 已启动且地址可访问。',
+      detail: '未能连接到后端服务，请确认 FastAPI 已启动且地址可访问。',
     }
   }
 }
@@ -423,11 +365,11 @@ async function loadMailFolders() {
       }
     } else {
       mailFolders.value = []
-      mailFoldersError.value = result?.error || '无法获取文件夹列表，请检查邮箱账号和授权码是否正确，以及IMAP服务是否已开启'
+      mailFoldersError.value = result?.error || '无法获取文件夹列表，请检查邮箱账号、授权码和 IMAP 设置。'
     }
   } catch (error) {
     mailFolders.value = []
-    mailFoldersError.value = '网络请求失败，请检查网络连接'
+    mailFoldersError.value = '网络请求失败，请检查网络连接。'
   } finally {
     loadingFolders.value = false
   }
@@ -447,7 +389,7 @@ async function saveConfiguration() {
     configDialogOpen.value = false
     pushToast({
       type: 'success',
-      title: '配置已保存'
+      title: '配置已保存',
     })
 
     previewCache.delete(getToolKey(targetDept, targetTool))
@@ -495,7 +437,7 @@ async function openToolPreview(tool, options = {}) {
     pushToast({
       type: 'warning',
       title: '预览暂未开放',
-      message: '当前仅对英德单据识别提供企业级预览能力。',
+      message: '当前仅对英德单据识别提供预览能力。',
     })
     return
   }
@@ -571,7 +513,6 @@ async function runDepartmentScript(tool) {
     const result = await runDepartmentTool(activeDepartmentCode.value, tool.id)
 
     if (result?.success && result?.status === 'running') {
-      // 任务已启动，正在后台运行
       isBackgroundTask = true
       pushToast({
         type: 'info',
@@ -579,15 +520,12 @@ async function runDepartmentScript(tool) {
         message: `${tool.name} 正在后台运行，请查看右侧执行记录。`,
         duration: 3000,
       })
-      // 立即标记任务启动，确保能检测到完成状态
       logPanel.value?.onTaskStarted()
-      // 刷新日志显示运行中的任务
       console.log('Refreshing log panel after run...', logPanel.value)
       setTimeout(async () => {
         await logPanel.value?.refresh()
         console.log('Log panel refreshed')
       }, 200)
-      // 后台任务不清空runningToolId，等执行记录组件反馈完成状态
       return
     }
 
@@ -614,7 +552,7 @@ async function runDepartmentScript(tool) {
     pushToast({
       type: 'error',
       title: '执行请求失败',
-      message: '请确认 FastAPI 服务已启动，例如 `uvicorn main:app --reload`。',
+      message: '请确认 FastAPI 服务已启动，例如 uvicorn main:app --reload。',
       duration: 5200,
     })
   } finally {
@@ -628,7 +566,7 @@ watch(activeDepartmentCode, async (departmentCode) => {
   try {
     localStorage.setItem(STORAGE_KEY, departmentCode)
   } catch {
-    // localStorage 不可用，静默处理
+    // localStorage 不可用时静默处理
   }
   if (departmentCode === PREVIEW_DEPARTMENT) {
     const tool = findPreviewTool()
@@ -650,11 +588,9 @@ onMounted(async () => {
   await loadDepartmentConfig(activeDepartmentCode.value)
   // Apply initial theme
   applyTheme()
-  // Listen for system theme changes
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme)
 })
 
-// 监听部门切换，加载对应配置
+// 监听部门切换并加载对应配置
 watch(activeDepartmentCode, async (newDept) => {
   await loadDepartmentConfig(newDept)
   // 清空测试结果
@@ -672,33 +608,10 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="page-shell">
-    <GalaxyBackground
-      :mouse-repulsion="true"
-      :mouse-interaction="true"
-      :density="0.88"
-      :glow-intensity="0.18"
-      :saturation="0"
-      :hue-shift="0"
-      :twinkle-intensity="0.12"
-      :rotation-speed="0.04"
-      :repulsion-strength="1.2"
-      :auto-center-repulsion="0"
-      :star-speed="0.28"
-      :speed="0.72"
-      :transparent="true"
-      v-if="isDark"
-    />
     <header class="page-header">
       <div class="page-copy">
-        <UiBadge variant="secondary">Department Workspace</UiBadge>
+        <UiBadge variant="secondary">部门工作台</UiBadge>
         <h1>部门工具工作台</h1>
-      </div>
-
-      <div class="header-actions">
-        <UiButton variant="outline" class="theme-toggle" @click="cycleTheme">
-          <component :is="themeIcon" :size="16" />
-          <span>{{ themeLabel }}</span>
-        </UiButton>
       </div>
 
       <UiCard class="status-panel">
@@ -726,7 +639,7 @@ onBeforeUnmount(() => {
     <UiCard class="tabs-card">
       <div class="tabs-head">
         <div>
-          <p class="section-label">Departments</p>
+          <p class="section-label">部门列表</p>
           <h2>部门切换</h2>
         </div>
       </div>
@@ -767,7 +680,7 @@ onBeforeUnmount(() => {
               <UiInput
                 id="network-path"
                 v-model="departmentConfig.networkPath"
-                placeholder="\\服务器\共享文件夹\部门路径(\\192.168.76.93\厦门部门\BUE2)"
+                placeholder="\\服务器\\共享文件夹\\部门路径（例如 \\192.168.76.93\\厦门部门\\BUE2）"
               />
             </div>
             <div class="config-actions">
@@ -798,7 +711,7 @@ onBeforeUnmount(() => {
             <div class="tool-card-head">
               <UiBadge variant="secondary">{{ tool.tag }}</UiBadge>
               <UiBadge variant="outline">
-                {{ tool.previewable ? 'Preview Ready' : 'Roadmap' }}
+                {{ tool.previewable ? '支持预览' : '开发计划中' }}
               </UiBadge>
             </div>
             <div class="tool-card-body">
@@ -877,10 +790,10 @@ onBeforeUnmount(() => {
       :title="configDialogTitle"
       :description="configDialogDescription"
     >
-      <!-- CONSULT Invoice Recognizer Config -->
+      <!-- 顾问部单据识别配置 -->
       <div v-if="currentConfigTool.toolId !== 'citeo_email_extractor'" class="config-form">
         <div class="form-field">
-          <UiLabel for="folder-path">选择递延数据所在总文件夹路径</UiLabel>
+          <UiLabel for="folder-path">选择递延税单据所在总文件夹路径</UiLabel>
           <UiFileInput
             id="folder-path"
             v-model="configData.folderPath"
@@ -900,10 +813,10 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- BUE2 Email Extractor Config -->
+      <!-- BUE2 邮件提取配置 -->
       <div v-else class="config-form">
         <div class="form-field">
-          <UiLabel for="email">163邮箱账号</UiLabel>
+          <UiLabel for="email">163 邮箱账号</UiLabel>
           <UiInput
             id="email"
             v-model="configData.email"
@@ -914,12 +827,12 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="form-field">
-          <small class="field-hint">提示：点击加载文件夹---选择存放注销邮箱的文件夹---填写获取邮件数量(可自行前往163查看对应文件夹数量有多少)---保存配置即可运行。邮箱和授权码已预配置。如需更改联系管理员</small>
+          <small class="field-hint">提示：点击“加载文件夹”，选择存放注销邮件的文件夹，填写获取邮件数量后保存配置即可运行。邮箱和授权码已预配置，如需修改请联系管理员。</small>
         </div>
 
         <div class="form-field">
           <div class="folder-select-header">
-            <UiLabel for="mail-folder">选择邮件文件夹(存放注销邮件的文件夹)</UiLabel>
+            <UiLabel for="mail-folder">选择邮件文件夹（存放注销邮件的文件夹）</UiLabel>
             <UiButton
               variant="outline"
               size="sm"
@@ -1094,3 +1007,6 @@ onBeforeUnmount(() => {
   background: var(--card-muted);
 }
 </style>
+
+
+

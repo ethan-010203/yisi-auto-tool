@@ -1,30 +1,37 @@
 <script setup>
-import { computed, onMounted, ref, watch, onUnmounted } from 'vue'
-import { getDepartmentLogs, getToolLogs, clearDepartmentLogs, terminateExecution } from '../api/index'
-import UiCard from './ui/UiCard.vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { clearDepartmentLogs, getDepartmentLogs, getToolLogs, terminateExecution } from '../api/index'
+import { departments } from '../data/departments'
 import UiBadge from './ui/UiBadge.vue'
-import UiDialog from './ui/UiDialog.vue'
 import UiButton from './ui/UiButton.vue'
+import UiCard from './ui/UiCard.vue'
+import UiDialog from './ui/UiDialog.vue'
 import UiInput from './ui/UiInput.vue'
 import UiToastStack from './ui/UiToastStack.vue'
-import { departments } from '../data/departments'
 
 const logs = ref([])
 const loading = ref(false)
 const error = ref(null)
 const currentPage = ref(1)
-const itemsPerPage = 10  // 每页显示10条
+const itemsPerPage = 10
 const searchQuery = ref('')
-const statusFilter = ref('all') // all, success, failed, running
+const statusFilter = ref('all')
 
-// 轮询定时器
 const pollInterval = ref(null)
-const POLL_DELAY = 2000 // 2秒轮询一次
+const POLL_DELAY = 2000
 
-// 计算是否有运行中的任务
-const hasRunningTasks = computed(() => {
-  return logs.value.some(log => log.status === 'running')
-})
+const clearDialogOpen = ref(false)
+const clearLoading = ref(false)
+const detailDialogOpen = ref(false)
+const selectedLog = ref(null)
+const terminateDialogOpen = ref(false)
+const terminateLoading = ref(false)
+const terminateTargetId = ref(null)
+
+const toasts = ref([])
+const toastTimers = new Map()
+const copySuccess = ref(false)
+const hadRunningTasks = ref(false)
 
 const props = defineProps({
   department: {
@@ -43,254 +50,41 @@ const props = defineProps({
 
 const emit = defineEmits(['task-complete'])
 
-// 筛选后的日志
+const hasRunningTasks = computed(() => logs.value.some((log) => log.status === 'running'))
+
 const filteredLogs = computed(() => {
   let result = logs.value
-  
-  // 状态筛选
+
   if (statusFilter.value !== 'all') {
-    result = result.filter(log => log.status === statusFilter.value)
+    result = result.filter((log) => log.status === statusFilter.value)
   }
-  
-  // 搜索筛选
+
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase()
-    result = result.filter(log => {
+    result = result.filter((log) => {
       const toolName = getToolName(log.tool).toLowerCase()
       const output = (log.output || '').toLowerCase()
-      const errorMsg = (log.error || '').toLowerCase()
-      return toolName.includes(query) || output.includes(query) || errorMsg.includes(query)
+      const errorText = (log.error || '').toLowerCase()
+      return toolName.includes(query) || output.includes(query) || errorText.includes(query)
     })
   }
-  
+
   return result
 })
 
-const totalPages = computed(() => Math.ceil(filteredLogs.value.length / itemsPerPage))
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredLogs.value.length / itemsPerPage)))
 
 const displayedLogs = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage
-  const end = start + itemsPerPage
-  return filteredLogs.value.slice(start, end)
+  return filteredLogs.value.slice(start, start + itemsPerPage)
 })
 
-// 获取工具中文名
 function getToolName(toolId) {
-  const dept = departments.find(d => d.code === props.department)
+  const dept = departments.find((item) => item.code === props.department)
   if (!dept) return toolId
-  const tool = dept.tools.find(t => t.id === toolId)
+  const tool = dept.tools.find((item) => item.id === toolId)
   return tool?.name || toolId
 }
-
-async function loadLogs() {
-  if (!props.department) {
-    logs.value = []
-    return
-  }
-
-  try {
-    let response
-    if (props.tool) {
-      // 获取指定工具的日志
-      response = await getToolLogs(props.department, props.tool, props.limit)
-    } else {
-      // 获取整个部门的日志
-      response = await getDepartmentLogs(props.department, props.limit)
-    }
-
-    if (response?.success) {
-      logs.value = response.logs || []
-      // 调试：检查运行中任务的时间戳
-      const runningLogs = logs.value.filter(log => log.status === 'running')
-      if (runningLogs.length > 0) {
-        console.log('Running tasks:', runningLogs.map(log => ({ id: log.id, timestamp: log.timestamp, tool: log.tool })))
-      }
-      // 如果详情弹窗打开，同步更新selectedLog
-      if (detailDialogOpen.value && selectedLog.value) {
-        const updatedLog = logs.value.find(log => log.id === selectedLog.value.id)
-        if (updatedLog) {
-          selectedLog.value = updatedLog
-        }
-      }
-    } else {
-      error.value = response?.error || '加载失败'
-    }
-  } catch (err) {
-    error.value = err.message || '网络错误'
-  }
-}
-
-// 启动轮询
-function startPolling() {
-  stopPolling()
-  pollInterval.value = setInterval(() => {
-    loadLogs()
-  }, POLL_DELAY)
-}
-
-// 停止轮询
-function stopPolling() {
-  if (pollInterval.value) {
-    clearInterval(pollInterval.value)
-    pollInterval.value = null
-  }
-}
-
-// 打开终止确认弹窗
-function openTerminateDialog(logId) {
-  terminateTargetId.value = logId
-  terminateDialogOpen.value = true
-}
-
-// 关闭终止确认弹窗
-function closeTerminateDialog() {
-  terminateDialogOpen.value = false
-  terminateTargetId.value = null
-  terminateLoading.value = false
-}
-
-// 确认终止执行
-async function confirmTerminate() {
-  if (!terminateTargetId.value) return
-  
-  terminateLoading.value = true
-  try {
-    const response = await terminateExecution(terminateTargetId.value)
-    if (response?.success) {
-      // 关闭弹窗和详情弹窗
-      closeTerminateDialog()
-      detailDialogOpen.value = false
-      selectedLog.value = null
-      // 刷新日志
-      setTimeout(() => {
-        loadLogs()
-      }, 100)
-      // 显示成功提示
-      pushToast({
-        type: 'success',
-        title: '任务已终止',
-        message: '任务已成功终止并记录到日志中。',
-        duration: 3000,
-      })
-    } else {
-      pushToast({
-        type: 'error',
-        title: '终止失败',
-        message: response?.error || '无法终止任务',
-        duration: 4000,
-      })
-    }
-  } catch (err) {
-    pushToast({
-      type: 'error',
-      title: '网络错误',
-      message: err.message || '请检查网络连接',
-      duration: 4000,
-    })
-  } finally {
-    terminateLoading.value = false
-  }
-}
-
-// 跟踪之前的运行状态，用于检测任务完成
-const hadRunningTasks = ref(false)
-
-// 监听部门变化，自动重新加载
-watch(() => props.department, () => {
-  currentPage.value = 1
-  // 重置运行状态跟踪
-  hadRunningTasks.value = false
-  loadLogs().then(() => {
-    // 加载完成后初始化运行状态
-    hadRunningTasks.value = hasRunningTasks.value
-    // 如果有运行中的任务，启动轮询
-    if (hasRunningTasks.value) {
-      startPolling()
-    }
-  })
-}, { immediate: true })
-
-// 监听日志变化，自动启停轮询
-watch(() => logs.value, (newLogs) => {
-  const hasRunning = newLogs.some(log => log.status === 'running')
-  if (hasRunning && !pollInterval.value) {
-    startPolling()
-  } else if (!hasRunning && pollInterval.value) {
-    stopPolling()
-  }
-  // 检测任务从运行中变为完成
-  if (hadRunningTasks.value && !hasRunning) {
-    emit('task-complete')
-  }
-  hadRunningTasks.value = hasRunning
-}, { deep: true })
-
-// 组件卸载时停止轮询
-onUnmounted(() => {
-  stopPolling()
-})
-
-function prevPage() {
-  if (currentPage.value > 1) {
-    currentPage.value--
-  }
-}
-
-function nextPage() {
-  if (currentPage.value < totalPages.value) {
-    currentPage.value++
-  }
-}
-
-function formatTime(timestamp) {
-  if (!timestamp) {
-    return '-'
-  }
-  const date = new Date(timestamp)
-  if (isNaN(date.getTime())) {
-    return '-'
-  }
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).replace(/\//g, '-')
-}
-
-function formatEndTime(timestamp, duration) {
-  if (!timestamp || duration === undefined || duration === null) {
-    return '-'
-  }
-  const date = new Date(timestamp)
-  if (isNaN(date.getTime())) {
-    return '-'
-  }
-  // 计算结束时间：开始时间 + 时长（秒）
-  const endDate = new Date(date.getTime() + duration * 1000)
-  return endDate.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).replace(/\//g, '-')
-}
-
-const clearDialogOpen = ref(false)
-const clearLoading = ref(false)
-const detailDialogOpen = ref(false)
-const selectedLog = ref(null)
-const terminateDialogOpen = ref(false)
-const terminateLoading = ref(false)
-const terminateTargetId = ref(null)
-
-// Toast 通知系统
-const toasts = ref([])
-const toastTimers = new Map()
 
 function pushToast({ type = 'info', title, message = '', duration = 4200 }) {
   const id = `toast-${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -312,6 +106,105 @@ function dismissToast(id) {
   toasts.value = toasts.value.filter((toast) => toast.id !== id)
 }
 
+async function loadLogs() {
+  if (!props.department) {
+    logs.value = []
+    return
+  }
+
+  loading.value = true
+  error.value = null
+
+  try {
+    const response = props.tool
+      ? await getToolLogs(props.department, props.tool, props.limit)
+      : await getDepartmentLogs(props.department, props.limit)
+
+    if (response?.success) {
+      logs.value = response.logs || []
+
+      if (detailDialogOpen.value && selectedLog.value) {
+        const updatedLog = logs.value.find((log) => log.id === selectedLog.value.id)
+        if (updatedLog) {
+          selectedLog.value = updatedLog
+        }
+      }
+    } else {
+      error.value = response?.error || '加载失败'
+    }
+  } catch (err) {
+    error.value = err.message || '网络错误'
+  } finally {
+    loading.value = false
+  }
+}
+
+function startPolling() {
+  stopPolling()
+  pollInterval.value = setInterval(() => {
+    loadLogs()
+  }, POLL_DELAY)
+}
+
+function stopPolling() {
+  if (pollInterval.value) {
+    clearInterval(pollInterval.value)
+    pollInterval.value = null
+  }
+}
+
+function openTerminateDialog(logId) {
+  terminateTargetId.value = logId
+  terminateDialogOpen.value = true
+}
+
+function closeTerminateDialog() {
+  terminateDialogOpen.value = false
+  terminateTargetId.value = null
+  terminateLoading.value = false
+}
+
+async function confirmTerminate() {
+  if (!terminateTargetId.value) return
+
+  terminateLoading.value = true
+  try {
+    const response = await terminateExecution(terminateTargetId.value)
+    if (response?.success) {
+      closeTerminateDialog()
+      detailDialogOpen.value = false
+      selectedLog.value = null
+
+      setTimeout(() => {
+        loadLogs()
+      }, 100)
+
+      pushToast({
+        type: 'success',
+        title: '任务已终止',
+        message: '任务已成功终止，并已写入执行记录。',
+        duration: 3000,
+      })
+    } else {
+      pushToast({
+        type: 'error',
+        title: '终止失败',
+        message: response?.error || '无法终止任务。',
+        duration: 4000,
+      })
+    }
+  } catch (err) {
+    pushToast({
+      type: 'error',
+      title: '网络错误',
+      message: err.message || '请检查网络连接后重试。',
+      duration: 4000,
+    })
+  } finally {
+    terminateLoading.value = false
+  }
+}
+
 function openClearDialog() {
   clearDialogOpen.value = true
 }
@@ -328,7 +221,7 @@ function closeDetailDialog() {
 
 async function confirmClearLogs() {
   if (!props.department) return
-  
+
   clearLoading.value = true
   try {
     const response = await clearDepartmentLogs(props.department)
@@ -347,23 +240,70 @@ async function confirmClearLogs() {
 }
 
 function exportLogs() {
-  // 导出日志为CSV
   const csvContent = [
     ['执行时间', '任务名称', '状态', '执行时长', '输出'],
-    ...filteredLogs.value.map(log => [
+    ...filteredLogs.value.map((log) => [
       formatTime(log.timestamp),
       getToolName(log.tool),
-      log.status === 'success' ? '成功' : '失败',
+      log.status === 'success' ? '成功' : log.status === 'running' ? '运行中' : '失败',
       formatDuration(log.duration),
-      (log.output || '').replace(/\n/g, ' ')
-    ])
-  ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n')
-  
+      (log.output || '').replace(/\n/g, ' '),
+    ]),
+  ]
+    .map((row) => row.map((cell) => `"${cell}"`).join(','))
+    .join('\n')
+
   const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
   link.download = `执行记录_${props.department}_${new Date().toISOString().slice(0, 10)}.csv`
   link.click()
+}
+
+function prevPage() {
+  if (currentPage.value > 1) {
+    currentPage.value -= 1
+  }
+}
+
+function nextPage() {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value += 1
+  }
+}
+
+function formatTime(timestamp) {
+  if (!timestamp) return '-'
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return '-'
+
+  return date
+    .toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+    .replace(/\//g, '-')
+}
+
+function formatEndTime(timestamp, duration) {
+  if (!timestamp || duration === undefined || duration === null) return '-'
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) return '-'
+
+  return new Date(date.getTime() + duration * 1000)
+    .toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+    .replace(/\//g, '-')
 }
 
 function formatDuration(seconds) {
@@ -376,44 +316,37 @@ function formatDuration(seconds) {
   return `${seconds.toFixed(1)}s`
 }
 
-const copySuccess = ref(false)
-
 async function copyError() {
   const text = selectedLog.value?.error || selectedLog.value?.output
-  if (!text) {
-    console.warn('copyError: no text to copy')
-    return
-  }
-
-  console.log('Attempting to copy text length:', text.length)
+  if (!text) return
 
   try {
     const blob = new Blob([text], { type: 'text/plain' })
     const clipboardItem = new ClipboardItem({ 'text/plain': blob })
     await navigator.clipboard.write([clipboardItem])
     copySuccess.value = true
-    setTimeout(() => copySuccess.value = false, 1500)
-    console.log('ClipboardItem API succeeded')
-  } catch (err) {
-    console.warn('ClipboardItem API failed:', err)
-
+    setTimeout(() => {
+      copySuccess.value = false
+    }, 1500)
+  } catch {
     try {
       await navigator.clipboard.writeText(text)
       copySuccess.value = true
-      setTimeout(() => copySuccess.value = false, 1500)
-      console.log('writeText API succeeded')
-    } catch (err2) {
-      console.warn('writeText API failed:', err2)
-      console.log('Trying fallback copy...')
+      setTimeout(() => {
+        copySuccess.value = false
+      }, 1500)
+    } catch {
       const ok = fallbackCopy(text)
       if (ok) {
         copySuccess.value = true
-        setTimeout(() => copySuccess.value = false, 1500)
+        setTimeout(() => {
+          copySuccess.value = false
+        }, 1500)
       } else {
         pushToast({
           type: 'error',
           title: '复制失败',
-          message: '请手动复制内容',
+          message: '请手动复制错误内容。',
           duration: 3000,
         })
       }
@@ -427,12 +360,11 @@ function fallbackCopy(text) {
   el.style.cssText = 'position:fixed;left:-9999px;top:0;'
   document.body.appendChild(el)
 
+  const selection = window.getSelection()
   const range = document.createRange()
   range.selectNode(el)
-
-  const selection = window.getSelection()
-  selection.removeAllRanges()
-  selection.addRange(range)
+  selection?.removeAllRanges()
+  selection?.addRange(range)
 
   el.select()
   el.setSelectionRange(0, el.value.length)
@@ -440,30 +372,72 @@ function fallbackCopy(text) {
   let ok = false
   try {
     ok = document.execCommand('copy')
-    console.log('execCommand result:', ok)
-  } catch (e) {
-    console.error('execCommand copy failed:', e)
+  } catch {
+    ok = false
   }
 
-  selection.removeAllRanges()
+  selection?.removeAllRanges()
   document.body.removeChild(el)
-
   return ok
 }
+
+watch(
+  () => props.department,
+  () => {
+    currentPage.value = 1
+    hadRunningTasks.value = false
+    loadLogs().then(() => {
+      hadRunningTasks.value = hasRunningTasks.value
+      if (hasRunningTasks.value) {
+        startPolling()
+      }
+    })
+  },
+  { immediate: true },
+)
+
+watch([searchQuery, statusFilter], () => {
+  currentPage.value = 1
+})
+
+watch(
+  () => logs.value,
+  (newLogs) => {
+    const hasRunning = newLogs.some((log) => log.status === 'running')
+    if (hasRunning && !pollInterval.value) {
+      startPolling()
+    } else if (!hasRunning && pollInterval.value) {
+      stopPolling()
+    }
+
+    if (hadRunningTasks.value && !hasRunning) {
+      emit('task-complete')
+    }
+    hadRunningTasks.value = hasRunning
+  },
+  { deep: true },
+)
 
 onMounted(() => {
   if (props.department) {
     loadLogs().then(() => {
-      // 初始化运行状态跟踪
       hadRunningTasks.value = hasRunningTasks.value
     })
   }
 })
 
+onUnmounted(() => {
+  stopPolling()
+  for (const timer of toastTimers.values()) {
+    clearTimeout(timer)
+  }
+  toastTimers.clear()
+})
+
 defineExpose({
   refresh: loadLogs,
+  exportLogs,
   onTaskStarted: () => {
-    // 任务启动后立即标记为运行中，确保能检测到后续完成状态
     hadRunningTasks.value = true
   },
 })
@@ -476,8 +450,9 @@ defineExpose({
         <div class="log-title-wrapper">
           <h3 class="log-title">执行记录</h3>
         </div>
-        <span class="log-count" v-if="filteredLogs.length > 0">共 {{ filteredLogs.length }} 条记录</span>
+        <span v-if="filteredLogs.length > 0" class="log-count">共 {{ filteredLogs.length }} 条记录</span>
       </div>
+
       <div class="log-actions">
         <UiButton
           variant="outline"
@@ -486,38 +461,36 @@ defineExpose({
           @click="openClearDialog"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
-            <path d="M3 6h18"/>
-            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+            <path d="M3 6h18" />
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
           </svg>
           清空
         </UiButton>
-        <UiButton
-          variant="outline"
-          :loading="loading"
-          @click="loadLogs"
-        >
+
+        <UiButton variant="outline" :loading="loading" @click="loadLogs">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
-            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-            <path d="M3 3v5h5"/>
-            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
-            <path d="M16 16h5v5"/>
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+            <path d="M16 16h5v5" />
           </svg>
           刷新
         </UiButton>
       </div>
     </div>
 
-    <!-- 筛选栏 -->
     <div class="log-filter-bar">
-      <UiInput
-        v-model="searchQuery"
-        placeholder="搜索任务名称或日志内容..."
-        class="search-input"
-      />
+      <UiInput v-model="searchQuery" placeholder="搜索任务名称或日志内容..." class="search-input" />
+
       <div class="status-filter">
         <button
-          v-for="option in [{value: 'all', label: '全部'}, {value: 'running', label: '运行中'}, {value: 'success', label: '成功'}, {value: 'failed', label: '失败'}]"
+          v-for="option in [
+            { value: 'all', label: '全部' },
+            { value: 'running', label: '运行中' },
+            { value: 'success', label: '成功' },
+            { value: 'failed', label: '失败' },
+          ]"
           :key="option.value"
           class="filter-btn"
           :class="{ active: statusFilter === option.value }"
@@ -529,7 +502,7 @@ defineExpose({
     </div>
 
     <div v-if="loading" class="log-loading">
-      <div class="log-skeleton" v-for="i in 5" :key="i" />
+      <div v-for="i in 5" :key="i" class="log-skeleton" />
     </div>
 
     <div v-else-if="error" class="log-error">
@@ -537,10 +510,9 @@ defineExpose({
     </div>
 
     <div v-else-if="displayedLogs.length === 0" class="log-empty">
-      <p>{{ searchQuery || statusFilter !== 'all' ? '没有找到匹配的记录' : (hasRunningTasks ? '任务运行中...' : '暂无执行记录') }}</p>
+      <p>{{ searchQuery || statusFilter !== 'all' ? '没有找到匹配的记录' : hasRunningTasks ? '任务运行中...' : '暂无执行记录' }}</p>
     </div>
 
-    <!-- 表格布局 -->
     <div v-else class="log-table-container">
       <table class="log-table">
         <thead>
@@ -558,7 +530,7 @@ defineExpose({
             :class="{
               'log-row-success': log.status === 'success',
               'log-row-running': log.status === 'running',
-              'log-row-failed': log.status !== 'success' && log.status !== 'running'
+              'log-row-failed': log.status !== 'success' && log.status !== 'running',
             }"
             @click="openDetailDialog(log)"
           >
@@ -567,7 +539,12 @@ defineExpose({
               <span class="task-name" :title="getToolName(log.tool)">{{ getToolName(log.tool) }}</span>
             </td>
             <td class="col-status">
-              <span :class="['status-chip', log.status === 'success' ? 'status-success' : log.status === 'running' ? 'status-running' : 'status-failed']">
+              <span
+                :class="[
+                  'status-chip',
+                  log.status === 'success' ? 'status-success' : log.status === 'running' ? 'status-running' : 'status-failed',
+                ]"
+              >
                 <span class="status-dot"></span>
                 <span>{{ log.status === 'success' ? '成功' : log.status === 'running' ? '运行中' : '失败' }}</span>
               </span>
@@ -578,28 +555,15 @@ defineExpose({
     </div>
 
     <div v-if="totalPages > 1" class="log-pagination">
-      <button 
-        class="page-btn" 
-        :disabled="currentPage === 1"
-        @click="prevPage"
-      >
-        ← 上一页
-      </button>
+      <button class="page-btn" :disabled="currentPage === 1" @click="prevPage">上一页</button>
       <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-      <button 
-        class="page-btn" 
-        :disabled="currentPage === totalPages"
-        @click="nextPage"
-      >
-        下一页 →
-      </button>
+      <button class="page-btn" :disabled="currentPage === totalPages" @click="nextPage">下一页</button>
     </div>
 
-    <!-- 清空确认弹窗 -->
     <UiDialog
       v-model:open="clearDialogOpen"
       title="清空执行记录"
-      description="确定要清空当前所有的执行记录吗？此操作无法撤销。"
+      description="确定要清空当前部门的全部执行记录吗？此操作无法撤销。"
     >
       <template #footer>
         <UiButton variant="outline" :disabled="clearLoading" @click="clearDialogOpen = false">取消</UiButton>
@@ -607,7 +571,6 @@ defineExpose({
       </template>
     </UiDialog>
 
-    <!-- 详情弹窗 -->
     <UiDialog
       v-model:open="detailDialogOpen"
       :title="selectedLog ? getToolName(selectedLog.tool) : '日志详情'"
@@ -620,31 +583,32 @@ defineExpose({
               <span class="meta-label">执行时间</span>
               <span class="meta-value">{{ formatTime(selectedLog.timestamp) }}</span>
             </div>
+
             <div class="meta-item">
               <span class="meta-label">执行结果</span>
               <UiBadge :variant="selectedLog.status === 'success' ? 'success' : selectedLog.status === 'running' ? 'warning' : 'danger'">
                 {{ selectedLog.status === 'success' ? '成功' : selectedLog.status === 'running' ? '运行中' : '失败' }}
               </UiBadge>
             </div>
+
             <div class="meta-item">
               <span class="meta-label">执行时长</span>
               <span class="meta-value">{{ formatDuration(selectedLog.duration) }}</span>
             </div>
+
             <div class="meta-item">
               <span class="meta-label">结束时间</span>
               <span class="meta-value">{{ selectedLog.status === 'running' ? '-' : formatEndTime(selectedLog.timestamp, selectedLog.duration) }}</span>
             </div>
           </div>
         </div>
-        
+
         <div v-if="selectedLog.status === 'running'" class="detail-section running-section">
           <div class="running-indicator">
             <div class="spinner"></div>
             <span>任务正在执行中...</span>
           </div>
-          <UiButton variant="outline" size="sm" @click="openTerminateDialog(selectedLog.id)">
-            终止执行
-          </UiButton>
+          <UiButton variant="outline" size="sm" @click="openTerminateDialog(selectedLog.id)">终止执行</UiButton>
         </div>
 
         <div v-if="selectedLog.status === 'success' && selectedLog.output" class="detail-section">
@@ -657,11 +621,11 @@ defineExpose({
             <h4 class="section-title error-title">错误信息</h4>
             <button class="copy-btn" :class="{ 'copy-success': copySuccess }" @click="copyError" title="复制错误信息">
               <svg v-if="!copySuccess" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
               </svg>
               <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="20 6 9 17 4 12"/>
+                <polyline points="20 6 9 17 4 12" />
               </svg>
               {{ copySuccess ? '已复制' : '复制' }}
             </button>
@@ -673,12 +637,12 @@ defineExpose({
           <p>没有输出日志</p>
         </div>
       </div>
+
       <template #footer>
         <UiButton variant="outline" @click="closeDetailDialog">关闭</UiButton>
       </template>
     </UiDialog>
 
-    <!-- 终止确认弹窗 -->
     <UiDialog
       v-model:open="terminateDialogOpen"
       title="确认终止任务"
@@ -777,7 +741,6 @@ defineExpose({
   transform: rotate(180deg);
 }
 
-/* 筛选栏 */
 .log-filter-bar {
   display: flex;
   gap: 12px;
@@ -832,8 +795,13 @@ defineExpose({
 }
 
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .log-error,
@@ -843,7 +811,6 @@ defineExpose({
   color: var(--muted);
 }
 
-/* 表格样式 */
 .log-table-container {
   max-height: 400px;
   overflow-y: auto;
@@ -979,8 +946,14 @@ defineExpose({
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .terminate-btn {
@@ -1050,10 +1023,9 @@ defineExpose({
   color: var(--muted);
 }
 
-/* 详情弹窗样式 */
 .log-detail-content {
-  max-height: 500px;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 .detail-header {
@@ -1100,7 +1072,7 @@ defineExpose({
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--foreground);
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
 }
 
 .section-title.error-title {
@@ -1146,8 +1118,8 @@ defineExpose({
   color: var(--muted-foreground);
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 300px;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
   margin: 0;
 }
 
@@ -1183,6 +1155,8 @@ defineExpose({
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

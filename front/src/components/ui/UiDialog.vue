@@ -94,6 +94,10 @@ const handleInteractOutside = (event) => {
   animation: contentShow 150ms cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 50;
   overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--border-strong) 82%, transparent) transparent;
 }
 
 .ui-dialog-content--wide {
@@ -159,6 +163,25 @@ const handleInteractOutside = (event) => {
 .ui-dialog-close-btn:hover {
   background: var(--secondary);
   color: var(--foreground);
+}
+
+.ui-dialog-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.ui-dialog-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ui-dialog-content::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--border-strong) 82%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.ui-dialog-content::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--foreground) 24%, transparent);
 }
 
 @keyframes overlayShow {
