@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -17,7 +18,7 @@ from pydantic import BaseModel
 from runner.logger import (
     get_recent_logs, get_logs_by_tool, log_execution, clear_department_logs,
     register_active_process, terminate_process, get_active_processes, unregister_process,
-    is_manual_terminated
+    is_manual_terminated, append_process_output
 )
 
 try:
@@ -358,6 +359,109 @@ def _run_script_async(log_id: str, department: str, tool: str, script_path: Path
         unregister_process(log_id)
 
 
+def _run_script_async_live(log_id: str, department: str, tool: str, script_path: Path, env: dict, config: dict):
+    """在后台线程中运行脚本，并持续收集实时输出。"""
+    start_time = time.time()
+    process = None
+    stdout_chunks: list[str] = []
+    stderr_chunks: list[str] = []
+
+    from datetime import datetime
+
+    dt_start = datetime.now()
+
+    def extract_error_message(stdout: str, stderr: str) -> str:
+        if stderr and stderr.strip():
+            return stderr.strip()
+
+        if stdout and stdout.strip():
+            lines = [line.strip() for line in stdout.splitlines() if line.strip()]
+            if lines:
+                return lines[-1]
+
+        return "Unknown error"
+
+    def forward_stream(stream, chunks: list[str], stream_name: str) -> None:
+        try:
+            for line in iter(stream.readline, ""):
+                chunks.append(line)
+                append_process_output(log_id, line, stream=stream_name)
+        finally:
+            stream.close()
+
+    try:
+        run_env = env.copy()
+        run_env["PYTHONUNBUFFERED"] = "1"
+
+        process = subprocess.Popen(
+            [sys.executable, "-u", str(script_path)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+            env=run_env,
+        )
+
+        register_active_process(log_id, process, department, tool, dt_start)
+
+        stdout_thread = threading.Thread(
+            target=forward_stream,
+            args=(process.stdout, stdout_chunks, "stdout"),
+            daemon=True,
+        )
+        stderr_thread = threading.Thread(
+            target=forward_stream,
+            args=(process.stderr, stderr_chunks, "stderr"),
+            daemon=True,
+        )
+        stdout_thread.start()
+        stderr_thread.start()
+
+        process.wait()
+        stdout_thread.join(timeout=2)
+        stderr_thread.join(timeout=2)
+
+        stdout = "".join(stdout_chunks)
+        stderr = "".join(stderr_chunks)
+        duration = time.time() - start_time
+        success = process.returncode == 0
+
+        manual_terminated = is_manual_terminated(log_id)
+        if not success and manual_terminated:
+            error_msg = "用户手动终止流程"
+        elif not success:
+            error_msg = extract_error_message(stdout, stderr)
+        else:
+            error_msg = None
+
+        log_execution(
+            department=department,
+            tool=tool,
+            config=config,
+            status="success" if success else "failed",
+            output=stdout or "",
+            error=error_msg,
+            duration=duration,
+            log_id=log_id,
+        )
+    except Exception as error:
+        duration = time.time() - start_time
+        log_execution(
+            department=department,
+            tool=tool,
+            config=config,
+            status="failed",
+            output="".join(stdout_chunks),
+            error=str(error),
+            duration=duration,
+            log_id=log_id,
+        )
+    finally:
+        unregister_process(log_id)
+
+
 @app.post("/api/departments/{department}/tools/{tool}/run")
 def run_tool(department: str, tool: str):
     dept_scripts = DEPARTMENT_SCRIPTS.get(department.upper())
@@ -383,7 +487,7 @@ def run_tool(department: str, tool: str):
     log_id = f"{time.time()}_{tool}"
     
     # 在后台线程启动脚本
-    executor.submit(_run_script_async, log_id, department.upper(), tool, script_path, env, config)
+    executor.submit(_run_script_async_live, log_id, department.upper(), tool, script_path, env, config)
     
     return {
         "success": True,

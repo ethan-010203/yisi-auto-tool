@@ -212,6 +212,10 @@ function openClearDialog() {
 function openDetailDialog(log) {
   selectedLog.value = log
   detailDialogOpen.value = true
+
+  if (log.status === 'running') {
+    loadLogs()
+  }
 }
 
 function closeDetailDialog() {
@@ -611,6 +615,14 @@ defineExpose({
             <span>任务正在执行中...</span>
           </div>
           <UiButton variant="outline" size="sm" @click="openTerminateDialog(selectedLog.id)">终止执行</UiButton>
+        </div>
+
+        <div v-if="selectedLog.status === 'running'" class="detail-section">
+          <div class="section-header">
+            <h4 class="section-title">实时输出</h4>
+            <span class="live-log-hint">每 2 秒自动刷新</span>
+          </div>
+          <pre class="log-output log-output-live">{{ selectedLog.output || selectedLog.error || '任务已启动，等待日志输出...' }}</pre>
         </div>
 
         <div v-if="selectedLog.status === 'success' && selectedLog.output" class="detail-section">
@@ -1044,6 +1056,11 @@ defineExpose({
   margin-bottom: 8px;
 }
 
+.live-log-hint {
+  font-size: 0.75rem;
+  color: var(--warning);
+}
+
 .copy-btn {
   display: inline-flex;
   align-items: center;
@@ -1085,6 +1102,10 @@ defineExpose({
   background: var(--danger-soft);
   color: var(--danger);
   border-color: var(--danger-border);
+}
+
+.log-output-live {
+  border-color: color-mix(in srgb, var(--warning) 40%, var(--border));
 }
 
 .running-section {
