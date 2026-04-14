@@ -6,6 +6,7 @@ import os
 import re
 import sys
 import time
+import traceback
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
@@ -70,6 +71,14 @@ MODEL_RECOGNITION_MESSAGE = "当前pdf内容包含【Exempla】或【Type d’im
 UK_IMPORT_ENTRY_MESSAGE = "当前pdf内容包含【IMPORT ENTRY ACCEPTANCE ADVICE】，无需调用模型识别"
 UK_VAT_REGISTRATION_MESSAGE = "当前pdf内容包含【VAT registration number】，无需调用模型识别"
 UK_MODEL_B_MESSAGE = "当前pdf内容不包含【VAT registration number】或【IMPORT ENTRY ACCEPTANCE ADVICE】，需调用模型识别"
+DT_B00_VAT_MESSAGE = "当前pdf内容包含【B00 - VAT】，无需调用模型识别，默认是递延单据"
+DT_MIDDEL_BTW_MESSAGE = "当前pdf内容包含【Middel、Btw】，无需调用模型识别，默认是递延单据"
+DT_PERMISSION_MESSAGE = "当前pdf内容包含【PERMISSION FOR REMOVAL DOCUMENT】，无需调用模型识别，默认是递延单据"
+DT_REQUIRED_FIELDS_UNCERTAIN_MESSAGE = "MRN号、单据日期、单据类型为不确定"
+DT_DOCUMENT_TYPE_UNCERTAIN_MESSAGE = "单据类型不确定"
+DT_UNSUPPORTED_DOCUMENT_MESSAGE = "该单据种类未开发"
+UK_REQUIRED_FIELDS_UNCERTAIN_MESSAGE = "MRN号、单据日期、tax_assessed为不确定"
+UK_DOCUMENT_TYPE_UNCERTAIN_MESSAGE = "单据类型为不确定"
 PDF_PAGE_LIMIT = 20
 SPREADSHEET_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 RELATIONSHIP_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -85,6 +94,13 @@ UK_DATE_SLASH_PATTERN = re.compile(r"\b(?:0[1-9]|[12]\d|3[01])\/(?:0[1-9]|1[0-2]
 UK_IMPORT_ENTRY_B00_LINE_PATTERN = re.compile(r".*B00.*(?=\r?\n.*CDS)", re.IGNORECASE)
 UK_IMPORT_ENTRY_B00_LINE_FALLBACK_PATTERN = re.compile(r"^[^\r\n]*B00[^\r\n]*$", re.IGNORECASE | re.MULTILINE)
 UK_TOTAL_VAT_LINE_PATTERN = re.compile(r"Total VAT (?:postponed|paid):\s*[£\u00A3]?[\d,.]+", re.IGNORECASE)
+DT_B00_VAT_LINE_PATTERN = re.compile(r"^.*B00\s*-\s*VAT.*$", re.IGNORECASE | re.MULTILINE)
+DT_B00_VAT_MARKER_PATTERN = re.compile(r"B00\s*-\s*VAT", re.IGNORECASE)
+DT_MIDDEL_BTW_AMOUNT_PATTERN = re.compile(
+    r"Middel:.*?Btw\s*[\r\n]+\s*Belastbare maatstaf:\s*(?:€\s*)?([\d.,]+)",
+    re.IGNORECASE | re.DOTALL,
+)
+DT_CURRENCY_AMOUNT_PATTERN = re.compile(r"[€£￡]\s*[\d.]+,\d{2}")
 MODEL_TRIGGER_PATTERN = re.compile(r"exempla|type d[’']imposition:", re.IGNORECASE)
 MODEL_JSON_BLOCK_PATTERN = re.compile(r"\{.*\}", re.DOTALL)
 DEFERRED_DOCUMENT_TYPE_VALUES = {"0", "dispense", "vrijstelling", "vrijgestelling"}
@@ -173,6 +189,28 @@ UK_MODEL_B_SYSTEM_PROMPT = (
     '只输出合法 JSON：{"tax_assessed": string | null, "payment_amount": string | null}'
 )
 UK_MODEL_B_KEYWORDS = ["B00", "Tax type", "Assessed", "Amount"]
+MAX_RECENT_LOGS = 30
+RECENT_LOGS: list[str] = []
+
+
+def log_progress(message: str, customer_id: str = "", pdf_name: str = "") -> None:
+    parts = ["[CONSULT]"]
+    if customer_id:
+        parts.append(f"[客户号:{customer_id}]")
+    if pdf_name:
+        parts.append(f"[PDF:{pdf_name}]")
+    parts.append(message)
+    full_message = " ".join(parts)
+    RECENT_LOGS.append(full_message)
+    if len(RECENT_LOGS) > MAX_RECENT_LOGS:
+        del RECENT_LOGS[:-MAX_RECENT_LOGS]
+    print(full_message, flush=True)
+
+
+def format_recent_logs() -> str:
+    if not RECENT_LOGS:
+        return ""
+    return "\n".join(RECENT_LOGS[-MAX_RECENT_LOGS:])
 
 
 def load_config() -> dict:
@@ -546,6 +584,7 @@ def pdf_to_images_b64(file_path: Path) -> tuple[list[str], dict[str, object]]:
     }
 
     filter_started_at = time.time()
+    log_progress("开始德国模型筛页与转图", pdf_name=file_path.name)
     with fitz.open(str(file_path)) as document:
         stats["total_pages"] = len(document)
 
@@ -594,6 +633,7 @@ def pdf_to_images_b64_by_keywords(
     }
 
     filter_started_at = time.time()
+    log_progress(f"开始英国模型筛页，关键字={keywords}", pdf_name=file_path.name)
     with fitz.open(str(file_path)) as document:
         stats["total_pages"] = len(document)
 
@@ -637,8 +677,10 @@ def parse_model_json_response(response_text: str) -> dict[str, object]:
 
 
 def recognize_pdf_with_model(pdf_file_path: Path) -> dict[str, object]:
+    log_progress("开始调用德国模型识别流程", pdf_name=pdf_file_path.name)
     image_urls, _stats = pdf_to_images_b64(pdf_file_path)
     if not image_urls:
+        log_progress("未筛选到可用于德国模型识别的页面", pdf_name=pdf_file_path.name)
         return {
             "original_amount": None,
             "document_type": None,
@@ -672,6 +714,7 @@ def recognize_pdf_with_model(pdf_file_path: Path) -> dict[str, object]:
     )
     response_text = response.choices[0].message.content or ""
     parsed_response = parse_model_json_response(response_text)
+    log_progress("德国模型识别完成", pdf_name=pdf_file_path.name)
     return {
         "original_amount": parsed_response.get("original_amount"),
         "document_type": parsed_response.get("document_type"),
@@ -680,6 +723,7 @@ def recognize_pdf_with_model(pdf_file_path: Path) -> dict[str, object]:
 
 
 def recognize_uk_pdf_with_model_b(pdf_file_path: Path) -> dict[str, object]:
+    log_progress("开始调用英国模型识别流程", pdf_name=pdf_file_path.name)
     image_urls, _stats = pdf_to_images_b64_by_keywords(
         pdf_file_path,
         keywords=UK_MODEL_B_KEYWORDS,
@@ -713,6 +757,7 @@ def recognize_uk_pdf_with_model_b(pdf_file_path: Path) -> dict[str, object]:
     )
     response_text = response.choices[0].message.content or ""
     parsed_response = parse_model_json_response(response_text)
+    log_progress("英国模型识别完成", pdf_name=pdf_file_path.name)
     return {
         "tax_assessed": parsed_response.get("tax_assessed"),
         "payment_amount": parsed_response.get("payment_amount"),
@@ -777,7 +822,7 @@ def extract_uk_vat_amount_and_type(pdf_text: str) -> tuple[str, str]:
     if target_line_match is not None:
         target_line = target_line_match.group(0)
         _, _, amount_part = target_line.partition(":")
-        original_amount = amount_part.strip().replace("£", "").replace("￡", "").strip()
+        original_amount = amount_part.strip()
 
     normalized_pdf_text = pdf_text.casefold()
     if "postponed" in normalized_pdf_text:
@@ -785,6 +830,120 @@ def extract_uk_vat_amount_and_type(pdf_text: str) -> tuple[str, str]:
     if "c79" in normalized_pdf_text:
         return original_amount, "可抵扣"
     return original_amount, "不确定"
+
+
+def extract_dt_b00_vat_amounts(pdf_text: str) -> tuple[str, str]:
+    lines = pdf_text.splitlines()
+    result: list[str] = []
+    total_sum = 0.0
+    matched_indexes = [
+        index for index, line in enumerate(lines) if DT_B00_VAT_MARKER_PATTERN.search(line)
+    ]
+
+    for index in matched_indexes:
+        candidate_lines = [lines[index].strip()]
+        for offset in range(1, 4):
+            next_index = index + offset
+            if next_index >= len(lines):
+                break
+            next_line = lines[next_index].strip()
+            if DT_B00_VAT_MARKER_PATTERN.search(next_line):
+                break
+            candidate_lines.append(next_line)
+
+        candidate_text = " ".join(candidate_lines)
+        amount_matches = DT_CURRENCY_AMOUNT_PATTERN.findall(candidate_text)
+        if not amount_matches:
+            continue
+
+        selected_amount = amount_matches[-2] if len(amount_matches) >= 2 else amount_matches[0]
+        amount_str = re.sub(r"\s+", " ", selected_amount).strip()
+        if amount_str.startswith(("€", "£", "￡")) and len(amount_str) > 1 and amount_str[1] != " ":
+            amount_str = f"{amount_str[0]} {amount_str[1:].strip()}"
+
+        result.append(amount_str)
+
+        num_str = (
+            amount_str.replace("€ ", "")
+            .replace("£ ", "")
+            .replace("￡ ", "")
+            .replace(".", "")
+            .replace(",", ".")
+        )
+        total_sum += float(num_str)
+
+    if not result:
+        return "", ""
+
+    return "+".join(result), str(round(total_sum, 2))
+
+
+def extract_dt_middel_btw_amounts(pdf_text: str) -> tuple[str, str]:
+    amounts = [match.strip() for match in DT_MIDDEL_BTW_AMOUNT_PATTERN.findall(pdf_text) if match.strip()]
+    if not amounts:
+        return "", ""
+
+    total_result = 0.0
+    for amount in amounts:
+        num_str = amount.replace("€", "").replace(" ", "").replace(".", "").replace(",", ".")
+        total_result += float(num_str)
+
+    return "+".join(amounts), str(round(total_result, 2))
+
+
+def parse_amount_text(value: str) -> float:
+    normalized_value = value.strip()
+    if not normalized_value:
+        return 0.0
+
+    normalized_value = (
+        normalized_value.replace("€", "")
+        .replace("£", "")
+        .replace("￡", "")
+        .replace(" ", "")
+    )
+
+    if "." in normalized_value and "," in normalized_value:
+        if normalized_value.rfind(",") > normalized_value.rfind("."):
+            normalized_value = normalized_value.replace(".", "").replace(",", ".")
+        else:
+            normalized_value = normalized_value.replace(",", "")
+    elif "," in normalized_value:
+        decimal_part = normalized_value.rsplit(",", 1)[-1]
+        if decimal_part.isdigit() and len(decimal_part) <= 2:
+            normalized_value = normalized_value.replace(".", "").replace(",", ".")
+        else:
+            normalized_value = normalized_value.replace(",", "")
+
+    return float(normalized_value)
+
+
+def format_total_amount(value: float) -> str:
+    return f"{value:.2f}"
+
+
+def calculate_result_sheet_totals(rows: list[list[str]]) -> tuple[str, str]:
+    deferred_total = 0.0
+    deductible_total = 0.0
+
+    for row in rows:
+        deferred_total += parse_amount_text(row[11]) if len(row) > 11 and row[11].strip() else 0.0
+        deductible_total += parse_amount_text(row[12]) if len(row) > 12 and row[12].strip() else 0.0
+
+    return format_total_amount(deferred_total), format_total_amount(deductible_total)
+
+
+def build_result_total_row(deferred_total: str, deductible_total: str) -> list[str]:
+    return build_result_row(
+        customer_id="",
+        country="",
+        company_name="",
+        declaration_period="",
+        tax_number="",
+        pdf_file_name="合计",
+        deferred_document=deferred_total,
+        deductible_document=deductible_total,
+    )
 
 
 def build_missing_customer_summary_row(customer_id: str) -> list[str]:
@@ -804,10 +963,10 @@ def build_zero_pdf_summary_row(customer_id: str, customer_record: dict[str, str]
         customer_record["declaration_method"],
         customer_record["tax_number"],
         str(pdf_count),
-        "",
-        "",
-        "",
-        "",
+        "0",
+        "0",
+        "0.00",
+        "0.00",
         ZERO_PDF_MESSAGE,
     ]
 
@@ -818,6 +977,8 @@ def build_customer_summary_row(
     pdf_count: int,
     success_count: int,
     failure_count: int,
+    deferred_total: str,
+    deductible_total: str,
 ) -> list[str]:
     return [
         customer_record["agent"],
@@ -830,8 +991,8 @@ def build_customer_summary_row(
         str(pdf_count),
         str(success_count),
         str(failure_count),
-        "",
-        "",
+        deferred_total,
+        deductible_total,
         "",
     ]
 
@@ -874,15 +1035,122 @@ def build_result_row(
     ]
 
 
+def normalize_amount_for_output(amount: str) -> str:
+    return amount.replace(",", "").strip() if amount else ""
+
+
+def build_uk_result_row(
+    customer_id: str,
+    customer_record: dict[str, str],
+    pdf_file_name: str,
+    document_date: str,
+    company_name_exists: str,
+    mrn_number: str,
+    original_amount: str,
+    document_type: str,
+) -> tuple[list[str], bool]:
+    normalized_document_type = document_type or "不确定"
+    raw_original_amount = original_amount.strip() if original_amount else ""
+    normalized_original_amount = normalize_amount_for_output(raw_original_amount)
+    deferred_document = ""
+    deductible_document = ""
+    error_message = ""
+    is_success = True
+
+    if normalized_document_type == "递延":
+        deferred_document = normalized_original_amount
+        if not mrn_number or not document_date or not raw_original_amount:
+            error_message = UK_REQUIRED_FIELDS_UNCERTAIN_MESSAGE
+            is_success = False
+    elif normalized_document_type == "可抵扣":
+        deductible_document = normalized_original_amount
+        if not mrn_number or not document_date or not raw_original_amount:
+            error_message = UK_REQUIRED_FIELDS_UNCERTAIN_MESSAGE
+            is_success = False
+    else:
+        error_message = UK_DOCUMENT_TYPE_UNCERTAIN_MESSAGE
+        is_success = False
+
+    return (
+        build_result_row(
+            customer_id=customer_id,
+            country=customer_record["declaration_country"],
+            company_name=customer_record["company_name_en"],
+            declaration_period=customer_record["declaration_period"],
+            tax_number=customer_record["tax_number"],
+            pdf_file_name=pdf_file_name,
+            document_date=document_date,
+            company_name_exists=company_name_exists,
+            mrn_number=mrn_number,
+            original_amount=raw_original_amount,
+            document_type=normalized_document_type,
+            deferred_document=deferred_document,
+            deductible_document=deductible_document,
+            error_message=error_message,
+        ),
+        is_success,
+    )
+
+
+def build_dt_result_row(
+    customer_id: str,
+    customer_record: dict[str, str],
+    pdf_file_name: str,
+    document_date: str,
+    company_name_exists: str,
+    mrn_number: str,
+    original_amount: str,
+    processed_amount: str,
+    document_type: str,
+    forced_error_message: str = "",
+) -> tuple[list[str], bool]:
+    normalized_document_type = document_type or "不确定"
+    deferred_document = ""
+    deductible_document = ""
+    error_message = forced_error_message
+    is_success = not forced_error_message
+
+    if normalized_document_type == "递延":
+        deferred_document = processed_amount
+        if forced_error_message:
+            is_success = False
+        elif not mrn_number or not document_date or not original_amount:
+            error_message = DT_REQUIRED_FIELDS_UNCERTAIN_MESSAGE
+            is_success = False
+    else:
+        error_message = forced_error_message or DT_DOCUMENT_TYPE_UNCERTAIN_MESSAGE
+        is_success = False
+
+    return (
+        build_result_row(
+            customer_id=customer_id,
+            country=customer_record["declaration_country"],
+            company_name=customer_record["company_name_en"],
+            declaration_period=customer_record["declaration_period"],
+            tax_number=customer_record["tax_number"],
+            pdf_file_name=pdf_file_name,
+            document_date=document_date,
+            company_name_exists=company_name_exists,
+            mrn_number=mrn_number,
+            original_amount=original_amount,
+            document_type=normalized_document_type,
+            deferred_document=deferred_document,
+            deductible_document=deductible_document,
+            error_message=error_message,
+        ),
+        is_success,
+    )
+
+
 def process_gt_pdf(
     customer_id: str,
     customer_record: dict[str, str],
     pdf_file_path: Path,
-) -> list[str]:
+) -> tuple[list[str], bool]:
+    log_progress("开始处理英国PDF", customer_id=customer_id, pdf_name=pdf_file_path.name)
     pdf_text = extract_pdf_text(pdf_file_path)
     original_amount = ""
     document_type = ""
-    error_message = ""
     mrn_number = extract_first_match(UK_MRN_PATTERN, pdf_text)
     document_date = extract_first_match(UK_DATE_DASH_PATTERN, pdf_text)
     if not document_date:
@@ -891,31 +1159,33 @@ def process_gt_pdf(
     normalized_pdf_text = pdf_text.casefold()
 
     if "import entry acceptance advice" in normalized_pdf_text:
-        error_message = UK_IMPORT_ENTRY_MESSAGE
+        log_progress("命中英国规则：IMPORT ENTRY ACCEPTANCE ADVICE", customer_id=customer_id, pdf_name=pdf_file_path.name)
         original_amount, document_type = extract_uk_import_entry_amount_and_type(pdf_text)
     elif "vat registration number" in normalized_pdf_text:
-        error_message = UK_VAT_REGISTRATION_MESSAGE
+        log_progress("命中英国规则：VAT registration number", customer_id=customer_id, pdf_name=pdf_file_path.name)
         original_amount, document_type = extract_uk_vat_amount_and_type(pdf_text)
     else:
-        error_message = UK_MODEL_B_MESSAGE
+        log_progress("未命中英国本地规则，转英国模型识别", customer_id=customer_id, pdf_name=pdf_file_path.name)
         model_result = recognize_uk_pdf_with_model_b(pdf_file_path)
         original_amount = normalize_model_field_value(model_result.get("tax_assessed"))
         payment_amount = model_result.get("payment_amount")
         document_type = resolve_uk_payment_amount_document_type(payment_amount)
 
-    return build_result_row(
+    log_progress(
+        f"英国PDF处理完成，单据类型={document_type or '空'}，原始金额={original_amount or '空'}",
         customer_id=customer_id,
-        country=customer_record["declaration_country"],
-        company_name=customer_record["company_name_en"],
-        declaration_period=customer_record["declaration_period"],
-        tax_number=customer_record["tax_number"],
+        pdf_name=pdf_file_path.name,
+    )
+
+    return build_uk_result_row(
+        customer_id=customer_id,
+        customer_record=customer_record,
         pdf_file_name=pdf_file_path.name,
         document_date=document_date,
         company_name_exists=company_name_exists,
         mrn_number=mrn_number,
         original_amount=original_amount,
         document_type=document_type,
-        error_message=error_message,
     )
 
 
@@ -923,45 +1193,60 @@ def process_dt_pdf(
     customer_id: str,
     customer_record: dict[str, str],
     pdf_file_path: Path,
-) -> list[str]:
+) -> tuple[list[str], bool]:
+    log_progress("开始处理德国PDF", customer_id=customer_id, pdf_name=pdf_file_path.name)
     pdf_text = extract_pdf_text(pdf_file_path)
     original_amount = ""
     document_type = ""
     processed_amount = ""
-    deferred_document = ""
-    deductible_document = ""
-    error_message = ""
+    forced_error_message = ""
     mrn_number = extract_first_match(UK_MRN_PATTERN, pdf_text)
     document_date = extract_first_match(UK_DATE_DASH_PATTERN, pdf_text)
     if not document_date:
         document_date = extract_first_match(UK_DATE_SLASH_PATTERN, pdf_text)
     company_name_exists = detect_company_name_exists(pdf_text, customer_record["company_name_en"])
+    normalized_pdf_text = pdf_text.casefold()
 
     if needs_model_recognition(pdf_text):
-        error_message = MODEL_RECOGNITION_MESSAGE
+        log_progress(MODEL_RECOGNITION_MESSAGE, customer_id=customer_id, pdf_name=pdf_file_path.name)
+        log_progress("命中德国模型识别条件", customer_id=customer_id, pdf_name=pdf_file_path.name)
         model_result = recognize_pdf_with_model(pdf_file_path)
         original_amount = normalize_model_field_value(model_result.get("original_amount"))
         document_type_raw = model_result.get("document_type")
         processed_amount = normalize_model_field_value(model_result.get("total_amount"))
         document_type = resolve_document_type(document_type_raw)
-        if document_type == "递延":
-            deferred_document = processed_amount
+    elif "b00 - vat" in normalized_pdf_text:
+        log_progress(DT_B00_VAT_MESSAGE, customer_id=customer_id, pdf_name=pdf_file_path.name)
+        document_type = "递延"
+        original_amount, processed_amount = extract_dt_b00_vat_amounts(pdf_text)
+    elif "middel" in normalized_pdf_text or "btw" in normalized_pdf_text:
+        log_progress(DT_MIDDEL_BTW_MESSAGE, customer_id=customer_id, pdf_name=pdf_file_path.name)
+        document_type = "递延"
+        original_amount, processed_amount = extract_dt_middel_btw_amounts(pdf_text)
+    elif "permission for removal document" in normalized_pdf_text:
+        log_progress(DT_PERMISSION_MESSAGE, customer_id=customer_id, pdf_name=pdf_file_path.name)
+        document_type = "递延"
+        forced_error_message = DT_UNSUPPORTED_DOCUMENT_MESSAGE
+    else:
+        forced_error_message = DT_UNSUPPORTED_DOCUMENT_MESSAGE
 
-    return build_result_row(
+    log_progress(
+        f"德国PDF处理完成，单据类型={document_type or '空'}，原始金额={original_amount or '空'}",
         customer_id=customer_id,
-        country=customer_record["declaration_country"],
-        company_name=customer_record["company_name_en"],
-        declaration_period=customer_record["declaration_period"],
-        tax_number=customer_record["tax_number"],
+        pdf_name=pdf_file_path.name,
+    )
+
+    return build_dt_result_row(
+        customer_id=customer_id,
+        customer_record=customer_record,
         pdf_file_name=pdf_file_path.name,
         document_date=document_date,
         company_name_exists=company_name_exists,
         mrn_number=mrn_number,
         original_amount=original_amount,
+        processed_amount=processed_amount,
         document_type=document_type,
-        deferred_document=deferred_document,
-        deductible_document=deductible_document,
-        error_message=error_message,
+        forced_error_message=forced_error_message,
     )
 
 
@@ -974,15 +1259,19 @@ def process_customer_folders(
     zero_pdf_count = 0
 
     for customer_id, customer_folder_path in customer_folders:
+        log_progress(f"开始处理客户号文件夹: {customer_folder_path}", customer_id=customer_id)
         customer_record = customer_records.get(customer_id)
         if customer_record is None:
+            log_progress(MISSING_CUSTOMER_MESSAGE, customer_id=customer_id)
             rows.append(build_missing_customer_summary_row(customer_id))
             missing_customer_count += 1
             continue
 
         pdf_file_paths = collect_customer_pdf_files(customer_folder_path)
         pdf_count = len(pdf_file_paths)
+        log_progress(f"发现PDF数量: {pdf_count}", customer_id=customer_id)
         if pdf_count == 0:
+            log_progress(ZERO_PDF_MESSAGE, customer_id=customer_id)
             rows.append(build_zero_pdf_summary_row(customer_id, customer_record, pdf_count))
             zero_pdf_count += 1
             continue
@@ -993,9 +1282,11 @@ def process_customer_folders(
         customer_id_upper = customer_id.upper()
 
         for pdf_file_path in pdf_file_paths:
+            log_progress("开始检查PDF页数", customer_id=customer_id, pdf_name=pdf_file_path.name)
             try:
                 pdf_page_count = count_pdf_pages(pdf_file_path)
             except Exception as error:
+                log_progress(f"读取PDF页数失败: {error}", customer_id=customer_id, pdf_name=pdf_file_path.name)
                 result_rows.append(
                     build_result_row(
                         customer_id=customer_id,
@@ -1011,6 +1302,11 @@ def process_customer_folders(
                 continue
 
             if pdf_page_count >= PDF_PAGE_LIMIT:
+                log_progress(
+                    f"PDF页数为 {pdf_page_count}，超过限制",
+                    customer_id=customer_id,
+                    pdf_name=pdf_file_path.name,
+                )
                 result_rows.append(
                     build_result_row(
                         customer_id=customer_id,
@@ -1026,6 +1322,7 @@ def process_customer_folders(
                 continue
 
             if "GT" not in customer_id_upper and "DT" not in customer_id_upper:
+                log_progress(INVALID_COUNTRY_MESSAGE, customer_id=customer_id, pdf_name=pdf_file_path.name)
                 result_rows.append(
                     build_result_row(
                         customer_id=customer_id,
@@ -1042,9 +1339,14 @@ def process_customer_folders(
 
             if "GT" in customer_id_upper:
                 try:
-                    result_rows.append(process_gt_pdf(customer_id, customer_record, pdf_file_path))
-                    success_count += 1
+                    result_row, is_success = process_gt_pdf(customer_id, customer_record, pdf_file_path)
+                    result_rows.append(result_row)
+                    if is_success:
+                        success_count += 1
+                    else:
+                        failure_count += 1
                 except Exception as error:
+                    log_progress(f"英国PDF处理失败: {error}", customer_id=customer_id, pdf_name=pdf_file_path.name)
                     result_rows.append(
                         build_result_row(
                             customer_id=customer_id,
@@ -1061,9 +1363,14 @@ def process_customer_folders(
 
             if "DT" in customer_id_upper:
                 try:
-                    result_rows.append(process_dt_pdf(customer_id, customer_record, pdf_file_path))
-                    success_count += 1
+                    result_row, is_success = process_dt_pdf(customer_id, customer_record, pdf_file_path)
+                    result_rows.append(result_row)
+                    if is_success:
+                        success_count += 1
+                    else:
+                        failure_count += 1
                 except Exception as error:
+                    log_progress(f"德国PDF处理失败: {error}", customer_id=customer_id, pdf_name=pdf_file_path.name)
                     result_rows.append(
                         build_result_row(
                             customer_id=customer_id,
@@ -1078,12 +1385,28 @@ def process_customer_folders(
                     failure_count += 1
                 continue
 
+        log_progress(
+            f"客户号处理完成，成功={success_count}，失败={failure_count}，结果表即将写入",
+            customer_id=customer_id,
+        )
+        deferred_total, deductible_total = calculate_result_sheet_totals(result_rows[1:])
+        result_rows.append(build_result_total_row(deferred_total, deductible_total))
         write_workbook(
             build_result_output_path(customer_folder_path, customer_id),
             RESULT_SHEET_NAME,
             result_rows,
         )
-        rows.append(build_customer_summary_row(customer_id, customer_record, pdf_count, success_count, failure_count))
+        rows.append(
+            build_customer_summary_row(
+                customer_id,
+                customer_record,
+                pdf_count,
+                success_count,
+                failure_count,
+                deferred_total,
+                deductible_total,
+            )
+        )
 
     return rows, missing_customer_count, zero_pdf_count
 
@@ -1094,6 +1417,7 @@ def initialize_summary_workbook(folder_path: Path) -> Path:
 
 
 def main() -> int:
+    RECENT_LOGS.clear()
     print("[CONSULT] 递延税发票识别任务启动中...")
 
     try:
@@ -1108,7 +1432,14 @@ def main() -> int:
         )
         write_summary_workbook(summary_path, summary_rows)
     except Exception as error:
-        print(f"[CONSULT] 执行失败: {error}")
+        recent_logs = format_recent_logs()
+        traceback_text = traceback.format_exc().strip()
+        failure_message = f"[CONSULT] 执行失败: {error}"
+        if recent_logs:
+            failure_message += f"\n[CONSULT] 最近运行日志回放:\n{recent_logs}"
+        if traceback_text:
+            failure_message += f"\n[CONSULT] Traceback:\n{traceback_text}"
+        print(failure_message, flush=True)
         return 1
 
     print(f"[CONSULT] 递延税单据总文件夹: {folder_path}")

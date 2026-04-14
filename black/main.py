@@ -392,9 +392,11 @@ def _run_script_async_live(log_id: str, department: str, tool: str, script_path:
     try:
         run_env = env.copy()
         run_env["PYTHONUNBUFFERED"] = "1"
+        run_env["PYTHONIOENCODING"] = "utf-8"
+        run_env["PYTHONUTF8"] = "1"
 
         process = subprocess.Popen(
-            [sys.executable, "-u", str(script_path)],
+            [sys.executable, "-X", "utf8", "-u", str(script_path)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

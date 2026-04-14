@@ -4,6 +4,7 @@
   "listExcelPath": "",
   "email": "infoeuvat@163.com",
   "authCode": "FPdskjj8kTW5Fu4q",
-  "maxEmails": 100,
+  "maxEmails": 50,
+  "subjectKeyword": "注销成功",
   "selectedFolder": "Citeo-&bOiVAA-"
 }

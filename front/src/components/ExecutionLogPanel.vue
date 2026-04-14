@@ -18,7 +18,7 @@ const searchQuery = ref('')
 const statusFilter = ref('all')
 
 const pollInterval = ref(null)
-const POLL_DELAY = 2000
+const POLL_DELAY = 1000
 
 const clearDialogOpen = ref(false)
 const clearLoading = ref(false)
@@ -27,6 +27,7 @@ const selectedLog = ref(null)
 const terminateDialogOpen = ref(false)
 const terminateLoading = ref(false)
 const terminateTargetId = ref(null)
+const showFailureOutput = ref(false)
 
 const toasts = ref([])
 const toastTimers = new Map()
@@ -212,6 +213,7 @@ function openClearDialog() {
 function openDetailDialog(log) {
   selectedLog.value = log
   detailDialogOpen.value = true
+  showFailureOutput.value = false
 
   if (log.status === 'running') {
     loadLogs()
@@ -221,6 +223,7 @@ function openDetailDialog(log) {
 function closeDetailDialog() {
   detailDialogOpen.value = false
   selectedLog.value = null
+  showFailureOutput.value = false
 }
 
 async function confirmClearLogs() {
@@ -579,6 +582,7 @@ defineExpose({
 
     <UiDialog
       v-model:open="detailDialogOpen"
+      size="wide"
       :title="selectedLog ? getToolName(selectedLog.tool) : '日志详情'"
       @update:open="!$event && closeDetailDialog()"
     >
@@ -609,18 +613,20 @@ defineExpose({
           </div>
         </div>
 
-        <div v-if="selectedLog.status === 'running'" class="detail-section running-section">
+        <div v-if="selectedLog.status === 'running'" class="detail-section running-toolbar">
           <div class="running-indicator">
             <div class="spinner"></div>
             <span>任务正在执行中...</span>
           </div>
-          <UiButton variant="outline" size="sm" @click="openTerminateDialog(selectedLog.id)">终止执行</UiButton>
+          <div class="running-actions">
+            <span class="live-log-hint">每 1 秒自动刷新</span>
+            <UiButton variant="outline" size="sm" @click="openTerminateDialog(selectedLog.id)">终止执行</UiButton>
+          </div>
         </div>
 
         <div v-if="selectedLog.status === 'running'" class="detail-section">
           <div class="section-header">
             <h4 class="section-title">实时输出</h4>
-            <span class="live-log-hint">每 2 秒自动刷新</span>
           </div>
           <pre class="log-output log-output-live">{{ selectedLog.output || selectedLog.error || '任务已启动，等待日志输出...' }}</pre>
         </div>
@@ -645,6 +651,21 @@ defineExpose({
             </button>
           </div>
           <pre class="log-error-detail">{{ selectedLog.error }}</pre>
+        </div>
+
+        <div v-if="selectedLog.status === 'failed' && selectedLog.output" class="detail-section">
+          <div class="section-header">
+            <div class="detail-section-heading">
+              <h4 class="section-title">运行日志</h4>
+              <UiBadge variant="outline">可展开查看</UiBadge>
+            </div>
+            <UiButton variant="outline" @click="showFailureOutput = !showFailureOutput">
+              {{ showFailureOutput ? '收起日志' : '查看运行日志' }}
+            </UiButton>
+          </div>
+          <div v-if="showFailureOutput" class="log-output-shell">
+            <pre class="log-output">{{ selectedLog.output }}</pre>
+          </div>
         </div>
 
         <div v-if="selectedLog.status !== 'running' && !selectedLog.output && !selectedLog.error" class="detail-section empty">
@@ -675,6 +696,20 @@ defineExpose({
 <style scoped>
 .log-panel {
   padding: 20px;
+}
+
+.detail-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.log-output-shell {
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--muted) / 0.35);
+  padding: 0;
+  overflow: hidden;
 }
 
 .log-header {
@@ -1106,6 +1141,25 @@ defineExpose({
 
 .log-output-live {
   border-color: color-mix(in srgb, var(--warning) 40%, var(--border));
+  min-height: 240px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.running-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0;
+}
+
+.running-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .running-section {
@@ -1122,6 +1176,17 @@ defineExpose({
   gap: 12px;
   color: var(--warning);
   font-size: 0.875rem;
+}
+
+@media (max-width: 640px) {
+  .running-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .running-actions {
+    justify-content: space-between;
+  }
 }
 
 .spinner {

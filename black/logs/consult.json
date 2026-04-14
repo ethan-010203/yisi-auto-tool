@@ -1,5 +1,380 @@
 [
   {
+    "id": "1776141158.9083874_invoice_recognizer",
+    "timestamp": "2026-04-14T12:32:39.713027",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/德国",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/德国/已出草稿-2（英德单据+其他平台+分站点核算）(1).xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "success",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] [客户号:LEDT00347] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\LEDT00347\n[CONSULT] [客户号:LEDT00347] 发现PDF数量: 2\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 当前pdf内容包含【B00 - VAT】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 德国PDF处理完成，单据类型=递延，原始金额=€ 36.034,90+€ 4.184,06+€ 3.076,90\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 当前pdf内容包含【PERMISSION FOR REMOVAL DOCUMENT】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 德国PDF处理完成，单据类型=递延，原始金额=空\n[CONSULT] [客户号:LEDT00347] 客户号处理完成，成功=0，失败=2，结果表即将写入\n[CONSULT] 递延税单据总文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\n[CONSULT] Excel 清单文件路径: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\已出草稿-2（英德单据+其他平台+分站点核算）(1).xlsx\n[CONSULT] 客户号文件夹数量: 1\n[CONSULT] 总清单客户号数量: 552\n[CONSULT] 未在总清单命中的客户号数量: 0\n[CONSULT] 发票个数为0的客户号数量: 0\n[CONSULT] 汇总表已更新: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\汇总表.xlsx\n",
+    "error": null,
+    "duration": 0.8
+  },
+  {
+    "id": "1776141151.9365058_invoice_recognizer",
+    "timestamp": "2026-04-14T12:32:32.856198",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/德国",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/德国/已出草稿-2（英德单据+其他平台+分站点核算）(1).xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "failed",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] [客户号:LEDT00347] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\LEDT00347\n[CONSULT] [客户号:LEDT00347] 发现PDF数量: 2\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 当前pdf内容包含【B00 - VAT】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 德国PDF处理完成，单据类型=递延，原始金额=€ 36.034,90+€ 4.184,06+€ 3.076,90\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 当前pdf内容包含【PERMISSION FOR REMOVAL DOCUMENT】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 德国PDF处理完成，单据类型=递延，原始金额=空\n[CONSULT] [客户号:LEDT00347] 客户号处理完成，成功=0，失败=2，结果表即将写入\n[CONSULT] 执行失败: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\德国\\\\LEDT00347\\\\LEDT00347-结果输出表格.xlsx'\n[CONSULT] 最近运行日志回放:\n[CONSULT] [客户号:LEDT00347] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\LEDT00347\n[CONSULT] [客户号:LEDT00347] 发现PDF数量: 2\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 当前pdf内容包含【B00 - VAT】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 德国PDF处理完成，单据类型=递延，原始金额=€ 36.034,90+€ 4.184,06+€ 3.076,90\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 当前pdf内容包含【PERMISSION FOR REMOVAL DOCUMENT】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 德国PDF处理完成，单据类型=递延，原始金额=空\n[CONSULT] [客户号:LEDT00347] 客户号处理完成，成功=0，失败=2，结果表即将写入\n[CONSULT] Traceback:\nTraceback (most recent call last):\n  File \"E:\\localhost-auto\\yisi-auto-tool-1\\black\\scripts\\consult\\invoice_recognizer.py\", line 1429, in main\n    summary_rows, missing_customer_count, zero_pdf_count = process_customer_folders(\n                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"E:\\localhost-auto\\yisi-auto-tool-1\\black\\scripts\\consult\\invoice_recognizer.py\", line 1394, in process_customer_folders\n    write_workbook(\n  File \"E:\\localhost-auto\\yisi-auto-tool-1\\black\\scripts\\consult\\invoice_recognizer.py\", line 373, in write_workbook\n    with ZipFile(workbook_path, \"w\", compression=ZIP_DEFLATED) as workbook:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\ProgramData\\anaconda3\\Lib\\zipfile\\__init__.py\", line 1331, in __init__\n    self.fp = io.open(file, filemode)\n              ^^^^^^^^^^^^^^^^^^^^^^^\nPermissionError: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\德国\\\\LEDT00347\\\\LEDT00347-结果输出表格.xlsx'\n",
+    "error": "PermissionError: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\德国\\\\LEDT00347\\\\LEDT00347-结果输出表格.xlsx'",
+    "duration": 0.92
+  },
+  {
+    "id": "1776140476.9648814_invoice_recognizer",
+    "timestamp": "2026-04-14T12:21:57.449688",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/德国",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/德国/已出草稿-2（英德单据+其他平台+分站点核算）(1).xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "success",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] [客户号:LEDT00347] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\LEDT00347\n[CONSULT] [客户号:LEDT00347] 发现PDF数量: 10\n[CONSULT] [客户号:LEDT00347] [PDF:SZHL2508074701.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:SZHL2508074701.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:SZHL2508074701.pdf] 当前pdf内容包含【Exempla】或【Type d’imposition:】，需调用模型识别\n[CONSULT] [客户号:LEDT00347] [PDF:SZHL2508074701.pdf] 命中德国模型识别条件\n[CONSULT] [PDF:SZHL2508074701.pdf] 开始调用德国模型识别流程\n[CONSULT] [PDF:SZHL2508074701.pdf] 开始德国模型筛页与转图\n[CONSULT] [PDF:SZHL2508074701.pdf] 德国模型识别完成\n[CONSULT] [客户号:LEDT00347] [PDF:SZHL2508074701.pdf] 德国PDF处理完成，单据类型=不确定，原始金额=218.78 + 658.56 + 164.75 + 274.59\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延1.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延1.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延1.pdf] 当前pdf内容包含【Exempla】或【Type d’imposition:】，需调用模型识别\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延1.pdf] 命中德国模型识别条件\n[CONSULT] [PDF:德国递延1.pdf] 开始调用德国模型识别流程\n[CONSULT] [PDF:德国递延1.pdf] 开始德国模型筛页与转图\n[CONSULT] [PDF:德国递延1.pdf] 德国模型识别完成\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延1.pdf] 德国PDF处理完成，单据类型=递延，原始金额=454.2 + 1423.77 + 1493.13 + 4410.72 + 812.42 + 761.58\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延2.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延2.pdf] 当前pdf内容包含【Exempla】或【Type d’imposition:】，需调用模型识别\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延2.pdf] 命中德国模型识别条件\n[CONSULT] [PDF:德国递延2.pdf] 开始调用德国模型识别流程\n[CONSULT] [PDF:德国递延2.pdf] 开始德国模型筛页与转图\n[CONSULT] [PDF:德国递延2.pdf] 德国模型识别完成\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延2.pdf] 德国PDF处理完成，单据类型=不确定，原始金额=1612,60 + 848,95 + 2046,61\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延3.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延3.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延3.pdf] 当前pdf内容包含【Exempla】或【Type d’imposition:】，需调用模型识别\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延3.pdf] 命中德国模型识别条件\n[CONSULT] [PDF:德国递延3.pdf] 开始调用德国模型识别流程\n[CONSULT] [PDF:德国递延3.pdf] 开始德国模型筛页与转图\n[CONSULT] [PDF:德国递延3.pdf] 德国模型识别完成\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延3.pdf] 德国PDF处理完成，单据类型=不确定，原始金额=2.457,00\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延4.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延4.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延4.pdf] 当前pdf内容包含【Exempla】或【Type d’imposition:】，需调用模型识别\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延4.pdf] 命中德国模型识别条件\n[CONSULT] [PDF:德国递延4.pdf] 开始调用德国模型识别流程\n[CONSULT] [PDF:德国递延4.pdf] 开始德国模型筛页与转图\n[CONSULT] [PDF:德国递延4.pdf] 德国模型识别完成\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延4.pdf] 德国PDF处理完成，单据类型=递延，原始金额=9240,61\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延5.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延5.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延5.pdf] 当前pdf内容包含【Middel、Btw】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延5.pdf] 德国PDF处理完成，单据类型=递延，原始金额=26.287,31+2.376,33+878,32\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延6.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延6.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延6.pdf] 当前pdf内容包含【Middel、Btw】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延6.pdf] 德国PDF处理完成，单据类型=递延，原始金额=7.257,60+2.880,00+9.000,00\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 当前pdf内容包含【B00 - VAT】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 德国PDF处理完成，单据类型=递延，原始金额=空\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新1.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新1.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新1.pdf] 当前pdf内容包含【Exempla】或【Type d’imposition:】，需调用模型识别\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新1.pdf] 命中德国模型识别条件\n[CONSULT] [PDF:德国递延新1.pdf] 开始调用德国模型识别流程\n[CONSULT] [PDF:德国递延新1.pdf] 开始德国模型筛页与转图\n[CONSULT] [PDF:德国递延新1.pdf] 德国模型识别完成\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新1.pdf] 德国PDF处理完成，单据类型=不确定，原始金额=6792,99 + 10550,75 + 1265,93\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 当前pdf内容包含【PERMISSION FOR REMOVAL DOCUMENT】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 德国PDF处理完成，单据类型=递延，原始金额=空\n[CONSULT] [客户号:LEDT00347] 客户号处理完成，成功=3，失败=7，结果表即将写入\n[CONSULT] 递延税单据总文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\n[CONSULT] Excel 清单文件路径: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\已出草稿-2（英德单据+其他平台+分站点核算）(1).xlsx\n[CONSULT] 客户号文件夹数量: 1\n[CONSULT] 总清单客户号数量: 552\n[CONSULT] 未在总清单命中的客户号数量: 0\n[CONSULT] 发票个数为0的客户号数量: 0\n[CONSULT] 汇总表已更新: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\汇总表.xlsx\n",
+    "error": null,
+    "duration": 40.48
+  },
+  {
+    "id": "1776140077.3155975_invoice_recognizer",
+    "timestamp": "2026-04-14T12:15:19.218666",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/德国",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/德国/已出草稿-2（英德单据+其他平台+分站点核算）(1).xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "success",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] [客户号:LEDT00347] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\LEDT00347\n[CONSULT] [客户号:LEDT00347] 发现PDF数量: 10\n[CONSULT] [客户号:LEDT00347] [PDF:SZHL2508074701.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:SZHL2508074701.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:SZHL2508074701.pdf] 当前pdf内容包含【Exempla】或【Type d’imposition:】，需调用模型识别\n[CONSULT] [客户号:LEDT00347] [PDF:SZHL2508074701.pdf] 命中德国模型识别条件\n[CONSULT] [PDF:SZHL2508074701.pdf] 开始调用德国模型识别流程\n[CONSULT] [PDF:SZHL2508074701.pdf] 开始德国模型筛页与转图\n[CONSULT] [PDF:SZHL2508074701.pdf] 德国模型识别完成\n[CONSULT] [客户号:LEDT00347] [PDF:SZHL2508074701.pdf] 德国PDF处理完成，单据类型=不确定，原始金额=218.78 + 658.56 + 164.75 + 274.59\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延1.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延1.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延1.pdf] 当前pdf内容包含【Exempla】或【Type d’imposition:】，需调用模型识别\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延1.pdf] 命中德国模型识别条件\n[CONSULT] [PDF:德国递延1.pdf] 开始调用德国模型识别流程\n[CONSULT] [PDF:德国递延1.pdf] 开始德国模型筛页与转图\n[CONSULT] [PDF:德国递延1.pdf] 德国模型识别完成\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延1.pdf] 德国PDF处理完成，单据类型=不确定，原始金额=454.2 + 1423.77 + 1493.13 + 4410.72 + 812.42 + 761.58\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延2.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延2.pdf] 当前pdf内容包含【Middel、Btw】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延2.pdf] 德国PDF处理完成，单据类型=递延，原始金额=空\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延3.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延3.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延3.pdf] 当前pdf内容包含【Middel、Btw】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延3.pdf] 德国PDF处理完成，单据类型=递延，原始金额=空\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延4.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延4.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延4.pdf] 当前pdf内容包含【Exempla】或【Type d’imposition:】，需调用模型识别\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延4.pdf] 命中德国模型识别条件\n[CONSULT] [PDF:德国递延4.pdf] 开始调用德国模型识别流程\n[CONSULT] [PDF:德国递延4.pdf] 开始德国模型筛页与转图\n[CONSULT] [PDF:德国递延4.pdf] 德国模型识别完成\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延4.pdf] 德国PDF处理完成，单据类型=递延，原始金额=9240,61\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延5.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延5.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延5.pdf] 当前pdf内容包含【Middel、Btw】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延5.pdf] 德国PDF处理完成，单据类型=递延，原始金额=26.287,31+2.376,33+878,32\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延6.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延6.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延6.pdf] 当前pdf内容包含【Middel、Btw】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延6.pdf] 德国PDF处理完成，单据类型=递延，原始金额=7.257,60+2.880,00+9.000,00\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 当前pdf内容包含【B00 - VAT】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延7.pdf] 德国PDF处理完成，单据类型=递延，原始金额=空\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新1.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新1.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新1.pdf] 当前pdf内容包含【Exempla】或【Type d’imposition:】，需调用模型识别\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新1.pdf] 命中德国模型识别条件\n[CONSULT] [PDF:德国递延新1.pdf] 开始调用德国模型识别流程\n[CONSULT] [PDF:德国递延新1.pdf] 开始德国模型筛页与转图\n[CONSULT] [PDF:德国递延新1.pdf] 德国模型识别完成\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新1.pdf] 德国PDF处理完成，单据类型=递延，原始金额=6792,99 + 10550,75 + 1265,93\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 当前pdf内容包含【PERMISSION FOR REMOVAL DOCUMENT】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:德国递延新2.pdf] 德国PDF处理完成，单据类型=递延，原始金额=空\n[CONSULT] [客户号:LEDT00347] 客户号处理完成，成功=3，失败=7，结果表即将写入\n[CONSULT] 递延税单据总文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\n[CONSULT] Excel 清单文件路径: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\已出草稿-2（英德单据+其他平台+分站点核算）(1).xlsx\n[CONSULT] 客户号文件夹数量: 1\n[CONSULT] 总清单客户号数量: 552\n[CONSULT] 未在总清单命中的客户号数量: 0\n[CONSULT] 发票个数为0的客户号数量: 0\n[CONSULT] 汇总表已更新: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\汇总表.xlsx\n",
+    "error": null,
+    "duration": 41.9
+  },
+  {
+    "id": "1776139895.196632_invoice_recognizer",
+    "timestamp": "2026-04-14T12:11:41.393014",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/德国",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/德国/已出草稿-2（英德单据+其他平台+分站点核算）(1).xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "success",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] [客户号:LEDT00347] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\LEDT00347\n[CONSULT] [客户号:LEDT00347] 发现PDF数量: 7\n[CONSULT] [客户号:LEDT00347] [PDF:DE 平凡 FBA15KL9HNFG  FID101850C-FNO25090381-DEBIT-NOTE-DE337355980-ICS.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:DE 平凡 FBA15KL9HNFG  FID101850C-FNO25090381-DEBIT-NOTE-DE337355980-ICS.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:DE 平凡 FBA15KL9HNFG  FID101850C-FNO25090381-DEBIT-NOTE-DE337355980-ICS.pdf] 德国PDF处理完成，单据类型=空，原始金额=空\n[CONSULT] [客户号:LEDT00347] [PDF:DE 平凡 FBA15KL9HNFG FID101850C-FNO25090381-CUSTOM-RELEASED-DE337355980.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:DE 平凡 FBA15KL9HNFG FID101850C-FNO25090381-CUSTOM-RELEASED-DE337355980.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:DE 平凡 FBA15KL9HNFG FID101850C-FNO25090381-CUSTOM-RELEASED-DE337355980.pdf] 当前pdf内容包含【B00 - VAT】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:DE 平凡 FBA15KL9HNFG FID101850C-FNO25090381-CUSTOM-RELEASED-DE337355980.pdf] 德国PDF处理完成，单据类型=递延，原始金额=空\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 FBA15KP5P66B  FID102722B-FNO25100037-DEBIT-NOTE-DE337355980-ICS.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 FBA15KP5P66B  FID102722B-FNO25100037-DEBIT-NOTE-DE337355980-ICS.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 FBA15KP5P66B  FID102722B-FNO25100037-DEBIT-NOTE-DE337355980-ICS.pdf] 德国PDF处理完成，单据类型=空，原始金额=空\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 FBA15KP5P66B FID102722B-FNO25100037-CUSTOM-RELEASED-DE337355980.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 FBA15KP5P66B FID102722B-FNO25100037-CUSTOM-RELEASED-DE337355980.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 FBA15KP5P66B FID102722B-FNO25100037-CUSTOM-RELEASED-DE337355980.pdf] 当前pdf内容包含【B00 - VAT】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 FBA15KP5P66B FID102722B-FNO25100037-CUSTOM-RELEASED-DE337355980.pdf] 德国PDF处理完成，单据类型=递延，原始金额=空\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 FBA15KRZJ1N9  FID104324B-FNO25100797-DEBIT-NOTE-DE337355980-ICS.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 FBA15KRZJ1N9  FID104324B-FNO25100797-DEBIT-NOTE-DE337355980-ICS.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 FBA15KRZJ1N9  FID104324B-FNO25100797-DEBIT-NOTE-DE337355980-ICS.pdf] 德国PDF处理完成，单据类型=空，原始金额=空\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 FBA15KRZJ1N9 FID104324B-FNO25100797-CUSTOM-RELEASED-DE337355980.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 FBA15KRZJ1N9 FID104324B-FNO25100797-CUSTOM-RELEASED-DE337355980.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 FBA15KRZJ1N9 FID104324B-FNO25100797-CUSTOM-RELEASED-DE337355980.pdf] 当前pdf内容包含【B00 - VAT】，无需调用模型识别，默认是递延单据\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 FBA15KRZJ1N9 FID104324B-FNO25100797-CUSTOM-RELEASED-DE337355980.pdf] 德国PDF处理完成，单据类型=递延，原始金额=空\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 RVG12040-250730-0003.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 RVG12040-250730-0003.pdf] 开始处理德国PDF\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 RVG12040-250730-0003.pdf] 当前pdf内容包含【Exempla】或【Type d’imposition:】，需调用模型识别\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 RVG12040-250730-0003.pdf] 命中德国模型识别条件\n[CONSULT] [PDF:DE平凡 RVG12040-250730-0003.pdf] 开始调用德国模型识别流程\n[CONSULT] [PDF:DE平凡 RVG12040-250730-0003.pdf] 开始德国模型筛页与转图\n[CONSULT] [PDF:DE平凡 RVG12040-250730-0003.pdf] 德国模型识别完成\n[CONSULT] [客户号:LEDT00347] [PDF:DE平凡 RVG12040-250730-0003.pdf] 德国PDF处理完成，单据类型=不确定，原始金额=2082.85\n[CONSULT] [客户号:LEDT00347] 客户号处理完成，成功=0，失败=7，结果表即将写入\n[CONSULT] 递延税单据总文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\n[CONSULT] Excel 清单文件路径: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\已出草稿-2（英德单据+其他平台+分站点核算）(1).xlsx\n[CONSULT] 客户号文件夹数量: 1\n[CONSULT] 总清单客户号数量: 552\n[CONSULT] 未在总清单命中的客户号数量: 0\n[CONSULT] 发票个数为0的客户号数量: 0\n[CONSULT] 汇总表已更新: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\汇总表.xlsx\n",
+    "error": null,
+    "duration": 6.2
+  },
+  {
+    "id": "1776139824.429339_invoice_recognizer",
+    "timestamp": "2026-04-14T12:10:40.315283",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/德国",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/德国/已出草稿-2（英德单据+其他平台+分站点核算）(1).xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "success",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] [客户号:LEGT01183] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\LEGT01183\n[CONSULT] [客户号:LEGT01183] 发现PDF数量: 3\n[CONSULT] [客户号:LEGT01183] [PDF:Import Declaration Report (GQCFXT2512230000005916) KMFYJFELY2501875.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT01183] [PDF:Import Declaration Report (GQCFXT2512230000005916) KMFYJFELY2501875.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT01183] [PDF:Import Declaration Report (GQCFXT2512230000005916) KMFYJFELY2501875.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:Import Declaration Report (GQCFXT2512230000005916) KMFYJFELY2501875.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:Import Declaration Report (GQCFXT2512230000005916) KMFYJFELY2501875.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:Import Declaration Report (GQCFXT2512230000005916) KMFYJFELY2501875.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT01183] [PDF:Import Declaration Report (GQCFXT2512230000005916) KMFYJFELY2501875.pdf] 英国PDF处理完成，单据类型=递延，原始金额=646.93\n[CONSULT] [客户号:LEGT01183] [PDF:SRX25100019 英国LBA4--税单.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT01183] [PDF:SRX25100019 英国LBA4--税单.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT01183] [PDF:SRX25100019 英国LBA4--税单.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:SRX25100019 英国LBA4--税单.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:SRX25100019 英国LBA4--税单.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:SRX25100019 英国LBA4--税单.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT01183] [PDF:SRX25100019 英国LBA4--税单.pdf] 英国PDF处理完成，单据类型=递延，原始金额=968.64\n[CONSULT] [客户号:LEGT01183] [PDF:SRX25100042 英国LPL2--税单.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT01183] [PDF:SRX25100042 英国LPL2--税单.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT01183] [PDF:SRX25100042 英国LPL2--税单.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:SRX25100042 英国LPL2--税单.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:SRX25100042 英国LPL2--税单.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:SRX25100042 英国LPL2--税单.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT01183] [PDF:SRX25100042 英国LPL2--税单.pdf] 英国PDF处理完成，单据类型=递延，原始金额=131.92\n[CONSULT] [客户号:LEGT01183] 客户号处理完成，成功=3，失败=0，结果表即将写入\n[CONSULT] 递延税单据总文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\n[CONSULT] Excel 清单文件路径: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\已出草稿-2（英德单据+其他平台+分站点核算）(1).xlsx\n[CONSULT] 客户号文件夹数量: 1\n[CONSULT] 总清单客户号数量: 552\n[CONSULT] 未在总清单命中的客户号数量: 0\n[CONSULT] 发票个数为0的客户号数量: 0\n[CONSULT] 汇总表已更新: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\德国\\汇总表.xlsx\n",
+    "error": null,
+    "duration": 15.89
+  },
+  {
+    "id": "1776139632.012337_test_hello",
+    "timestamp": "2026-04-14T12:07:12.062700",
+    "department": "CONSULT",
+    "tool": "test_hello",
+    "config": {},
+    "status": "success",
+    "output": "[启动] 系统测试...\n[时间] 测试时间: 2026-04-14 12:07:12\n[Python] 版本: 3.12.7 | packaged by Anaconda, Inc. | (main, Oct  4 2024, 13:17:27) [MSC v.1929 64 bit (AMD64)]\n--------------------------------------------------\n  [1/4] 检查系统环境 ... [通过]\n  [2/4] 验证依赖模块 ... [通过]\n  [3/4] 测试数据解析 ... [通过]\n  [4/4] 检查输出路径 ... [通过]\n--------------------------------------------------\n[成功] 所有测试通过! (成功率: 100%)\n\n[摘要] 测试摘要: {\"test_time\": \"2026-04-14T12:07:12.059413\", \"python_version\": \"3.12.7\", \"total_tests\": 4, \"passed\": 4, \"failed\": 0, \"success_rate\": \"100%\", \"status\": \"SUCCESS\"}\n",
+    "error": null,
+    "duration": 0.05
+  },
+  {
+    "id": "1776139258.664686_invoice_recognizer",
+    "timestamp": "2026-04-14T12:02:42.396179",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "success",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] [客户号:LEGT00048aa] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00048aa\n[CONSULT] [客户号:LEGT00048aa] 在总清单未找到该客户号\n[CONSULT] [客户号:LEGT00113] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00113\n[CONSULT] [客户号:LEGT00113] 发现PDF数量: 0\n[CONSULT] [客户号:LEGT00113] 发票个数为0\n[CONSULT] [客户号:LEGT00975] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00975\n[CONSULT] [客户号:LEGT00975] 发现PDF数量: 12\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国PDF处理完成，单据类型=递延，原始金额=221.10\n[CONSULT] [客户号:LEGT00975] [PDF:英国可抵扣1.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国可抵扣1.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国可抵扣1.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:英国可抵扣1.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:英国可抵扣1.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:英国可抵扣1.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:英国可抵扣1.pdf] 英国PDF处理完成，单据类型=可抵扣，原始金额=334.76\n[CONSULT] [客户号:LEGT00975] [PDF:英国可抵扣2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国可抵扣2.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国可抵扣2.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:英国可抵扣2.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:英国可抵扣2.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:英国可抵扣2.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:英国可抵扣2.pdf] 英国PDF处理完成，单据类型=可抵扣，原始金额=102.80\n[CONSULT] [客户号:LEGT00975] [PDF:英国可抵扣3.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国可抵扣3.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国可抵扣3.pdf] 命中英国规则：VAT registration number\n[CONSULT] [客户号:LEGT00975] [PDF:英国可抵扣3.pdf] 英国PDF处理完成，单据类型=可抵扣，原始金额=652.55\n[CONSULT] [客户号:LEGT00975] [PDF:英国可抵扣4.PDF] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国可抵扣4.PDF] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国可抵扣4.PDF] 命中英国规则：IMPORT ENTRY ACCEPTANCE ADVICE\n[CONSULT] [客户号:LEGT00975] [PDF:英国可抵扣4.PDF] 英国PDF处理完成，单据类型=可抵扣，原始金额=52.84\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延1.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延1.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延1.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:英国递延1.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:英国递延1.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:英国递延1.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延1.pdf] 英国PDF处理完成，单据类型=递延，原始金额=1522.90\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 命中英国规则：VAT registration number\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 英国PDF处理完成，单据类型=递延，原始金额=1,040.00\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延3.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延3.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延3.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:英国递延3.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:英国递延3.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:英国递延3.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延3.pdf] 英国PDF处理完成，单据类型=递延，原始金额=319.82\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 命中英国规则：IMPORT ENTRY ACCEPTANCE ADVICE\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 英国PDF处理完成，单据类型=递延，原始金额=36.38\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延新增1.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延新增1.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延新增1.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:英国递延新增1.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:英国递延新增1.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:英国递延新增1.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延新增1.pdf] 英国PDF处理完成，单据类型=递延，原始金额=50.17\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延新增2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延新增2.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延新增2.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:英国递延新增2.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:英国递延新增2.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:英国递延新增2.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延新增2.pdf] 英国PDF处理完成，单据类型=递延，原始金额=127.22\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延新增3.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延新增3.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延新增3.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:英国递延新增3.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:英国递延新增3.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:英国递延新增3.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延新增3.pdf] 英国PDF处理完成，单据类型=递延，原始金额=131.92\n[CONSULT] [客户号:LEGT00975] 客户号处理完成，成功=11，失败=1，结果表即将写入\n[CONSULT] [客户号:LEGT01338-] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT01338-\n[CONSULT] [客户号:LEGT01338-] 在总清单未找到该客户号\n[CONSULT] 递延税单据总文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\n[CONSULT] Excel 清单文件路径: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\已出草稿-2（英德单据+其他平台+分站点核算）.xlsx\n[CONSULT] 客户号文件夹数量: 4\n[CONSULT] 总清单客户号数量: 552\n[CONSULT] 未在总清单命中的客户号数量: 2\n[CONSULT] 发票个数为0的客户号数量: 1\n[CONSULT] 汇总表已更新: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\汇总表.xlsx\n",
+    "error": null,
+    "duration": 103.73
+  },
+  {
+    "id": "1776139097.410319_invoice_recognizer",
+    "timestamp": "2026-04-14T11:58:38.073443",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "success",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] [客户号:LEGT00048aa] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00048aa\n[CONSULT] [客户号:LEGT00048aa] 在总清单未找到该客户号\n[CONSULT] [客户号:LEGT00113] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00113\n[CONSULT] [客户号:LEGT00113] 发现PDF数量: 0\n[CONSULT] [客户号:LEGT00113] 发票个数为0\n[CONSULT] [客户号:LEGT00975] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00975\n[CONSULT] [客户号:LEGT00975] 发现PDF数量: 3\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国PDF处理完成，单据类型=递延，原始金额=221.10\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 命中英国规则：VAT registration number\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 英国PDF处理完成，单据类型=递延，原始金额=1,040.00\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 命中英国规则：IMPORT ENTRY ACCEPTANCE ADVICE\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 英国PDF处理完成，单据类型=递延，原始金额=36.38\n[CONSULT] [客户号:LEGT00975] 客户号处理完成，成功=3，失败=0，结果表即将写入\n[CONSULT] [客户号:LEGT01338-] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT01338-\n[CONSULT] [客户号:LEGT01338-] 在总清单未找到该客户号\n[CONSULT] 递延税单据总文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\n[CONSULT] Excel 清单文件路径: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\已出草稿-2（英德单据+其他平台+分站点核算）.xlsx\n[CONSULT] 客户号文件夹数量: 4\n[CONSULT] 总清单客户号数量: 552\n[CONSULT] 未在总清单命中的客户号数量: 2\n[CONSULT] 发票个数为0的客户号数量: 1\n[CONSULT] 汇总表已更新: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\汇总表.xlsx\n",
+    "error": null,
+    "duration": 20.66
+  },
+  {
+    "id": "1776137765.5260227_invoice_recognizer",
+    "timestamp": "2026-04-14T11:36:39.262152",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "failed",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] [客户号:LEGT00048aa] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00048aa\n[CONSULT] [客户号:LEGT00048aa] 在总清单未找到该客户号\n[CONSULT] [客户号:LEGT00113] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00113\n[CONSULT] [客户号:LEGT00113] 发现PDF数量: 0\n[CONSULT] [客户号:LEGT00113] 发票个数为0\n[CONSULT] [客户号:LEGT00975] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00975\n[CONSULT] [客户号:LEGT00975] 发现PDF数量: 3\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国PDF处理完成，单据类型=递延，原始金额=221.10\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 命中英国规则：VAT registration number\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 英国PDF处理完成，单据类型=递延，原始金额=1,040.00\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 命中英国规则：IMPORT ENTRY ACCEPTANCE ADVICE\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 英国PDF处理完成，单据类型=递延，原始金额=36.38\n[CONSULT] [客户号:LEGT00975] 客户号处理完成，成功=3，失败=0，结果表即将写入\n[CONSULT] [客户号:LEGT01338] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT01338\n[CONSULT] [客户号:LEGT01338] 发现PDF数量: 3\n[CONSULT] [客户号:LEGT01338] [PDF:UKCMC-12.9福州未墨A2件FBA15L67N6CX.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT01338] [PDF:UKCMC-12.9福州未墨A2件FBA15L67N6CX.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT01338] [PDF:UKCMC-12.9福州未墨A2件FBA15L67N6CX.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:UKCMC-12.9福州未墨A2件FBA15L67N6CX.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:UKCMC-12.9福州未墨A2件FBA15L67N6CX.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:UKCMC-12.9福州未墨A2件FBA15L67N6CX.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT01338] [PDF:UKCMC-12.9福州未墨A2件FBA15L67N6CX.pdf] 英国PDF处理完成，单据类型=递延，原始金额=102.25\n[CONSULT] [客户号:LEGT01338] [PDF:UKCMC-FBA15L5HC6DM单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT01338] [PDF:UKCMC-FBA15L5HC6DM单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT01338] [PDF:UKCMC-FBA15L5HC6DM单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:UKCMC-FBA15L5HC6DM单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:UKCMC-FBA15L5HC6DM单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:UKCMC-FBA15L5HC6DM单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT01338] [PDF:UKCMC-FBA15L5HC6DM单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国PDF处理完成，单据类型=递延，原始金额=180.32\n[CONSULT] [客户号:LEGT01338] [PDF:UKCMC-FBA15L7HDVG4单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT01338] [PDF:UKCMC-FBA15L7HDVG4单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始处理英国PDF\n",
+    "error": "用户手动终止流程",
+    "duration": 33.74
+  },
+  {
+    "id": "1776136912.409898_test_hello",
+    "timestamp": "2026-04-14T11:21:52.449160",
+    "department": "CONSULT",
+    "tool": "test_hello",
+    "config": {},
+    "status": "failed",
+    "output": "[启动] 系统测试...\n[时间] 测试时间: 2026-04-14 11:21:52\n[Python] 版本: 3.12.7 | packaged by Anaconda, Inc. | (main, Oct  4 2024, 13:17:27) [MSC v.1929 64 bit (AMD64)]\n--------------------------------------------------\n  [1/4] 检查系统环境 ... [失败]\n  [2/4] 验证依赖模块 ... [失败]\n  [3/4] 测试数据解析 ... [通过]\n  [4/4] 检查输出路径 ... [通过]\n--------------------------------------------------\n[警告] 部分测试失败 (成功率: 50%)\n\n[摘要] 测试摘要: {\"test_time\": \"2026-04-14T11:21:52.444845\", \"python_version\": \"3.12.7\", \"total_tests\": 4, \"passed\": 2, \"failed\": 2, \"success_rate\": \"50%\", \"status\": \"PARTIAL\"}\n",
+    "error": "[摘要] 测试摘要: {\"test_time\": \"2026-04-14T11:21:52.444845\", \"python_version\": \"3.12.7\", \"total_tests\": 4, \"passed\": 2, \"failed\": 2, \"success_rate\": \"50%\", \"status\": \"PARTIAL\"}",
+    "duration": 0.04
+  },
+  {
+    "id": "1776136843.8449917_invoice_recognizer",
+    "timestamp": "2026-04-14T11:20:53.250151",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "failed",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] [客户号:LEGT00048aa] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00048aa\n[CONSULT] [客户号:LEGT00048aa] 在总清单未找到该客户号\n[CONSULT] [客户号:LEGT00113] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00113\n[CONSULT] [客户号:LEGT00113] 发现PDF数量: 0\n[CONSULT] [客户号:LEGT00113] 发票个数为0\n[CONSULT] [客户号:LEGT00975] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00975\n[CONSULT] [客户号:LEGT00975] 发现PDF数量: 3\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国PDF处理完成，单据类型=递延，原始金额=221.10\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 命中英国规则：VAT registration number\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 英国PDF处理完成，单据类型=递延，原始金额=1,040.00\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 命中英国规则：IMPORT ENTRY ACCEPTANCE ADVICE\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 英国PDF处理完成，单据类型=递延，原始金额=36.38\n[CONSULT] [客户号:LEGT00975] 客户号处理完成，成功=3，失败=0，结果表即将写入\n[CONSULT] 执行失败: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\LEGT00975\\\\LEGT00975-结果输出表格.xlsx'\n[CONSULT] 最近运行日志回放:\n[CONSULT] [客户号:LEGT00048aa] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00048aa\n[CONSULT] [客户号:LEGT00048aa] 在总清单未找到该客户号\n[CONSULT] [客户号:LEGT00113] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00113\n[CONSULT] [客户号:LEGT00113] 发现PDF数量: 0\n[CONSULT] [客户号:LEGT00113] 发票个数为0\n[CONSULT] [客户号:LEGT00975] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00975\n[CONSULT] [客户号:LEGT00975] 发现PDF数量: 3\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国PDF处理完成，单据类型=递延，原始金额=221.10\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 命中英国规则：VAT registration number\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 英国PDF处理完成，单据类型=递延，原始金额=1,040.00\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 命中英国规则：IMPORT ENTRY ACCEPTANCE ADVICE\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 英国PDF处理完成，单据类型=递延，原始金额=36.38\n[CONSULT] [客户号:LEGT00975] 客户号处理完成，成功=3，失败=0，结果表即将写入\n[CONSULT] Traceback:\nTraceback (most recent call last):\n  File \"E:\\localhost-auto\\yisi-auto-tool-1\\black\\scripts\\consult\\invoice_recognizer.py\", line 1172, in main\n    summary_rows, missing_customer_count, zero_pdf_count = process_customer_folders(\n                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"E:\\localhost-auto\\yisi-auto-tool-1\\black\\scripts\\consult\\invoice_recognizer.py\", line 1147, in process_customer_folders\n    write_workbook(\n  File \"E:\\localhost-auto\\yisi-auto-tool-1\\black\\scripts\\consult\\invoice_recognizer.py\", line 358, in write_workbook\n    with ZipFile(workbook_path, \"w\", compression=ZIP_DEFLATED) as workbook:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\ProgramData\\anaconda3\\Lib\\zipfile\\__init__.py\", line 1331, in __init__\n    self.fp = io.open(file, filemode)\n              ^^^^^^^^^^^^^^^^^^^^^^^\nPermissionError: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\LEGT00975\\\\LEGT00975-结果输出表格.xlsx'\n",
+    "error": "PermissionError: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\LEGT00975\\\\LEGT00975-结果输出表格.xlsx'",
+    "duration": 9.41
+  },
+  {
+    "id": "1776133706.8127365_test_hello",
+    "timestamp": "2026-04-14T10:28:26.852896",
+    "department": "CONSULT",
+    "tool": "test_hello",
+    "config": {},
+    "status": "success",
+    "output": "[启动] 系统测试...\n[时间] 测试时间: 2026-04-14 10:28:26\n[Python] 版本: 3.12.7 | packaged by Anaconda, Inc. | (main, Oct  4 2024, 13:17:27) [MSC v.1929 64 bit (AMD64)]\n--------------------------------------------------\n  [1/4] 检查系统环境 ... [通过]\n  [2/4] 验证依赖模块 ... [通过]\n  [3/4] 测试数据解析 ... [通过]\n  [4/4] 检查输出路径 ... [通过]\n--------------------------------------------------\n[成功] 所有测试通过! (成功率: 100%)\n\n[摘要] 测试摘要: {\"test_time\": \"2026-04-14T10:28:26.848631\", \"python_version\": \"3.12.7\", \"total_tests\": 4, \"passed\": 4, \"failed\": 0, \"success_rate\": \"100%\", \"status\": \"SUCCESS\"}\n",
+    "error": null,
+    "duration": 0.04
+  },
+  {
+    "id": "1776133361.382001_invoice_recognizer",
+    "timestamp": "2026-04-14T10:22:46.058247",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "failed",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] [客户号:LEGT00048aa] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00048aa\n[CONSULT] [客户号:LEGT00048aa] 在总清单未找到该客户号\n[CONSULT] [客户号:LEGT00113] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00113\n[CONSULT] [客户号:LEGT00113] 发现PDF数量: 0\n[CONSULT] [客户号:LEGT00113] 发票个数为0\n[CONSULT] [客户号:LEGT00975] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00975\n[CONSULT] [客户号:LEGT00975] 发现PDF数量: 3\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国PDF处理完成，单据类型=递延，原始金额=221.10\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 命中英国规则：VAT registration number\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 英国PDF处理完成，单据类型=递延，原始金额=1,040.00\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 命中英国规则：IMPORT ENTRY ACCEPTANCE ADVICE\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 英国PDF处理完成，单据类型=递延，原始金额=36.38\n[CONSULT] [客户号:LEGT00975] 客户号处理完成，成功=3，失败=0，结果表即将写入\n[CONSULT] 执行失败: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\LEGT00975\\\\LEGT00975-结果输出表格.xlsx'\n[CONSULT] 最近运行日志回放:\n[CONSULT] [客户号:LEGT00048aa] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00048aa\n[CONSULT] [客户号:LEGT00048aa] 在总清单未找到该客户号\n[CONSULT] [客户号:LEGT00113] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00113\n[CONSULT] [客户号:LEGT00113] 发现PDF数量: 0\n[CONSULT] [客户号:LEGT00113] 发票个数为0\n[CONSULT] [客户号:LEGT00975] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00975\n[CONSULT] [客户号:LEGT00975] 发现PDF数量: 3\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国PDF处理完成，单据类型=递延，原始金额=221.10\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 命中英国规则：VAT registration number\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 英国PDF处理完成，单据类型=递延，原始金额=1,040.00\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 命中英国规则：IMPORT ENTRY ACCEPTANCE ADVICE\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 英国PDF处理完成，单据类型=递延，原始金额=36.38\n[CONSULT] [客户号:LEGT00975] 客户号处理完成，成功=3，失败=0，结果表即将写入\n[CONSULT] Traceback:\nTraceback (most recent call last):\n  File \"E:\\localhost-auto\\yisi-auto-tool-1\\black\\scripts\\consult\\invoice_recognizer.py\", line 1172, in main\n    summary_rows, missing_customer_count, zero_pdf_count = process_customer_folders(\n                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"E:\\localhost-auto\\yisi-auto-tool-1\\black\\scripts\\consult\\invoice_recognizer.py\", line 1147, in process_customer_folders\n    write_workbook(\n  File \"E:\\localhost-auto\\yisi-auto-tool-1\\black\\scripts\\consult\\invoice_recognizer.py\", line 358, in write_workbook\n    with ZipFile(workbook_path, \"w\", compression=ZIP_DEFLATED) as workbook:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\ProgramData\\anaconda3\\Lib\\zipfile\\__init__.py\", line 1331, in __init__\n    self.fp = io.open(file, filemode)\n              ^^^^^^^^^^^^^^^^^^^^^^^\nPermissionError: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\LEGT00975\\\\LEGT00975-结果输出表格.xlsx'\n",
+    "error": "PermissionError: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\LEGT00975\\\\LEGT00975-结果输出表格.xlsx'",
+    "duration": 4.68
+  },
+  {
+    "id": "1776132930.1062484_invoice_recognizer",
+    "timestamp": "2026-04-14T10:15:34.434082",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "failed",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] [客户号:LEGT00048aa] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00048aa\n[CONSULT] [客户号:LEGT00048aa] 在总清单未找到该客户号\n[CONSULT] [客户号:LEGT00113] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00113\n[CONSULT] [客户号:LEGT00113] 发现PDF数量: 0\n[CONSULT] [客户号:LEGT00113] 发票个数为0\n[CONSULT] [客户号:LEGT00975] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00975\n[CONSULT] [客户号:LEGT00975] 发现PDF数量: 3\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国PDF处理完成，单据类型=递延，原始金额=221.10\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 命中英国规则：VAT registration number\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 英国PDF处理完成，单据类型=递延，原始金额=1,040.00\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 命中英国规则：IMPORT ENTRY ACCEPTANCE ADVICE\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 英国PDF处理完成，单据类型=递延，原始金额=36.38\n[CONSULT] [客户号:LEGT00975] 客户号处理完成，成功=3，失败=0，结果表即将写入\n[CONSULT] 执行失败: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\LEGT00975\\\\LEGT00975-结果输出表格.xlsx'\n[CONSULT] 最近运行日志回放:\n[CONSULT] [客户号:LEGT00048aa] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00048aa\n[CONSULT] [客户号:LEGT00048aa] 在总清单未找到该客户号\n[CONSULT] [客户号:LEGT00113] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00113\n[CONSULT] [客户号:LEGT00113] 发现PDF数量: 0\n[CONSULT] [客户号:LEGT00113] 发票个数为0\n[CONSULT] [客户号:LEGT00975] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00975\n[CONSULT] [客户号:LEGT00975] 发现PDF数量: 3\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国PDF处理完成，单据类型=递延，原始金额=221.10\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 命中英国规则：VAT registration number\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 英国PDF处理完成，单据类型=递延，原始金额=1,040.00\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 命中英国规则：IMPORT ENTRY ACCEPTANCE ADVICE\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 英国PDF处理完成，单据类型=递延，原始金额=36.38\n[CONSULT] [客户号:LEGT00975] 客户号处理完成，成功=3，失败=0，结果表即将写入\n[CONSULT] Traceback:\nTraceback (most recent call last):\n  File \"E:\\localhost-auto\\yisi-auto-tool-1\\black\\scripts\\consult\\invoice_recognizer.py\", line 1172, in main\n    summary_rows, missing_customer_count, zero_pdf_count = process_customer_folders(\n                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"E:\\localhost-auto\\yisi-auto-tool-1\\black\\scripts\\consult\\invoice_recognizer.py\", line 1147, in process_customer_folders\n    write_workbook(\n  File \"E:\\localhost-auto\\yisi-auto-tool-1\\black\\scripts\\consult\\invoice_recognizer.py\", line 358, in write_workbook\n    with ZipFile(workbook_path, \"w\", compression=ZIP_DEFLATED) as workbook:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\ProgramData\\anaconda3\\Lib\\zipfile\\__init__.py\", line 1331, in __init__\n    self.fp = io.open(file, filemode)\n              ^^^^^^^^^^^^^^^^^^^^^^^\nPermissionError: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\LEGT00975\\\\LEGT00975-结果输出表格.xlsx'\n",
+    "error": "PermissionError: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\LEGT00975\\\\LEGT00975-结果输出表格.xlsx'",
+    "duration": 4.33
+  },
+  {
+    "id": "1776132912.2994542_invoice_recognizer",
+    "timestamp": "2026-04-14T10:15:16.954425",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "failed",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] [客户号:LEGT00048aa] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00048aa\n[CONSULT] [客户号:LEGT00048aa] 在总清单未找到该客户号\n[CONSULT] [客户号:LEGT00113] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00113\n[CONSULT] [客户号:LEGT00113] 发现PDF数量: 0\n[CONSULT] [客户号:LEGT00113] 发票个数为0\n[CONSULT] [客户号:LEGT00975] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00975\n[CONSULT] [客户号:LEGT00975] 发现PDF数量: 3\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国PDF处理完成，单据类型=递延，原始金额=221.10\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 命中英国规则：VAT registration number\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 英国PDF处理完成，单据类型=递延，原始金额=1,040.00\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 命中英国规则：IMPORT ENTRY ACCEPTANCE ADVICE\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 英国PDF处理完成，单据类型=递延，原始金额=36.38\n[CONSULT] [客户号:LEGT00975] 客户号处理完成，成功=3，失败=0，结果表即将写入\n[CONSULT] 执行失败: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\LEGT00975\\\\LEGT00975-结果输出表格.xlsx'\n[CONSULT] 最近运行日志回放:\n[CONSULT] [客户号:LEGT00048aa] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00048aa\n[CONSULT] [客户号:LEGT00048aa] 在总清单未找到该客户号\n[CONSULT] [客户号:LEGT00113] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00113\n[CONSULT] [客户号:LEGT00113] 发现PDF数量: 0\n[CONSULT] [客户号:LEGT00113] 发票个数为0\n[CONSULT] [客户号:LEGT00975] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00975\n[CONSULT] [客户号:LEGT00975] 发现PDF数量: 3\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国PDF处理完成，单据类型=递延，原始金额=221.10\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 命中英国规则：VAT registration number\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 英国PDF处理完成，单据类型=递延，原始金额=1,040.00\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 命中英国规则：IMPORT ENTRY ACCEPTANCE ADVICE\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 英国PDF处理完成，单据类型=递延，原始金额=36.38\n[CONSULT] [客户号:LEGT00975] 客户号处理完成，成功=3，失败=0，结果表即将写入\n[CONSULT] Traceback:\nTraceback (most recent call last):\n  File \"E:\\localhost-auto\\yisi-auto-tool-1\\black\\scripts\\consult\\invoice_recognizer.py\", line 1172, in main\n    summary_rows, missing_customer_count, zero_pdf_count = process_customer_folders(\n                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"E:\\localhost-auto\\yisi-auto-tool-1\\black\\scripts\\consult\\invoice_recognizer.py\", line 1147, in process_customer_folders\n    write_workbook(\n  File \"E:\\localhost-auto\\yisi-auto-tool-1\\black\\scripts\\consult\\invoice_recognizer.py\", line 358, in write_workbook\n    with ZipFile(workbook_path, \"w\", compression=ZIP_DEFLATED) as workbook:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\ProgramData\\anaconda3\\Lib\\zipfile\\__init__.py\", line 1331, in __init__\n    self.fp = io.open(file, filemode)\n              ^^^^^^^^^^^^^^^^^^^^^^^\nPermissionError: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\LEGT00975\\\\LEGT00975-结果输出表格.xlsx'\n",
+    "error": "PermissionError: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\LEGT00975\\\\LEGT00975-结果输出表格.xlsx'",
+    "duration": 4.65
+  },
+  {
+    "id": "1776132692.8815336_invoice_recognizer",
+    "timestamp": "2026-04-14T10:11:37.774929",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "failed",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] [客户号:LEGT00048aa] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00048aa\n[CONSULT] [客户号:LEGT00048aa] 在总清单未找到该客户号\n[CONSULT] [客户号:LEGT00113] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00113\n[CONSULT] [客户号:LEGT00113] 发现PDF数量: 0\n[CONSULT] [客户号:LEGT00113] 发票个数为0\n[CONSULT] [客户号:LEGT00975] 开始处理客户号文件夹: \\\\192.168.76.93\\厦门部门\\顾问部\\英德单据识别\\202601第二十九批\\LEGT00975\n[CONSULT] [客户号:LEGT00975] 发现PDF数量: 3\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 未命中英国本地规则，转英国模型识别\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始调用英国模型识别流程\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 开始英国模型筛页，关键字=['B00', 'Tax type', 'Assessed', 'Amount']\n[CONSULT] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国模型识别完成\n[CONSULT] [客户号:LEGT00975] [PDF:WMZ-FBA15L7JQLM6单独报关递延PVA 福州市未墨空间电子商务有限公司.pdf] 英国PDF处理完成，单据类型=递延，原始金额=221.10\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 命中英国规则：VAT registration number\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延2.pdf] 英国PDF处理完成，单据类型=递延，原始金额=1,040.00\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始检查PDF页数\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 开始处理英国PDF\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 命中英国规则：IMPORT ENTRY ACCEPTANCE ADVICE\n[CONSULT] [客户号:LEGT00975] [PDF:英国递延4.PDF] 英国PDF处理完成，单据类型=递延，原始金额=36.38\n[CONSULT] [客户号:LEGT00975] 客户号处理完成，成功=3，失败=0，结果表即将写入\n[CONSULT] 执行失败: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\LEGT00975\\\\LEGT00975-结果输出表格.xlsx'\n",
+    "error": "[CONSULT] 执行失败: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\LEGT00975\\\\LEGT00975-结果输出表格.xlsx'",
+    "duration": 4.89
+  },
+  {
+    "id": "1776132411.975349_invoice_recognizer",
+    "timestamp": "2026-04-14T10:06:58.625637",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "failed",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n",
+    "error": "用户手动终止流程",
+    "duration": 6.65
+  },
+  {
+    "id": "1776131898.7846906_invoice_recognizer",
+    "timestamp": "2026-04-14T09:58:24.393652",
+    "department": "CONSULT",
+    "tool": "invoice_recognizer",
+    "config": {
+      "folderPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/202601第二十九批",
+      "excelPath": null,
+      "listExcelPath": "//192.168.76.93/厦门部门/顾问部/英德单据识别/已出草稿-2（英德单据+其他平台+分站点核算）.xlsx",
+      "email": "",
+      "authCode": "",
+      "maxEmails": 50,
+      "subjectKeyword": "注销成功",
+      "selectedFolder": ""
+    },
+    "status": "failed",
+    "output": "[CONSULT] 递延税发票识别任务启动中...\n[CONSULT] 执行失败: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\LEGT00975\\\\LEGT00975-结果输出表格.xlsx'\n",
+    "error": "[CONSULT] 执行失败: [Errno 13] Permission denied: '\\\\\\\\192.168.76.93\\\\厦门部门\\\\顾问部\\\\英德单据识别\\\\202601第二十九批\\\\LEGT00975\\\\LEGT00975-结果输出表格.xlsx'",
+    "duration": 5.61
+  },
+  {
+    "id": "encoding-check-test-2",
+    "timestamp": "2026-04-14T09:54:35.175906",
+    "department": "CONSULT",
+    "tool": "test_hello",
+    "config": {},
+    "status": "success",
+    "output": "[启动] 系统测试...\n[时间] 测试时间: 2026-04-14 09:54:35\n[Python] 版本: 3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)]\n--------------------------------------------------\n  [1/4] 检查系统环境 ... [通过]\n  [2/4] 验证依赖模块 ... [通过]\n  [3/4] 测试数据解析 ... [通过]\n  [4/4] 检查输出路径 ... [通过]\n--------------------------------------------------\n[成功] 所有测试通过! (成功率: 100%)\n\n[摘要] 测试摘要: {\"test_time\": \"2026-04-14T09:54:35.172370\", \"python_version\": \"3.14.3\", \"total_tests\": 4, \"passed\": 4, \"failed\": 0, \"success_rate\": \"100%\", \"status\": \"SUCCESS\"}\n",
+    "error": null,
+    "duration": 0.03
+  },
+  {
+    "id": "encoding-check-test",
+    "timestamp": "2026-04-14T09:50:11.437159",
+    "department": "CONSULT",
+    "tool": "test_hello",
+    "config": {},
+    "status": "success",
+    "output": "[����] ϵͳ����...\n[ʱ��] ����ʱ��: 2026-04-14 09:50:11\n[Python] �汾: 3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)]\n--------------------------------------------------\n  [1/4] ���ϵͳ���� ... [ͨ��]\n  [2/4] ��֤����ģ�� ... [ͨ��]\n  [3/4] �������ݽ��� ... [ͨ��]\n  [4/4] ������·�� ... [ͨ��]\n--------------------------------------------------\n[�ɹ�] ���в���ͨ��! (�ɹ���: 100%)\n\n[ժҪ] ����ժҪ: {\"test_time\": \"2026-04-14T09:50:11.433302\", \"python_version\": \"3.14.3\", \"total_tests\": 4, \"passed\": 4, \"failed\": 0, \"success_rate\": \"100%\", \"status\": \"SUCCESS\"}\n",
+    "error": null,
+    "duration": 0.03
+  },
+  {
     "id": "1776098629.106327_invoice_recognizer",
     "timestamp": "2026-04-14T00:44:07.895330",
     "department": "CONSULT",

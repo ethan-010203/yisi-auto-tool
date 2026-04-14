@@ -10,6 +10,18 @@ from datetime import datetime
 from pathlib import Path
 from email import message_from_bytes
 from email.header import decode_header
+from xml.sax.saxutils import escape
+from zipfile import ZIP_DEFLATED, ZipFile
+
+
+def log_info(message: str) -> None:
+    """输出持续累积的运行日志。"""
+    print(f"[BUE2] {message}", flush=True)
+
+
+def log_error(message: str) -> None:
+    """输出筛选后的错误摘要。"""
+    print(f"[BUE2] {message}", file=sys.stderr, flush=True)
 
 
 def load_config() -> dict:
@@ -43,8 +55,8 @@ def extract_member_ids_from_emails(config: dict) -> list[str]:
     if not email or not auth_code:
         raise ValueError("邮箱账号或授权码未配置")
 
-    print(f"[BUE2] 连接邮箱: {email}", file=sys.stderr)
-    print(f"[BUE2] 选择文件夹: {folder}", file=sys.stderr)
+    log_info(f"连接邮箱: {email}")
+    log_info(f"选择文件夹: {folder}")
 
     # 连接163邮箱IMAP服务器
     try:
@@ -57,7 +69,7 @@ def extract_member_ids_from_emails(config: dict) -> list[str]:
             if line.startswith(tag):
                 break
         mail.login(email, auth_code)
-        print(f"[BUE2] 邮箱登录成功", file=sys.stderr)
+        log_info("邮箱登录成功")
     except imaplib.IMAP4.error as e:
         error_msg = str(e).lower()
         if "login error" in error_msg or "password error" in error_msg or "authentication failed" in error_msg:
@@ -80,7 +92,7 @@ def extract_member_ids_from_emails(config: dict) -> list[str]:
         status, response = mail.select(folder_quoted, readonly=True)
         if status != "OK":
             raise Exception(f"无法选择文件夹: {folder}, 响应: {response}")
-        print(f"[BUE2] 文件夹选择成功", file=sys.stderr)
+        log_info("文件夹选择成功")
     except Exception as e:
         mail.logout()
         raise Exception(f"选择文件夹失败: {str(e)}")
@@ -89,14 +101,14 @@ def extract_member_ids_from_emails(config: dict) -> list[str]:
     try:
         _, data = mail.search(None, "ALL")
         email_ids = data[0].split()
-        print(f"[BUE2] 找到 {len(email_ids)} 封邮件", file=sys.stderr)
+        log_info(f"找到 {len(email_ids)} 封邮件")
     except Exception as e:
         mail.logout()
         raise Exception(f"搜索邮件失败: {str(e)}")
 
     # 只取最近的max_emails封
     email_ids = email_ids[-max_emails:] if len(email_ids) > max_emails else email_ids
-    print(f"[BUE2] 处理最近 {len(email_ids)} 封邮件", file=sys.stderr)
+    log_info(f"处理最近 {len(email_ids)} 封邮件")
 
     member_ids = []
     # 使用更宽松的正则，处理n°字符编码问题
@@ -121,50 +133,96 @@ def extract_member_ids_from_emails(config: dict) -> list[str]:
                 else:
                     subject_str += part
 
-            print(f"[BUE2] 邮件[{idx+1}]主题: {subject_str[:100]}", file=sys.stderr)
+            log_info(f"邮件[{idx+1}]主题: {subject_str[:100]}")
 
             # 筛选主题包含'Citeo - Réf. client n°'的邮件
             if subject_pattern.search(subject_str):
-                print(f"[BUE2] ✓ 匹配邮件: {subject_str[:80]}...", file=sys.stderr)
+                log_info(f"✓ 匹配邮件: {subject_str[:80]}...")
                 # 提取会员号
                 match = member_id_pattern.search(subject_str)
                 if match:
                     member_id = match.group(1)
                     member_ids.append(member_id)
-                    print(f"[BUE2] ✓ 提取会员号: {member_id}", file=sys.stderr)
+                    log_info(f"✓ 提取会员号: {member_id}")
                 else:
-                    print(f"[BUE2] ✗ 未找到会员号", file=sys.stderr)
+                    log_info("✗ 未找到会员号")
         except Exception as e:
-            print(f"[BUE2] 处理邮件[{idx+1}]失败: {str(e)}", file=sys.stderr)
+            log_info(f"处理邮件[{idx+1}]失败: {str(e)}")
             continue
 
     mail.logout()
-    print(f"[BUE2] 共提取 {len(member_ids)} 个会员号", file=sys.stderr)
+    log_info(f"共提取 {len(member_ids)} 个会员号")
     return member_ids
 
 
 def save_to_excel(member_ids: list[str], output_path: Path) -> str:
-    """将会员号保存到Excel（无表头，直接A列写入）"""
+    """将会员号保存到Excel（无表头，直接A列写入）。"""
     try:
-        import pandas as pd
-
-        # 确保输出目录存在
         output_path.mkdir(parents=True, exist_ok=True)
 
-        # 创建DataFrame（无表头）
-        df = pd.DataFrame(member_ids, columns=[None])
-
-        # 生成文件名
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         excel_file = output_path / f"注销成功名单_{timestamp}.xlsx"
 
-        # 保存到Excel（无表头无索引）
-        df.to_excel(excel_file, index=False, header=False, sheet_name="会员号")
+        rows_xml = []
+        for row_index, member_id in enumerate(member_ids, start=1):
+            cell_value = escape(str(member_id))
+            rows_xml.append(
+                f'<row r="{row_index}">'
+                f'<c r="A{row_index}" t="inlineStr"><is><t>{cell_value}</t></is></c>'
+                f"</row>"
+            )
+
+        sheet_xml = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            "<sheetData>"
+            f"{''.join(rows_xml)}"
+            "</sheetData>"
+            "</worksheet>"
+        )
+        workbook_xml = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            '<sheets><sheet name="会员号" sheetId="1" r:id="rId1"/></sheets>'
+            "</workbook>"
+        )
+        content_types_xml = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            '<Override PartName="/xl/workbook.xml" '
+            'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            '<Override PartName="/xl/worksheets/sheet1.xml" '
+            'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            "</Types>"
+        )
+        root_rels_xml = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" '
+            'Target="xl/workbook.xml"/>'
+            "</Relationships>"
+        )
+        workbook_rels_xml = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
+            'Target="worksheets/sheet1.xml"/>'
+            "</Relationships>"
+        )
+
+        with ZipFile(excel_file, "w", compression=ZIP_DEFLATED) as workbook:
+            workbook.writestr("[Content_Types].xml", content_types_xml)
+            workbook.writestr("_rels/.rels", root_rels_xml)
+            workbook.writestr("xl/workbook.xml", workbook_xml)
+            workbook.writestr("xl/_rels/workbook.xml.rels", workbook_rels_xml)
+            workbook.writestr("xl/worksheets/sheet1.xml", sheet_xml)
 
         return str(excel_file)
-
-    except ImportError:
-        raise ImportError("缺少必要的库，请安装: pip install pandas openpyxl")
     except Exception as e:
         raise Exception(f"Excel保存失败: {str(e)}")
 
@@ -172,38 +230,38 @@ def save_to_excel(member_ids: list[str], output_path: Path) -> str:
 def main() -> int:
     error_summary = None
     
-    print("[BUE2] FR-Citeo-注销成功名单邮件提取任务启动...", file=sys.stderr)
+    log_info("FR-Citeo-注销成功名单邮件提取任务启动...")
 
     # 1. 从配置读取数据
     try:
-        print("[BUE2] 正在读取配置...", file=sys.stderr)
+        log_info("正在读取配置...")
         config = load_config()
-        print(f"[BUE2] 配置读取完成: 邮箱={config.get('email')}", file=sys.stderr)
+        log_info(f"配置读取完成: 邮箱={config.get('email')}")
     except Exception as error:
         error_summary = f"配置读取失败: {error}"
-        print(f"[BUE2] {error_summary}", file=sys.stderr)
-        traceback.print_exc()
-        print(error_summary)  # 输出到stdout供复制
+        log_info(error_summary)
+        log_error(error_summary)
+        traceback.print_exc(file=sys.stdout)
         return 1
 
     # 2&3. 从邮件提取会员号
     try:
-        print("[BUE2] 正在连接邮箱并提取会员号...", file=sys.stderr)
+        log_info("正在连接邮箱并提取会员号...")
         member_ids = extract_member_ids_from_emails(config)
-        print(f"[BUE2] 提取到 {len(member_ids)} 个会员号", file=sys.stderr)
+        log_info(f"提取到 {len(member_ids)} 个会员号")
     except Exception as error:
         error_summary = f"邮件处理失败: {error}"
-        print(f"[BUE2] {error_summary}", file=sys.stderr)
-        traceback.print_exc()
-        print(error_summary)  # 输出到stdout供复制
+        log_info(error_summary)
+        log_error(error_summary)
+        traceback.print_exc(file=sys.stdout)
         return 1
 
     # 4. 保存到Excel
     try:
         output_path = get_output_path()
-        print(f"[BUE2] 正在保存到Excel...", file=sys.stderr)
+        log_info("正在保存到Excel...")
         excel_file = save_to_excel(member_ids, output_path)
-        print(f"[BUE2] Excel文件已创建: {excel_file}", file=sys.stderr)
+        log_info(f"Excel文件已创建: {excel_file}")
 
         # 输出到stdout供前端日志显示
         print(f"任务执行完成")
@@ -213,9 +271,9 @@ def main() -> int:
 
     except Exception as error:
         error_summary = f"Excel保存失败: {error}"
-        print(f"[BUE2] {error_summary}", file=sys.stderr)
-        traceback.print_exc()
-        print(error_summary)  # 输出到stdout供复制
+        log_info(error_summary)
+        log_error(error_summary)
+        traceback.print_exc(file=sys.stdout)
         return 1
 
 
