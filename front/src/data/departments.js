@@ -34,17 +34,6 @@ export const departments = [
     ],
   },
   {
-    code: 'BUE3',
-    name: 'BUE3',
-    tone: '资产中心',
-    summary: '支持日常经营数据、可视化看板和资料资产的集中管理。',
-    tools: [
-      { id: 'daily_sync', name: '功能开发中', tag: 'Daily', description: '日报同步功能开发中。' },
-      { id: 'board_view', name: '功能开发中', tag: 'Board', description: '经营看板功能开发中。' },
-      { id: 'asset_library', name: '功能开发中', tag: 'Assets', description: '资产中心功能开发中。' },
-    ],
-  },
-  {
     code: 'BUV1',
     name: 'BUV1',
     tone: '内容发布',
@@ -98,16 +87,6 @@ export const departments = [
         action: 'run_script',
         configurable: true,
       },
-    ],
-  },
-  {
-    code: 'OPS',
-    name: '运营部',
-    tone: '运营节奏',
-    summary: '连接指标看板、工作日历和渠道协同，形成清晰的运营节奏。',
-    tools: [
-      { id: 'calendar_sync', name: '功能开发中', tag: 'Calendar', description: '运营日历功能开发中。' },
-      { id: 'channel_map', name: '功能开发中', tag: 'Channel', description: '渠道地图功能开发中。' },
     ],
   },
 ]

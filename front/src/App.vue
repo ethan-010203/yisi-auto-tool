@@ -720,10 +720,8 @@ onBeforeUnmount(() => {
           <div class="department-copy">
             <div class="department-badges">
               <UiBadge>{{ activeDepartment.code }}</UiBadge>
-              <UiBadge variant="secondary">{{ activeDepartment.tone }}</UiBadge>
             </div>
             <h2>{{ activeDepartment.name }}</h2>
-            <p>{{ activeDepartment.summary }}</p>
           </div>
         </div>
 

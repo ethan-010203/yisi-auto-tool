@@ -458,6 +458,7 @@ defineExpose({
 
       <div class="log-actions">
         <UiButton
+          v-if="false"
           variant="outline"
           :loading="clearLoading"
           :disabled="loading || logs.length === 0"
