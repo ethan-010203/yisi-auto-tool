@@ -1,5 +1,16 @@
 [
   {
+    "id": "1776153906.7838519_test",
+    "timestamp": "2026-04-14T16:05:11.818955",
+    "department": "BUE2",
+    "tool": "test",
+    "config": {},
+    "status": "success",
+    "output": "[TEST] 测试任务启动...\n[TEST] 等待10秒钟...\n[TEST] 已等待 1 秒...\n[TEST] 已等待 2 秒...\n[TEST] 已等待 3 秒...\n[TEST] 已等待 4 秒...\n[TEST] 已等待 5 秒...\n[TEST] 任务执行完成！\n[TEST] 输出: 测试成功\n",
+    "error": null,
+    "duration": 5.03
+  },
+  {
     "id": "1776149484.458343_citeo_email_extractor",
     "timestamp": "2026-04-14T14:52:05.061122",
     "department": "BUE2",
