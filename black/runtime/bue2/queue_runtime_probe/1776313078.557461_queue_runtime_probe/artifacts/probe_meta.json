@@ -1,0 +1,17 @@
+{
+  "department": "BUE2",
+  "tool": "queue_runtime_probe",
+  "run_id": "1776313078.557461_queue_runtime_probe",
+  "started_at": "2026-04-16T12:17:58.597468",
+  "config_snapshot": {},
+  "paths": {
+    "runtime_dir": "/Users/ethan/project/yisi-auto-tool/black/runtime/bue2/queue_runtime_probe/1776313078.557461_queue_runtime_probe",
+    "artifact_dir": "/Users/ethan/project/yisi-auto-tool/black/runtime/bue2/queue_runtime_probe/1776313078.557461_queue_runtime_probe/artifacts",
+    "download_dir": "/Users/ethan/project/yisi-auto-tool/black/runtime/bue2/queue_runtime_probe/1776313078.557461_queue_runtime_probe/downloads",
+    "screenshot_dir": "/Users/ethan/project/yisi-auto-tool/black/runtime/bue2/queue_runtime_probe/1776313078.557461_queue_runtime_probe/screenshots",
+    "browser_profile_dir": "/Users/ethan/project/yisi-auto-tool/black/runtime/bue2/queue_runtime_probe/1776313078.557461_queue_runtime_probe/browser-profile",
+    "config_path": "/Users/ethan/project/yisi-auto-tool/black/runtime/bue2/queue_runtime_probe/1776313078.557461_queue_runtime_probe/config.json",
+    "stdout_log_path": "/Users/ethan/project/yisi-auto-tool/black/runtime/bue2/queue_runtime_probe/1776313078.557461_queue_runtime_probe/stdout.log",
+    "stderr_log_path": "/Users/ethan/project/yisi-auto-tool/black/runtime/bue2/queue_runtime_probe/1776313078.557461_queue_runtime_probe/stderr.log"
+  }
+}

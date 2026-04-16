@@ -1,6 +1,6 @@
 ﻿<script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { getData, getToolConfig, getToolPreview, runDepartmentTool, saveConfig, getDepartmentConfig, saveDepartmentConfig, selectFile, selectFolder, testNetworkPath } from './api/index'
+import { getData, getToolConfig, getToolPreview, runDepartmentTool, saveConfig, getDepartmentConfig, saveDepartmentConfig, testNetworkPath, uploadInvoiceExcel, uploadInvoiceFolder } from './api/index'
 import ExecutionLogPanel from './components/ExecutionLogPanel.vue'
 import ToolPreviewDialog from './components/preview/ToolPreviewDialog.vue'
 import UiBadge from './components/ui/UiBadge.vue'
@@ -37,12 +37,13 @@ const applyTheme = () => {
 }
 
 const activeDepartmentCode = ref(getSavedDepartment())
-const runningToolId = ref('')
+const activeToolIdsByDepartment = ref({})
 const previewDialogOpen = ref(false)
 const previewLoading = ref(false)
 const previewData = ref(null)
 const previewTargetKey = ref('')
 const configDialogOpen = ref(false)
+const toolConfigCache = ref({})
 const toasts = ref([])
 const logPanel = ref(null)
 
@@ -59,10 +60,14 @@ const departmentConfig = ref({
 })
 const testingNetworkPath = ref(false)
 const networkPathTestResult = ref(null)
+const NETWORK_REQUIRED_TOOL_KEYS = new Set(['CONSULT:invoice_recognizer'])
 
-const configData = ref({
+const createDefaultConfigData = () => ({
   folderPath: '',
+  folderDisplay: '',
+  excelPath: '',
   listExcelPath: '',
+  listExcelDisplay: '',
   // BUE2 email extractor config
   email: '',
   authCode: '',
@@ -70,6 +75,7 @@ const configData = ref({
   subjectKeyword: '注销成功',
   selectedFolder: '',
 })
+const configData = ref(createDefaultConfigData())
 
 const currentConfigTool = ref({ department: '', toolId: '' })
 const mailFolders = ref([])
@@ -78,6 +84,8 @@ const mailFoldersError = ref('')
 const showAuthCode = ref(false)
 const selectingFolder = ref(false)
 const selectingExcelFile = ref(false)
+const invoiceFolderInput = ref(null)
+const invoiceExcelInput = ref(null)
 
 // 将邮件文件夹列表转换为 UiSelect 需要的 options 格式
 const folderOptions = computed(() => {
@@ -139,7 +147,8 @@ const configuredSummary = computed(() => {
 
   // Check CONSULT config
   const hasFolder = Boolean(config.folderPath)
-  if (activeDepartmentCode.value === 'CONSULT' && hasFolder) {
+  const hasExcel = Boolean(config.listExcelPath || config.excelPath)
+  if (activeDepartmentCode.value === 'CONSULT' && hasFolder && hasExcel) {
     return '已配置完成'
   }
 
@@ -168,6 +177,48 @@ const configDialogDescription = computed(() => {
 
 function getToolKey(departmentCode, toolId) {
   return `${departmentCode}:${toolId}`
+}
+
+function toolRequiresNetworkPath(departmentCode, toolId) {
+  return NETWORK_REQUIRED_TOOL_KEYS.has(getToolKey(departmentCode, toolId))
+}
+
+function cacheToolConfig(departmentCode, toolId, config) {
+  toolConfigCache.value = {
+    ...toolConfigCache.value,
+    [getToolKey(departmentCode, toolId)]: {
+      ...config,
+    },
+  }
+}
+
+function getDepartmentActiveToolIds(departmentCode) {
+  return activeToolIdsByDepartment.value[departmentCode] || []
+}
+
+function isToolActive(departmentCode, toolId) {
+  return getDepartmentActiveToolIds(departmentCode).includes(toolId)
+}
+
+function setDepartmentActiveTools(departmentCode, toolIds) {
+  activeToolIdsByDepartment.value = {
+    ...activeToolIdsByDepartment.value,
+    [departmentCode]: [...toolIds],
+  }
+}
+
+function addActiveTool(departmentCode, toolId) {
+  const current = new Set(getDepartmentActiveToolIds(departmentCode))
+  current.add(toolId)
+  setDepartmentActiveTools(departmentCode, [...current])
+}
+
+function handleActiveToolsChange(payload) {
+  if (!payload?.department) {
+    return
+  }
+
+  setDepartmentActiveTools(payload.department, payload.toolIds || [])
 }
 
 function pushToast({ type = 'info', title, message = '', duration = 4200 }) {
@@ -262,11 +313,12 @@ async function saveDepartmentConfiguration() {
   }
 }
 
-async function testDeptNetworkPath() {
+async function testDeptNetworkPath(options = {}) {
+  const { silentSuccess = false } = options
   const path = departmentConfig.value.networkPath
   if (!path) {
     networkPathTestResult.value = { success: false, message: '请先输入网络路径' }
-    return
+    return false
   }
 
   testingNetworkPath.value = true
@@ -275,42 +327,81 @@ async function testDeptNetworkPath() {
   try {
     const response = await testNetworkPath(path)
     networkPathTestResult.value = {
-      success: response?.success,
+      success: Boolean(response?.success),
       message: response?.message || response?.error || '测试完成'
     }
-    if (response?.success) {
+    if (response?.success && !silentSuccess) {
       pushToast({
         type: 'success',
         title: '连接成功',
         message: '网络路径可正常访问。',
       })
     }
+    return Boolean(response?.success)
   } catch (error) {
     networkPathTestResult.value = {
       success: false,
       message: error.message || '网络请求失败'
     }
+    return false
   } finally {
     testingNetworkPath.value = false
   }
 }
 
+async function ensureNetworkPathReadyForTool(departmentCode, toolId) {
+  if (!toolRequiresNetworkPath(departmentCode, toolId)) {
+    return true
+  }
+
+  const success = await testDeptNetworkPath({ silentSuccess: true })
+  if (!success) {
+    pushToast({
+      type: 'error',
+      title: '共享盘连接失败',
+      message: networkPathTestResult.value?.message || '请先完成局域网路径测试并确保可读写。',
+      duration: 5200,
+    })
+    return false
+  }
+
+  try {
+    const response = await saveDepartmentConfig(departmentCode, {
+      networkPath: departmentConfig.value.networkPath,
+    })
+    if (!response?.success) {
+      throw new Error(response?.error || '局域网路径保存失败')
+    }
+  } catch (error) {
+    pushToast({
+      type: 'error',
+      title: '共享盘路径保存失败',
+      message: error.message || '无法保存当前局域网路径配置。',
+      duration: 5200,
+    })
+    return false
+  }
+  return success
+}
+
 async function loadToolConfig(department, toolId) {
   try {
     const response = await getToolConfig(department, toolId)
-    if (response?.success && response.config) {
-      const cfg = response.config
-      // Merge with defaults
-      configData.value = {
-        folderPath: cfg.folderPath || '',
-        listExcelPath: cfg.listExcelPath || '',
-        email: cfg.email || '',
-        authCode: cfg.authCode || '',
-        maxEmails: cfg.maxEmails || 50,
-        subjectKeyword: cfg.subjectKeyword || '注销成功',
-        selectedFolder: cfg.selectedFolder || '',
-      }
+    const cfg = response?.success && response.config ? response.config : {}
+    configData.value = {
+      ...createDefaultConfigData(),
+      folderPath: cfg.folderPath || '',
+      folderDisplay: cfg.folderDisplay || cfg.folderPath || '',
+      excelPath: cfg.excelPath || cfg.listExcelPath || '',
+      listExcelPath: cfg.listExcelPath || '',
+      listExcelDisplay: cfg.listExcelDisplay || cfg.listExcelPath || cfg.excelPath || '',
+      email: cfg.email || '',
+      authCode: cfg.authCode || '',
+      maxEmails: cfg.maxEmails || 50,
+      subjectKeyword: cfg.subjectKeyword || '注销成功',
+      selectedFolder: cfg.selectedFolder || '',
     }
+    cacheToolConfig(department, toolId, configData.value)
   } catch (error) {
     console.error('Failed to load config:', error)
   }
@@ -387,6 +478,8 @@ async function saveConfiguration() {
       throw new Error(response?.error || '保存失败')
     }
 
+    cacheToolConfig(targetDept, targetTool, configData.value)
+
     configDialogOpen.value = false
     pushToast({
       type: 'success',
@@ -408,56 +501,112 @@ async function saveConfiguration() {
 }
 
 async function chooseInvoiceFolder() {
+  invoiceFolderInput.value?.click()
+}
+
+async function handleInvoiceFolderSelected(event) {
+  const input = event?.target
+  const files = Array.from(input?.files || [])
+
+  if (!files.length) {
+    return
+  }
+
   selectingFolder.value = true
   try {
-    const response = await selectFolder()
-    if (response?.success && response.path) {
-      configData.value.folderPath = response.path
+    const ready = await ensureNetworkPathReadyForTool(
+      currentConfigTool.value.department || activeDepartmentCode.value,
+      currentConfigTool.value.toolId || PREVIEW_TOOL_ID,
+    )
+    if (!ready) {
       return
     }
 
-    if (response?.error) {
-      pushToast({
-        type: 'error',
-        title: '选择文件夹失败',
-        message: response.error,
-      })
+    const response = await uploadInvoiceFolder(files)
+    if (!response?.success || !response.path) {
+      throw new Error(response?.error || '文件夹上传失败')
     }
+
+    configData.value.folderPath = response.path
+    configData.value.folderDisplay =
+      response.displayPath ||
+      response.selectionName ||
+      files[0]?.webkitRelativePath?.split('/')?.[0] ||
+      files[0]?.name ||
+      ''
+    if (currentConfigTool.value.department && currentConfigTool.value.toolId) {
+      cacheToolConfig(currentConfigTool.value.department, currentConfigTool.value.toolId, configData.value)
+    }
+
+    pushToast({
+      type: 'success',
+      title: '文件夹已上传',
+      message: '已将当前电脑选择的文件夹复制到部门共享盘处理目录。',
+    })
   } catch (error) {
     pushToast({
       type: 'error',
       title: '选择文件夹失败',
-      message: error.message || '无法打开系统文件夹选择器。',
+      message: error.message || '无法上传所选文件夹。',
     })
   } finally {
     selectingFolder.value = false
+    if (input) {
+      input.value = ''
+    }
   }
 }
 
 async function chooseInvoiceExcelFile() {
+  invoiceExcelInput.value?.click()
+}
+
+async function handleInvoiceExcelSelected(event) {
+  const input = event?.target
+  const file = input?.files?.[0]
+
+  if (!file) {
+    return
+  }
+
   selectingExcelFile.value = true
   try {
-    const response = await selectFile('excel')
-    if (response?.success && response.path) {
-      configData.value.listExcelPath = response.path
+    const ready = await ensureNetworkPathReadyForTool(
+      currentConfigTool.value.department || activeDepartmentCode.value,
+      currentConfigTool.value.toolId || PREVIEW_TOOL_ID,
+    )
+    if (!ready) {
       return
     }
 
-    if (response?.error) {
-      pushToast({
-        type: 'error',
-        title: '选择文件失败',
-        message: response.error,
-      })
+    const response = await uploadInvoiceExcel(file)
+    if (!response?.success || !response.path) {
+      throw new Error(response?.error || 'Excel 上传失败')
     }
+
+    configData.value.listExcelPath = response.path
+    configData.value.excelPath = response.path
+    configData.value.listExcelDisplay = response.displayPath || file.name
+    if (currentConfigTool.value.department && currentConfigTool.value.toolId) {
+      cacheToolConfig(currentConfigTool.value.department, currentConfigTool.value.toolId, configData.value)
+    }
+
+    pushToast({
+      type: 'success',
+      title: 'Excel 已上传',
+      message: '已将当前电脑选择的 Excel 复制到部门共享盘处理目录。',
+    })
   } catch (error) {
     pushToast({
       type: 'error',
       title: '选择文件失败',
-      message: error.message || '无法打开系统文件选择器。',
+      message: error.message || '无法上传所选 Excel 文件。',
     })
   } finally {
     selectingExcelFile.value = false
+    if (input) {
+      input.value = ''
+    }
   }
 }
 
@@ -561,25 +710,53 @@ async function runDepartmentScript(tool) {
     return
   }
 
-  runningToolId.value = tool.id
-  let isBackgroundTask = false
+  const departmentCode = activeDepartmentCode.value
 
   try {
-    const result = await runDepartmentTool(activeDepartmentCode.value, tool.id)
+    const networkReady = await ensureNetworkPathReadyForTool(departmentCode, tool.id)
+    if (!networkReady) {
+      return
+    }
 
-    if (result?.success && result?.status === 'running') {
-      isBackgroundTask = true
+    let runtimeConfigOverride = null
+    if (tool.id === 'invoice_recognizer') {
+      const cacheKey = getToolKey(departmentCode, tool.id)
+      const cachedConfig = toolConfigCache.value[cacheKey]
+      const configSource = cachedConfig || (await getToolConfig(departmentCode, tool.id))?.config || {}
+
+      runtimeConfigOverride = {
+        folderPath: configSource.folderPath || '',
+        folderDisplay: configSource.folderDisplay || configSource.folderPath || '',
+        excelPath: configSource.excelPath || configSource.listExcelPath || '',
+        listExcelPath: configSource.listExcelPath || configSource.excelPath || '',
+        listExcelDisplay: configSource.listExcelDisplay || configSource.listExcelPath || configSource.excelPath || '',
+      }
+
+      if (!runtimeConfigOverride.folderPath || !runtimeConfigOverride.listExcelPath) {
+        pushToast({
+          type: 'warning',
+          title: '请先选择资料',
+          message: '先从当前电脑选择单据文件夹和 Excel 清单，再运行识别。',
+        })
+        return
+      }
+    }
+
+    const result = await runDepartmentTool(departmentCode, tool.id, runtimeConfigOverride)
+
+    if (result?.success && ['queued', 'running'].includes(result?.status)) {
+      addActiveTool(departmentCode, tool.id)
       pushToast({
         type: 'info',
-        title: '任务已启动',
-        message: `${tool.name} 正在后台运行，请查看右侧执行记录。`,
+        title: result.status === 'queued' ? '任务已入队' : '任务已启动',
+        message: result.status === 'queued'
+          ? `${tool.name} 正在排队，请查看右侧执行记录。`
+          : `${tool.name} 正在后台运行，请查看右侧执行记录。`,
         duration: 3000,
       })
-      logPanel.value?.onTaskStarted()
-      console.log('Refreshing log panel after run...', logPanel.value)
+      logPanel.value?.onTaskStarted(tool.id)
       setTimeout(async () => {
         await logPanel.value?.refresh()
-        console.log('Log panel refreshed')
       }, 200)
       return
     }
@@ -607,13 +784,9 @@ async function runDepartmentScript(tool) {
     pushToast({
       type: 'error',
       title: '执行请求失败',
-      message: '请确认 FastAPI 服务已启动，例如 uvicorn main:app --reload。',
+      message: error.message || '请确认 FastAPI 服务已启动，例如 uvicorn main:app --reload。',
       duration: 5200,
     })
-  } finally {
-    if (!isBackgroundTask) {
-      runningToolId.value = ''
-    }
   }
 }
 
@@ -733,7 +906,7 @@ onBeforeUnmount(() => {
               <UiInput
                 id="network-path"
                 v-model="departmentConfig.networkPath"
-                placeholder="\\服务器\\共享文件夹\\部门路径（例如 \\192.168.76.93\\厦门部门\\BUE2）"
+                placeholder="Windows 示例：\\\\服务器\\共享文件夹\\BUE2 或 D:\\工作目录\\BUE2"
               />
             </div>
             <div class="config-actions">
@@ -748,6 +921,9 @@ onBeforeUnmount(() => {
                 保存配置
               </UiButton>
             </div>
+          </div>
+          <div class="test-result">
+            这里统一填写部署电脑可访问的 Windows 路径，例如 `\\服务器\共享文件夹\BUE2` 或 `D:\工作目录\BUE2`。以后正式使用和测试都以 Windows 部署机为准。
           </div>
           <div v-if="networkPathTestResult" class="test-result" :class="{ success: networkPathTestResult.success, error: !networkPathTestResult.success }">
             {{ networkPathTestResult.message }}
@@ -785,7 +961,7 @@ onBeforeUnmount(() => {
                   </UiButton>
                 </div>
                 <UiButton
-                  :loading="runningToolId === tool.id"
+                  :loading="isToolActive(activeDepartmentCode, tool.id)"
                   @click="runDepartmentScript(tool)"
                 >
                   运行识别
@@ -802,10 +978,10 @@ onBeforeUnmount(() => {
                   配置
                 </UiButton>
                 <UiButton
-                  :loading="runningToolId === tool.id"
+                  :loading="isToolActive(activeDepartmentCode, tool.id)"
                   @click="runDepartmentScript(tool)"
                 >
-                  {{ runningToolId === tool.id ? '运行中' : '运行' }}
+                  {{ isToolActive(activeDepartmentCode, tool.id) ? '运行中' : '运行' }}
                 </UiButton>
               </template>
 
@@ -823,7 +999,7 @@ onBeforeUnmount(() => {
           ref="logPanel"
           :department="activeDepartment.code"
           :limit="10"
-          @task-complete="runningToolId = ''"
+          @active-tools-change="handleActiveToolsChange"
         />
       </UiCard>
     </section>
@@ -848,9 +1024,10 @@ onBeforeUnmount(() => {
           <div class="input-with-action">
             <UiInput
               id="folder-path"
-              v-model="configData.folderPath"
+              :model-value="configData.folderDisplay || configData.folderPath"
               class="input-with-button"
-              placeholder="点击右侧按钮选择文件夹"
+              placeholder="点击右侧按钮，在当前使用者自己的电脑上选择文件夹"
+              readonly
             />
             <UiButton
               class="path-picker-button"
@@ -859,9 +1036,18 @@ onBeforeUnmount(() => {
               :loading="selectingFolder"
               @click="chooseInvoiceFolder"
             >
-              选择文件夹
+              选择本机文件夹
             </UiButton>
           </div>
+          <input
+            ref="invoiceFolderInput"
+            type="file"
+            webkitdirectory
+            multiple
+            class="native-picker-input"
+            @change="handleInvoiceFolderSelected"
+          >
+          <small class="field-hint">会在当前打开网页的这台电脑上选择文件夹，并上传到部门共享盘处理目录。上传前会先自动测试局域网路径是否可读写。推荐使用 Edge 或 Chrome。</small>
         </div>
 
         <div class="form-field">
@@ -869,9 +1055,10 @@ onBeforeUnmount(() => {
           <div class="input-with-action">
             <UiInput
               id="list-excel-path"
-              v-model="configData.listExcelPath"
+              :model-value="configData.listExcelDisplay || configData.listExcelPath"
               class="input-with-button"
-              placeholder="点击右侧按钮选择 Excel 文件"
+              placeholder="点击右侧按钮，在当前使用者自己的电脑上选择 Excel"
+              readonly
             />
             <UiButton
               class="path-picker-button"
@@ -880,9 +1067,17 @@ onBeforeUnmount(() => {
               :loading="selectingExcelFile"
               @click="chooseInvoiceExcelFile"
             >
-              选择文件
+              选择本机 Excel
             </UiButton>
           </div>
+          <input
+            ref="invoiceExcelInput"
+            type="file"
+            accept=".xlsx"
+            class="native-picker-input"
+            @change="handleInvoiceExcelSelected"
+          >
+          <small class="field-hint">选择后会先上传到部门共享盘处理目录，再由脚本直接读取共享盘里的上传副本并把输出写回同一侧。</small>
         </div>
       </div>
 
@@ -1065,6 +1260,10 @@ onBeforeUnmount(() => {
   align-self: stretch;
 }
 
+.native-picker-input {
+  display: none;
+}
+
 .toggle-visibility-icon {
   display: flex;
   align-items: center;
@@ -1088,6 +1287,3 @@ onBeforeUnmount(() => {
   background: var(--card-muted);
 }
 </style>
-
-
-

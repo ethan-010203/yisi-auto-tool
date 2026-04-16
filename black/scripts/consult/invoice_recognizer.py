@@ -14,10 +14,10 @@ from xml.sax.saxutils import escape
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import fitz
-from openai import OpenAI
 
 
 CONFIG_FILE = Path(__file__).resolve().parents[2] / "configs" / "CONSULT_invoice_recognizer.json"
+REQUIREMENTS_FILE = Path(__file__).resolve().parents[2] / "requirements.txt"
 SUMMARY_FILE_NAME = "汇总表.xlsx"
 SUMMARY_SHEET_NAME = "汇总表"
 SUMMARY_HEADERS = [
@@ -213,11 +213,38 @@ def format_recent_logs() -> str:
     return "\n".join(RECENT_LOGS[-MAX_RECENT_LOGS:])
 
 
-def load_config() -> dict:
-    if not CONFIG_FILE.exists():
-        raise FileNotFoundError(f"配置文件不存在: {CONFIG_FILE}")
+def build_openai_dependency_error(exc: Exception) -> RuntimeError:
+    if REQUIREMENTS_FILE.exists():
+        install_command = f"{sys.executable} -m pip install --upgrade --force-reinstall -r {REQUIREMENTS_FILE}"
+    else:
+        install_command = f"{sys.executable} -m pip install --upgrade --force-reinstall 'openai>=1.30,<2'"
 
-    with open(CONFIG_FILE, "r", encoding="utf-8") as file:
+    message = (
+        "当前 Python 环境中的 openai 依赖不可用，无法执行单据模型识别。\n"
+        f"Python 解释器: {sys.executable}\n"
+        f"建议修复命令: {install_command}\n"
+        f"原始错误: {type(exc).__name__}: {exc}"
+    )
+    return RuntimeError(message)
+
+
+def create_openai_client():
+    try:
+        from openai import OpenAI as OpenAIClient
+    except Exception as exc:
+        raise build_openai_dependency_error(exc) from exc
+
+    return OpenAIClient(base_url=MODEL_BASE_URL, api_key=MODEL_API_KEY)
+
+
+def load_config() -> dict:
+    config_path_value = os.environ.get("YISI_CONFIG_PATH", "").strip()
+    config_file = Path(config_path_value) if config_path_value else CONFIG_FILE
+
+    if not config_file.exists():
+        raise FileNotFoundError(f"配置文件不存在: {config_file}")
+
+    with open(config_file, "r", encoding="utf-8") as file:
         return json.load(file)
 
 
@@ -687,7 +714,7 @@ def recognize_pdf_with_model(pdf_file_path: Path) -> dict[str, object]:
             "total_amount": None,
         }
 
-    client = OpenAI(base_url=MODEL_BASE_URL, api_key=MODEL_API_KEY)
+    client = create_openai_client()
     user_content: list[dict[str, object]] = []
     for image_url in image_urls:
         user_content.append(
@@ -730,7 +757,7 @@ def recognize_uk_pdf_with_model_b(pdf_file_path: Path) -> dict[str, object]:
         dpi=120,
     )
 
-    client = OpenAI(base_url=MODEL_BASE_URL, api_key=MODEL_API_KEY)
+    client = create_openai_client()
     user_content: list[dict[str, object]] = []
     for image_url in image_urls:
         user_content.append(

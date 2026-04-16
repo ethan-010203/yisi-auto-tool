@@ -8,7 +8,7 @@
 
 - 已上线脚本数量：`2`
 - 已接入部门：`CONSULT`、`BUE2`
-- 已具备能力：工具配置保存、部门局域网路径配置、网络路径读写测试、实时日志、终止任务、文件/文件夹选择、历史执行记录
+- 已具备能力：工具配置保存、部门局域网路径配置、网络路径读写测试、实时日志、终止任务、浏览器本机文件选择上传、历史执行记录
 - 前端占位部门：`BUE1`、`BUV1`、`BUV2`、`BUV3`
 
 ## 已上线脚本
@@ -70,20 +70,21 @@
 ### 1. 后端依赖
 
 ```bash
-cd black
-pip install fastapi uvicorn pydantic pymupdf openai
+python3 -m venv .venv
+./.venv/bin/python -m pip install -r black/requirements.txt
 ```
 
 说明：
 
 - `invoice_recognizer` 依赖 `PyMuPDF(fitz)` 和 `openai`
-- 文件选择能力依赖本机可用的 `tkinter`
+- 浏览器上传接口依赖 `python-multipart`
+- 旧版服务端本机弹窗能力仍依赖 `tkinter`
+- 建议统一使用项目根目录的 `.venv`，避免误用电脑里已有的全局 `python/openai`
 
 ### 2. 启动后端
 
 ```bash
-cd black
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+./.venv/bin/python -m uvicorn black.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 - 健康检查：`http://localhost:8000/api/health`
@@ -97,6 +98,53 @@ npm install
 npm run dev
 ```
 
+### 3.1 标准启动脚本
+
+项目根目录已提供一套标准脚本：
+
+```bash
+npm run dev:backend
+```
+
+```bash
+npm run dev:frontend
+```
+
+```bash
+npm run dev:start
+```
+
+```bash
+npm run dev:stop
+```
+
+Windows 部署环境可直接使用：
+
+```powershell
+npm run dev:backend:win
+```
+
+```powershell
+npm run dev:frontend:win
+```
+
+```powershell
+npm run dev:start:win
+```
+
+```powershell
+npm run dev:stop:win
+```
+
+说明：
+
+- `dev:backend`：前台启动后端
+- `dev:frontend`：前台启动前端
+- `dev:start`：后台一键启动前后端，日志写入 `.run/`
+- `dev:stop`：停止后台启动的前后端
+- `dev:*:win`：给 Windows 工作电脑使用的 PowerShell 版本
+- 后端脚本会优先使用项目根目录的 `.venv`，其次才回退到系统 Python
+
 默认开发代理会把 `/api` 转发到 `http://localhost:8000`。
 
 如果后端不在本机，可在启动前指定：
@@ -109,15 +157,18 @@ VITE_PROXY_TARGET=http://<后端IP>:8000 npm run dev
 
 - 前端默认端口：`5173`
 - 后端默认端口：`8000`
-- 前端页面中可保存部门共享目录，例如：
+- 这套系统后续统一按 Windows 部署考虑，前端页面中应保存“部署电脑可访问”的 Windows 路径，例如：
   - `CONSULT`：`\\\\192.168.76.93\\厦门部门\\顾问部`
   - `BUE2`：`\\\\192.168.76.93\\厦门部门\\BUE2`
+  - 或本机盘符路径：`D:\\YisiData\\BUE2`
+- `CONSULT / invoice_recognizer` 的“选择文件夹 / 选择 Excel”会在访问网页的用户电脑上弹窗选择，并上传副本到部署电脑，不会在部署电脑桌面上弹系统选择框
 - 共享目录保存后，建议先通过页面内“测试路径”确认可读写
 
 ## 配置文件
 
 - 工具配置：`black/configs/<部门>_<工具>.json`
 - 部门配置：`black/configs/<部门>_config.json`
+- 运行并发配置：`black/configs/runtime_limits.json`
 - 执行日志：`black/logs/<department>.json`
 
 当前已存在的配置文件：
@@ -126,6 +177,13 @@ VITE_PROXY_TARGET=http://<后端IP>:8000 npm run dev
 - `black/configs/BUE2_citeo_email_extractor.json`
 - `black/configs/CONSULT_config.json`
 - `black/configs/BUE2_config.json`
+- `black/configs/runtime_limits.json`
+
+`runtime_limits.json` 当前字段：
+
+- `global`：全局最多同时运行多少个任务
+- `perDepartment`：每个部门最多同时运行多少个任务
+- `perTool`：同一部门下同一工具最多同时运行多少个任务
 
 ## 主要接口
 
@@ -140,6 +198,8 @@ VITE_PROXY_TARGET=http://<后端IP>:8000 npm run dev
 | `GET /api/departments/{department}/logs` | 查询部门日志 |
 | `POST /api/executions/{log_id}/terminate` | 终止运行中的任务 |
 | `POST /api/test-network-path` | 测试共享目录读写权限 |
+| `POST /api/uploads/consult/invoice-recognizer/folder` | 上传顾问部源文件夹 |
+| `POST /api/uploads/consult/invoice-recognizer/excel` | 上传顾问部 Excel 清单 |
 | `POST /api/select-folder` | 选择文件夹 |
 | `POST /api/select-file` | 选择文件 |
 

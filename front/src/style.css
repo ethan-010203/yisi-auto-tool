@@ -539,6 +539,16 @@ button {
   color: var(--foreground);
 }
 
+.ui-button--danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.ui-button--danger:hover {
+  box-shadow: 0 0 0 3px var(--danger-soft);
+}
+
 .ui-button--loading {
   opacity: 0.5;
   cursor: not-allowed;

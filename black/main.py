@@ -3,15 +3,18 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shutil
 import subprocess
 import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
+from datetime import datetime
+from pathlib import Path, PurePosixPath
 from typing import Optional
+from uuid import uuid4
 
-from fastapi import FastAPI
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -20,6 +23,8 @@ from runner.logger import (
     register_active_process, terminate_process, get_active_processes, unregister_process,
     is_manual_terminated, append_process_output
 )
+from runner.runtime import prepare_runtime_bundle
+from runner.task_queue import TaskQueue, build_job
 
 try:
     import tkinter as tk
@@ -34,8 +39,20 @@ app = FastAPI()
 
 CONFIG_DIR = Path(__file__).parent / "configs"
 CONFIG_DIR.mkdir(exist_ok=True)
+RUNTIME_LIMITS_FILE = CONFIG_DIR / "runtime_limits.json"
+UPLOADS_DIR = Path(__file__).parent / "uploads"
+UPLOADS_DIR.mkdir(exist_ok=True)
+
+TOOL_STORAGE_POLICIES = {
+    ("CONSULT", "invoice_recognizer"): {
+        "requires_network_path": True,
+        "inputs_must_live_in_network_path": True,
+        "shared_storage_folder": "英德单据识别",
+    },
+}
 
 executor = ThreadPoolExecutor(max_workers=2)
+TASK_QUEUE = TaskQueue()
 
 app.add_middleware(
     CORSMiddleware,
@@ -48,11 +65,13 @@ app.add_middleware(
 DEPARTMENT_SCRIPTS = {
     "CONSULT": {
         "test_hello": Path(__file__).parent / "scripts" / "consult" / "test_hello.py",
+        "queue_runtime_probe": Path(__file__).parent / "scripts" / "consult" / "testing" / "queue_runtime_probe.py",
         "invoice_recognizer": Path(__file__).parent / "scripts" / "consult" / "invoice_recognizer.py",
         "pdf_classifier": Path(__file__).parent / "scripts" / "consult" / "pdf_classifier.py",
     },
     "BUE2": {
         "test": Path(__file__).parent / "scripts" / "bue2" / "test.py",
+        "queue_runtime_probe": Path(__file__).parent / "scripts" / "bue2" / "testing" / "queue_runtime_probe.py",
         "citeo_email_extractor": Path(__file__).parent / "scripts" / "bue2" / "citeo_email_extractor.py",
     }
 }
@@ -60,8 +79,10 @@ DEPARTMENT_SCRIPTS = {
 
 class ConfigRequest(BaseModel):
     folderPath: Optional[str] = None
+    folderDisplay: Optional[str] = None
     excelPath: Optional[str] = None
     listExcelPath: Optional[str] = None
+    listExcelDisplay: Optional[str] = None
     # BUE2 email extractor fields
     email: Optional[str] = None
     authCode: Optional[str] = None
@@ -72,6 +93,10 @@ class ConfigRequest(BaseModel):
 
 class FileSelectRequest(BaseModel):
     fileType: Optional[str] = "excel"
+
+
+class RunToolRequest(BaseModel):
+    configOverride: Optional[ConfigRequest] = None
 
 
 def _config_file(department: str, tool: str) -> Path:
@@ -103,6 +128,153 @@ def _read_department_config(department: str) -> Optional[dict]:
         return json.load(file)
 
 
+def _load_runtime_limits() -> dict:
+    default_limits = {
+        "global": 2,
+        "perDepartment": 1,
+        "perTool": 1,
+    }
+
+    if not RUNTIME_LIMITS_FILE.exists():
+        return default_limits
+
+    try:
+        with open(RUNTIME_LIMITS_FILE, "r", encoding="utf-8") as file:
+            payload = json.load(file)
+    except Exception:
+        return default_limits
+
+    return {
+        "global": max(1, int(payload.get("global", default_limits["global"]))),
+        "perDepartment": max(1, int(payload.get("perDepartment", default_limits["perDepartment"]))),
+        "perTool": max(1, int(payload.get("perTool", default_limits["perTool"]))),
+    }
+
+
+def _merge_tool_config(base_config: Optional[dict], override_model: Optional[ConfigRequest]) -> dict:
+    merged = dict(base_config or {})
+    if not override_model:
+        return merged
+
+    override_payload = _config_payload(override_model)
+    for key, value in override_payload.items():
+        if value is not None:
+            merged[key] = value
+    return merged
+
+
+def _get_tool_storage_policy(department: str, tool: str) -> dict:
+    return TOOL_STORAGE_POLICIES.get((department.upper(), tool), {})
+
+
+def _validate_network_path_or_raise(path_value: str) -> Path:
+    path = (path_value or "").strip()
+    if not path:
+        raise ValueError("请先配置部门局域网路径，并确保部署电脑可以访问该目录。")
+
+    expanded_path = str(Path(path).expanduser()) if path.startswith("~") else path
+    is_unc_path = expanded_path.startswith(r"\\")
+    is_posix_path = expanded_path.startswith("/")
+    is_windows_drive = len(expanded_path) > 2 and expanded_path[1] == ":" and expanded_path[2] in ["\\", "/"]
+
+    if not (is_unc_path or is_posix_path or is_windows_drive):
+        raise ValueError(
+            "路径格式错误：请填写部署电脑可访问的绝对路径。推荐使用 Windows 路径，例如 "
+            "\\\\\\\\服务器\\\\共享文件夹\\\\顾问部 或 D:\\\\工作目录\\\\顾问部。"
+        )
+
+    if is_unc_path and os.name != "nt":
+        raise ValueError(
+            "当前后端不是运行在 Windows 上，因此无法在本机校验 UNC 路径。"
+            "请改用当前机器可访问的挂载路径，或在 Windows 部署机上再测试该共享路径。"
+        )
+
+    target_path = Path(expanded_path)
+    if not target_path.exists():
+        raise FileNotFoundError("路径不存在，请检查路径是否正确")
+
+    if not target_path.is_dir():
+        raise NotADirectoryError("路径不是有效的文件夹")
+
+    probe_file = target_path / f".yisi_write_test_{uuid4().hex[:8]}"
+    try:
+        probe_file.write_text("test", encoding="utf-8")
+        probe_file.unlink()
+    except Exception as exc:
+        raise PermissionError(f"没有写入权限：{exc}") from exc
+
+    return target_path
+
+
+def _ensure_tool_network_root(department: str, tool: str) -> tuple[dict, Path]:
+    dept_config = _read_department_config(department.upper()) or {}
+    network_root = _validate_network_path_or_raise(dept_config.get("networkPath", ""))
+    return dept_config, network_root
+
+
+def _is_path_within_root(path_value: str, root_path: Path) -> bool:
+    try:
+        normalized_path = os.path.normcase(os.path.normpath(str(Path(path_value))))
+        normalized_root = os.path.normcase(os.path.normpath(str(root_path)))
+        return os.path.commonpath([normalized_path, normalized_root]) == normalized_root
+    except Exception:
+        return False
+
+
+def _validate_network_bound_config(department: str, tool: str, config: dict, network_root: Path) -> None:
+    policy = _get_tool_storage_policy(department, tool)
+    if not policy.get("inputs_must_live_in_network_path"):
+        return
+
+    if department.upper() == "CONSULT" and tool == "invoice_recognizer":
+        required_paths = [
+            ("递延税单据总文件夹", (config.get("folderPath") or "").strip()),
+            ("Excel 清单文件", (config.get("excelPath") or config.get("listExcelPath") or "").strip()),
+        ]
+
+        for label, path_value in required_paths:
+            if not path_value:
+                raise ValueError(f"{label}未配置，请先上传到部门共享盘处理目录。")
+            if not _is_path_within_root(path_value, network_root):
+                raise ValueError(
+                    f"{label}不在部门共享盘目录下，请重新通过页面上传后再运行。\n当前路径: {path_value}\n"
+                    f"共享盘根目录: {network_root}"
+                )
+
+
+def _build_network_upload_session_root(network_root: Path, department: str, tool: str, category: str) -> Path:
+    session_id = f"{datetime.now():%Y%m%d_%H%M%S}_{uuid4().hex[:8]}"
+    policy = _get_tool_storage_policy(department, tool)
+    tool_folder = policy.get("shared_storage_folder") or tool
+    root = network_root / tool_folder / "上传缓存" / category / session_id
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _build_upload_session_root(department: str, tool: str, category: str) -> Path:
+    session_id = f"{datetime.now():%Y%m%d_%H%M%S}_{uuid4().hex[:8]}"
+    root = UPLOADS_DIR / department.lower() / tool / category / session_id
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _sanitize_upload_relative_path(path_value: str) -> Path:
+    normalized = PurePosixPath((path_value or "").replace("\\", "/"))
+    safe_parts: list[str] = []
+
+    for part in normalized.parts:
+        if part in ("", ".", "/"):
+            continue
+        if part == "..":
+            raise ValueError("上传路径包含非法上级目录")
+        safe_parts.append(part)
+
+    if not safe_parts:
+        raise ValueError("上传路径不能为空")
+
+    return Path(*safe_parts)
+
+
 def _shorten_path(path_value: Optional[str], limit: int = 56) -> str:
     if not path_value:
         return "未设置"
@@ -116,7 +288,7 @@ def _shorten_path(path_value: Optional[str], limit: int = 56) -> str:
 def _build_preview_payload(department: str, tool: str, config: Optional[dict]) -> dict:
     if department.upper() == "CONSULT" and tool == "invoice_recognizer":
         folder_path = (config or {}).get("folderPath", "")
-        excel_path = (config or {}).get("excelPath", "")
+        excel_path = (config or {}).get("excelPath", "") or (config or {}).get("listExcelPath", "")
         configured = bool(folder_path and excel_path)
 
         return {
@@ -269,7 +441,6 @@ def _run_script_async(log_id: str, department: str, tool: str, script_path: Path
     """在后台线程中运行脚本"""
     start_time = time.time()
     process = None
-    from datetime import datetime
     dt_start = datetime.now()
 
     def extract_error_message(stdout: str, stderr: str) -> str:
@@ -294,7 +465,7 @@ def _run_script_async(log_id: str, department: str, tool: str, script_path: Path
         )
 
         # 注册活跃进程（传入开始时间）
-        register_active_process(log_id, process, department, tool, dt_start)
+        register_active_process(log_id, process, department, tool, dt_start, config=config)
         
         # 等待进程完成
         stdout, stderr = process.communicate()
@@ -305,10 +476,13 @@ def _run_script_async(log_id: str, department: str, tool: str, script_path: Path
         # 检查是否被用户手动终止
         manual_terminated = is_manual_terminated(log_id)
         if not success and manual_terminated:
+            final_status = "terminated"
             error_msg = "用户手动终止流程"
         elif not success:
+            final_status = "failed"
             error_msg = extract_error_message(stdout, stderr)
         else:
+            final_status = "success"
             error_msg = None
 
         # 记录执行结果
@@ -316,7 +490,7 @@ def _run_script_async(log_id: str, department: str, tool: str, script_path: Path
             department=department,
             tool=tool,
             config=config,
-            status="success" if success else "failed",
+            status=final_status,
             output=stdout or "",
             error=error_msg,
             duration=duration,
@@ -366,9 +540,9 @@ def _run_script_async_live(log_id: str, department: str, tool: str, script_path:
     stdout_chunks: list[str] = []
     stderr_chunks: list[str] = []
 
-    from datetime import datetime
-
     dt_start = datetime.now()
+    stdout_log_path = Path(env["YISI_STDOUT_LOG_PATH"]) if env.get("YISI_STDOUT_LOG_PATH") else None
+    stderr_log_path = Path(env["YISI_STDERR_LOG_PATH"]) if env.get("YISI_STDERR_LOG_PATH") else None
 
     def extract_error_message(stdout: str, stderr: str) -> str:
         if stderr and stderr.strip():
@@ -381,12 +555,22 @@ def _run_script_async_live(log_id: str, department: str, tool: str, script_path:
 
         return "Unknown error"
 
-    def forward_stream(stream, chunks: list[str], stream_name: str) -> None:
+    def forward_stream(stream, chunks: list[str], stream_name: str, target_path: Optional[Path]) -> None:
+        file_handle = None
         try:
+            if target_path:
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                file_handle = open(target_path, "a", encoding="utf-8")
+
             for line in iter(stream.readline, ""):
                 chunks.append(line)
                 append_process_output(log_id, line, stream=stream_name)
+                if file_handle:
+                    file_handle.write(line)
+                    file_handle.flush()
         finally:
+            if file_handle:
+                file_handle.close()
             stream.close()
 
     try:
@@ -406,16 +590,16 @@ def _run_script_async_live(log_id: str, department: str, tool: str, script_path:
             env=run_env,
         )
 
-        register_active_process(log_id, process, department, tool, dt_start)
+        register_active_process(log_id, process, department, tool, dt_start, config=config)
 
         stdout_thread = threading.Thread(
             target=forward_stream,
-            args=(process.stdout, stdout_chunks, "stdout"),
+            args=(process.stdout, stdout_chunks, "stdout", stdout_log_path),
             daemon=True,
         )
         stderr_thread = threading.Thread(
             target=forward_stream,
-            args=(process.stderr, stderr_chunks, "stderr"),
+            args=(process.stderr, stderr_chunks, "stderr", stderr_log_path),
             daemon=True,
         )
         stdout_thread.start()
@@ -432,17 +616,20 @@ def _run_script_async_live(log_id: str, department: str, tool: str, script_path:
 
         manual_terminated = is_manual_terminated(log_id)
         if not success and manual_terminated:
+            final_status = "terminated"
             error_msg = "用户手动终止流程"
         elif not success:
+            final_status = "failed"
             error_msg = extract_error_message(stdout, stderr)
         else:
+            final_status = "success"
             error_msg = None
 
         log_execution(
             department=department,
             tool=tool,
             config=config,
-            status="success" if success else "failed",
+            status=final_status,
             output=stdout or "",
             error=error_msg,
             duration=duration,
@@ -464,9 +651,21 @@ def _run_script_async_live(log_id: str, department: str, tool: str, script_path:
         unregister_process(log_id)
 
 
+def _run_queued_job(job: dict) -> None:
+    _run_script_async_live(
+        job["log_id"],
+        job["department"],
+        job["tool"],
+        job["script_path"],
+        job["env"],
+        job["config"],
+    )
+
+
 @app.post("/api/departments/{department}/tools/{tool}/run")
-def run_tool(department: str, tool: str):
-    dept_scripts = DEPARTMENT_SCRIPTS.get(department.upper())
+def run_tool(department: str, tool: str, payload: Optional[RunToolRequest] = None):
+    normalized_department = department.upper()
+    dept_scripts = DEPARTMENT_SCRIPTS.get(normalized_department)
     if not dept_scripts:
         return {"success": False, "error": f"Department {department} not found"}
 
@@ -475,33 +674,72 @@ def run_tool(department: str, tool: str):
         return {"success": False, "error": f"Tool {tool} not found for department {department}"}
 
     # 读取工具配置和部门配置
-    config = _read_tool_config(department, tool)
-    dept_config = _read_department_config(department)
-    network_path = dept_config.get("networkPath", "") if dept_config else ""
-    
+    config = _merge_tool_config(
+        _read_tool_config(normalized_department, tool) or {},
+        payload.configOverride if payload else None,
+    )
+    try:
+        dept_config = _read_department_config(normalized_department)
+        network_path = dept_config.get("networkPath", "") if dept_config else ""
+        policy = _get_tool_storage_policy(normalized_department, tool)
+        validated_network_root = None
+        if policy.get("requires_network_path"):
+            dept_config, validated_network_root = _ensure_tool_network_root(normalized_department, tool)
+            network_path = str(validated_network_root)
+            _validate_network_bound_config(normalized_department, tool, config, validated_network_root)
+    except Exception as error:
+        return {"success": False, "error": str(error)}
+    runtime_limits = _load_runtime_limits()
+    TASK_QUEUE.update_limits(
+        global_limit=runtime_limits["global"],
+        department_limit=runtime_limits["perDepartment"],
+        tool_limit=runtime_limits["perTool"],
+    )
+
+    # 为单次运行准备隔离目录和配置快照
+    log_id = f"{time.time()}_{tool}"
+    runtime_bundle = prepare_runtime_bundle(normalized_department, tool, log_id, config)
+
     # 准备环境变量
     env = os.environ.copy()
     env["YISI_DEPT_NETWORK_PATH"] = network_path
     env["YISI_TOOL_ID"] = tool
-    env["YISI_DEPARTMENT"] = department.upper()
-    
-    # 生成任务ID
-    log_id = f"{time.time()}_{tool}"
-    
-    # 在后台线程启动脚本
-    executor.submit(_run_script_async_live, log_id, department.upper(), tool, script_path, env, config)
-    
+    env["YISI_DEPARTMENT"] = normalized_department
+    env["YISI_RUN_ID"] = log_id
+    env["YISI_RUNTIME_DIR"] = str(runtime_bundle["runtime_dir"])
+    env["YISI_CONFIG_PATH"] = str(runtime_bundle["config_path"])
+    env["YISI_DOWNLOAD_DIR"] = str(runtime_bundle["downloads_dir"])
+    env["YISI_ARTIFACT_DIR"] = str(runtime_bundle["artifacts_dir"])
+    env["YISI_SCREENSHOT_DIR"] = str(runtime_bundle["screenshots_dir"])
+    env["YISI_BROWSER_PROFILE_DIR"] = str(runtime_bundle["browser_profile_dir"])
+    env["YISI_STDOUT_LOG_PATH"] = str(runtime_bundle["stdout_log_path"])
+    env["YISI_STDERR_LOG_PATH"] = str(runtime_bundle["stderr_log_path"])
+
+    job = build_job(
+        log_id=log_id,
+        department=normalized_department,
+        tool=tool,
+        script_path=script_path,
+        env=env,
+        config=config,
+    )
+    queue_result = TASK_QUEUE.enqueue(job, _run_queued_job)
+
     return {
         "success": True,
         "logId": log_id,
-        "message": "任务已启动",
-        "status": "running",
+        "message": "任务已启动" if queue_result["status"] == "running" else "任务已进入队列",
+        "status": queue_result["status"],
+        "queuePosition": queue_result.get("queuePosition"),
     }
 
 
 @app.post("/api/executions/{log_id}/terminate")
 def terminate_execution(log_id: str):
     """终止正在运行的任务"""
+    if TASK_QUEUE.cancel(log_id):
+        return {"success": True, "message": "排队中的任务已终止"}
+
     success = terminate_process(log_id)
     if success:
         return {"success": True, "message": "任务已终止"}
@@ -541,7 +779,129 @@ def get_tool_preview(department: str, tool: str):
         return {"success": False, "error": str(error)}
 
 
+@app.post("/api/uploads/consult/invoice-recognizer/folder")
+async def upload_invoice_folder(
+    files: list[UploadFile] = File(...),
+    relativePaths: list[str] = Form(...),
+    selectionName: str = Form(""),
+):
+    if not files:
+        return {"success": False, "error": "未接收到文件夹内容"}
+
+    if len(files) != len(relativePaths):
+        return {"success": False, "error": "上传文件与相对路径数量不一致"}
+
+    try:
+        _dept_config, network_root = _ensure_tool_network_root("CONSULT", "invoice_recognizer")
+        session_root = _build_network_upload_session_root(network_root, "CONSULT", "invoice_recognizer", "folder")
+    except Exception as error:
+        return {"success": False, "error": str(error)}
+    created_paths: list[Path] = []
+
+    try:
+        for upload, relative_path in zip(files, relativePaths):
+            safe_relative_path = _sanitize_upload_relative_path(relative_path)
+            destination = session_root / safe_relative_path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(destination, "wb") as target_file:
+                shutil.copyfileobj(upload.file, target_file)
+
+            created_paths.append(destination)
+            await upload.close()
+
+        root_name = selectionName.strip() or _sanitize_upload_relative_path(relativePaths[0]).parts[0]
+        folder_root = session_root / root_name
+        if not folder_root.exists():
+            folder_root = session_root
+
+        return {
+            "success": True,
+            "path": str(folder_root),
+            "selectionName": root_name,
+            "displayPath": root_name,
+            "fileCount": len(created_paths),
+            "networkRoot": str(network_root),
+        }
+    except Exception as error:
+        shutil.rmtree(session_root, ignore_errors=True)
+        return {"success": False, "error": str(error)}
+
+
+@app.post("/api/uploads/consult/invoice-recognizer/excel")
+async def upload_invoice_excel(file: UploadFile = File(...)):
+    if not file.filename:
+        return {"success": False, "error": "未接收到 Excel 文件"}
+
+    suffix = Path(file.filename).suffix.lower()
+    if suffix != ".xlsx":
+        return {"success": False, "error": "当前仅支持上传 .xlsx 文件"}
+
+    try:
+        _dept_config, network_root = _ensure_tool_network_root("CONSULT", "invoice_recognizer")
+        session_root = _build_network_upload_session_root(network_root, "CONSULT", "invoice_recognizer", "excel")
+    except Exception as error:
+        return {"success": False, "error": str(error)}
+    destination = session_root / Path(file.filename).name
+
+    try:
+        with open(destination, "wb") as target_file:
+            shutil.copyfileobj(file.file, target_file)
+
+        await file.close()
+        return {
+            "success": True,
+            "path": str(destination),
+            "displayPath": Path(file.filename).name,
+            "networkRoot": str(network_root),
+        }
+    except Exception as error:
+        shutil.rmtree(session_root, ignore_errors=True)
+        return {"success": False, "error": str(error)}
+
+
 def _open_folder_dialog():
+    if sys.platform.startswith("win"):
+        try:
+            result = subprocess.run(
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-Command",
+                    (
+                        "Add-Type -AssemblyName System.Windows.Forms; "
+                        "$dialog = New-Object System.Windows.Forms.FolderBrowserDialog; "
+                        '$dialog.Description = "选择递延税单据总文件夹"; '
+                        "$dialog.ShowNewFolderButton = $false; "
+                        "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { "
+                        "Write-Output $dialog.SelectedPath "
+                        "}"
+                    ),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout.strip()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return ""
+
+    if sys.platform == "darwin":
+        try:
+            result = subprocess.run(
+                [
+                    "osascript",
+                    "-e",
+                    'POSIX path of (choose folder with prompt "选择递延税单据总文件夹")',
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout.strip()
+        except subprocess.CalledProcessError:
+            return ""
+
     root = tk.Tk()
     root.withdraw()
     root.attributes("-topmost", True)
@@ -554,7 +914,7 @@ def _open_folder_dialog():
 
 @app.post("/api/select-folder")
 async def select_folder():
-    if not TKINTER_AVAILABLE:
+    if not sys.platform.startswith("win") and sys.platform != "darwin" and not TKINTER_AVAILABLE:
         return {"success": False, "error": "Tkinter not available"}
 
     try:
@@ -568,6 +928,50 @@ async def select_folder():
 
 
 def _open_file_dialog(file_type: str):
+    if sys.platform.startswith("win"):
+        prompt = "选择 Excel 输出文件" if file_type == "excel" else "选择文件"
+        filter_value = "Excel 文件 (*.xlsx;*.xls)|*.xlsx;*.xls" if file_type == "excel" else "所有文件 (*.*)|*.*"
+        try:
+            result = subprocess.run(
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-Command",
+                    (
+                        "Add-Type -AssemblyName System.Windows.Forms; "
+                        "$dialog = New-Object System.Windows.Forms.OpenFileDialog; "
+                        f'$dialog.Title = "{prompt}"; '
+                        f'$dialog.Filter = "{filter_value}"; '
+                        "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { "
+                        "Write-Output $dialog.FileName "
+                        "}"
+                    ),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout.strip()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return ""
+
+    if sys.platform == "darwin":
+        prompt = "选择 Excel 输出文件" if file_type == "excel" else "选择文件"
+        try:
+            result = subprocess.run(
+                [
+                    "osascript",
+                    "-e",
+                    f'POSIX path of (choose file with prompt "{prompt}")',
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout.strip()
+        except subprocess.CalledProcessError:
+            return ""
+
     root = tk.Tk()
     root.withdraw()
     root.attributes("-topmost", True)
@@ -587,7 +991,7 @@ def _open_file_dialog(file_type: str):
 
 @app.post("/api/select-file")
 async def select_file(request: FileSelectRequest):
-    if not TKINTER_AVAILABLE:
+    if not sys.platform.startswith("win") and sys.platform != "darwin" and not TKINTER_AVAILABLE:
         return {"success": False, "error": "Tkinter not available"}
 
     try:
@@ -806,34 +1210,7 @@ def get_department_config(department: str):
 def test_network_path(request: NetworkPathTestRequest):
     """测试网络路径是否可访问"""
     try:
-        path = request.path.strip()
-        if not path:
-            return {"success": False, "error": "路径不能为空"}
-
-        # 验证UNC路径格式 (\\server\share)
-        if not path.startswith(r"\\"):
-            return {"success": False, "error": "路径格式错误：请使用有效的局域网路径格式，如 \\\\\\服务器\\\\共享文件夹"}
-
-        # 将路径转换为 Path 对象
-        test_path = Path(path)
-
-        # 检查路径是否存在（不自动创建）
-        if not test_path.exists():
-            return {"success": False, "error": "路径不存在，请检查路径是否正确"}
-
-        # 检查是否是目录
-        if not test_path.is_dir():
-            return {"success": False, "error": "路径不是有效的文件夹"}
-
-        # 尝试创建一个临时文件来测试写入权限
-        test_file = test_path / ".write_test"
-        try:
-            test_file.write_text("test", encoding="utf-8")
-            test_file.unlink()  # 删除测试文件
-        except Exception as e:
-            return {"success": False, "error": f"没有写入权限：{str(e)}"}
-
+        _validate_network_path_or_raise(request.path)
         return {"success": True, "message": "网络路径连接成功，可正常读写，记得保存配置"}
-
     except Exception as error:
         return {"success": False, "error": f"测试失败：{str(error)}"}

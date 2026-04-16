@@ -49,9 +49,33 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['task-complete'])
+const emit = defineEmits(['task-complete', 'active-tools-change'])
 
-const hasRunningTasks = computed(() => logs.value.some((log) => log.status === 'running'))
+function isActiveStatus(status) {
+  return status === 'queued' || status === 'running'
+}
+
+function getStatusLabel(status) {
+  if (status === 'queued') return '排队中'
+  if (status === 'running') return '运行中'
+  if (status === 'success') return '成功'
+  if (status === 'terminated') return '已终止'
+  return '失败'
+}
+
+function getStatusChipClass(status) {
+  if (status === 'success') return 'status-success'
+  if (status === 'queued' || status === 'running') return 'status-running'
+  return 'status-failed'
+}
+
+function getStatusBadgeVariant(status) {
+  if (status === 'success') return 'success'
+  if (status === 'queued' || status === 'running') return 'warning'
+  return 'danger'
+}
+
+const hasRunningTasks = computed(() => logs.value.some((log) => isActiveStatus(log.status)))
 
 const filteredLogs = computed(() => {
   let result = logs.value
@@ -85,6 +109,23 @@ function getToolName(toolId) {
   if (!dept) return toolId
   const tool = dept.tools.find((item) => item.id === toolId)
   return tool?.name || toolId
+}
+
+function emitActiveTools() {
+  if (!props.department) {
+    return
+  }
+
+  const toolIds = [...new Set(
+    logs.value
+      .filter((log) => isActiveStatus(log.status))
+      .map((log) => log.tool),
+  )]
+
+  emit('active-tools-change', {
+    department: props.department,
+    toolIds,
+  })
 }
 
 function pushToast({ type = 'info', title, message = '', duration = 4200 }) {
@@ -123,6 +164,7 @@ async function loadLogs() {
 
     if (response?.success) {
       logs.value = response.logs || []
+      emitActiveTools()
 
       if (detailDialogOpen.value && selectedLog.value) {
         const updatedLog = logs.value.find((log) => log.id === selectedLog.value.id)
@@ -215,7 +257,7 @@ function openDetailDialog(log) {
   detailDialogOpen.value = true
   showFailureOutput.value = false
 
-  if (log.status === 'running') {
+  if (isActiveStatus(log.status)) {
     loadLogs()
   }
 }
@@ -252,7 +294,7 @@ function exportLogs() {
     ...filteredLogs.value.map((log) => [
       formatTime(log.timestamp),
       getToolName(log.tool),
-      log.status === 'success' ? '成功' : log.status === 'running' ? '运行中' : '失败',
+      getStatusLabel(log.status),
       formatDuration(log.duration),
       (log.output || '').replace(/\n/g, ' '),
     ]),
@@ -389,6 +431,10 @@ watch(
   () => {
     currentPage.value = 1
     hadRunningTasks.value = false
+    emit('active-tools-change', {
+      department: props.department,
+      toolIds: [],
+    })
     loadLogs().then(() => {
       hadRunningTasks.value = hasRunningTasks.value
       if (hasRunningTasks.value) {
@@ -406,7 +452,8 @@ watch([searchQuery, statusFilter], () => {
 watch(
   () => logs.value,
   (newLogs) => {
-    const hasRunning = newLogs.some((log) => log.status === 'running')
+    emitActiveTools()
+    const hasRunning = newLogs.some((log) => isActiveStatus(log.status))
     if (hasRunning && !pollInterval.value) {
       startPolling()
     } else if (!hasRunning && pollInterval.value) {
@@ -440,8 +487,23 @@ onUnmounted(() => {
 defineExpose({
   refresh: loadLogs,
   exportLogs,
-  onTaskStarted: () => {
+  onTaskStarted: (toolId) => {
     hadRunningTasks.value = true
+    if (toolId && props.department) {
+      const current = new Set(
+        logs.value
+          .filter((log) => isActiveStatus(log.status))
+          .map((log) => log.tool),
+      )
+      current.add(toolId)
+      emit('active-tools-change', {
+        department: props.department,
+        toolIds: [...current],
+      })
+    }
+    if (!pollInterval.value) {
+      startPolling()
+    }
   },
 })
 </script>
@@ -491,9 +553,11 @@ defineExpose({
         <button
           v-for="option in [
             { value: 'all', label: '全部' },
+            { value: 'queued', label: '排队中' },
             { value: 'running', label: '运行中' },
             { value: 'success', label: '成功' },
             { value: 'failed', label: '失败' },
+            { value: 'terminated', label: '已终止' },
           ]"
           :key="option.value"
           class="filter-btn"
@@ -514,7 +578,7 @@ defineExpose({
     </div>
 
     <div v-else-if="displayedLogs.length === 0" class="log-empty">
-      <p>{{ searchQuery || statusFilter !== 'all' ? '没有找到匹配的记录' : hasRunningTasks ? '任务运行中...' : '暂无执行记录' }}</p>
+      <p>{{ searchQuery || statusFilter !== 'all' ? '没有找到匹配的记录' : hasRunningTasks ? '任务正在排队或运行中...' : '暂无执行记录' }}</p>
     </div>
 
     <div v-else class="log-table-container">
@@ -540,8 +604,8 @@ defineExpose({
             class="log-row-clickable"
             :class="{
               'log-row-success': log.status === 'success',
-              'log-row-running': log.status === 'running',
-              'log-row-failed': log.status !== 'success' && log.status !== 'running',
+              'log-row-running': log.status === 'queued' || log.status === 'running',
+              'log-row-failed': log.status !== 'success' && log.status !== 'queued' && log.status !== 'running',
             }"
             @click="openDetailDialog(log)"
           >
@@ -552,11 +616,11 @@ defineExpose({
               <span
                 :class="[
                   'status-chip',
-                  log.status === 'success' ? 'status-success' : log.status === 'running' ? 'status-running' : 'status-failed',
+                  getStatusChipClass(log.status),
                 ]"
               >
                 <span class="status-dot"></span>
-                <span>{{ log.status === 'success' ? '成功' : log.status === 'running' ? '运行中' : '失败' }}</span>
+                <span>{{ getStatusLabel(log.status) }}</span>
               </span>
             </td>
           </tr>
@@ -597,8 +661,8 @@ defineExpose({
 
             <div class="meta-item">
               <span class="meta-label">执行结果</span>
-              <UiBadge :variant="selectedLog.status === 'success' ? 'success' : selectedLog.status === 'running' ? 'warning' : 'danger'">
-                {{ selectedLog.status === 'success' ? '成功' : selectedLog.status === 'running' ? '运行中' : '失败' }}
+              <UiBadge :variant="getStatusBadgeVariant(selectedLog.status)">
+                {{ getStatusLabel(selectedLog.status) }}
               </UiBadge>
             </div>
 
@@ -609,27 +673,32 @@ defineExpose({
 
             <div class="meta-item">
               <span class="meta-label">结束时间</span>
-              <span class="meta-value">{{ selectedLog.status === 'running' ? '-' : formatEndTime(selectedLog.timestamp, selectedLog.duration) }}</span>
+              <span class="meta-value">{{ isActiveStatus(selectedLog.status) ? '-' : formatEndTime(selectedLog.timestamp, selectedLog.duration) }}</span>
+            </div>
+
+            <div v-if="selectedLog.queuePosition" class="meta-item">
+              <span class="meta-label">排队位置</span>
+              <span class="meta-value">#{{ selectedLog.queuePosition }}</span>
             </div>
           </div>
         </div>
 
-        <div v-if="selectedLog.status === 'running'" class="detail-section running-toolbar">
+        <div v-if="isActiveStatus(selectedLog.status)" class="detail-section running-toolbar">
           <div class="running-indicator">
             <div class="spinner"></div>
-            <span>任务正在执行中...</span>
+            <span>{{ selectedLog.status === 'queued' ? '任务正在排队中...' : '任务正在执行中...' }}</span>
           </div>
           <div class="running-actions">
             <span class="live-log-hint">每 1 秒自动刷新</span>
-            <UiButton variant="outline" size="sm" @click="openTerminateDialog(selectedLog.id)">终止执行</UiButton>
+            <UiButton variant="danger" size="sm" @click="openTerminateDialog(selectedLog.id)">终止执行</UiButton>
           </div>
         </div>
 
-        <div v-if="selectedLog.status === 'running'" class="detail-section">
+        <div v-if="isActiveStatus(selectedLog.status)" class="detail-section">
           <div class="section-header">
-            <h4 class="section-title">实时输出</h4>
+            <h4 class="section-title">{{ selectedLog.status === 'queued' ? '排队状态' : '实时输出' }}</h4>
           </div>
-          <pre class="log-output log-output-live">{{ selectedLog.output || selectedLog.error || '任务已启动，等待日志输出...' }}</pre>
+          <pre class="log-output log-output-live">{{ selectedLog.output || selectedLog.error || (selectedLog.status === 'queued' ? '任务已进入队列，等待可用执行槽位...' : '任务已启动，等待日志输出...') }}</pre>
         </div>
 
         <div v-if="selectedLog.status === 'success' && selectedLog.output" class="detail-section">
@@ -654,7 +723,7 @@ defineExpose({
           <pre class="log-error-detail">{{ selectedLog.error }}</pre>
         </div>
 
-        <div v-if="selectedLog.status === 'failed' && selectedLog.output" class="detail-section">
+        <div v-if="['failed', 'terminated'].includes(selectedLog.status) && selectedLog.output" class="detail-section">
           <div class="section-header">
             <div class="detail-section-heading">
               <h4 class="section-title">运行日志</h4>
@@ -669,7 +738,7 @@ defineExpose({
           </div>
         </div>
 
-        <div v-if="selectedLog.status !== 'running' && !selectedLog.output && !selectedLog.error" class="detail-section empty">
+        <div v-if="!isActiveStatus(selectedLog.status) && !selectedLog.output && !selectedLog.error" class="detail-section empty">
           <p>没有输出日志</p>
         </div>
       </div>
@@ -686,7 +755,7 @@ defineExpose({
     >
       <template #footer>
         <UiButton variant="outline" :disabled="terminateLoading" @click="closeTerminateDialog">取消</UiButton>
-        <UiButton :loading="terminateLoading" @click="confirmTerminate">确认终止</UiButton>
+        <UiButton variant="danger" :loading="terminateLoading" @click="confirmTerminate">确认终止</UiButton>
       </template>
     </UiDialog>
   </UiCard>
