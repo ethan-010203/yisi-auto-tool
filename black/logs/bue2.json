@@ -1,5 +1,71 @@
 [
   {
+    "id": "1776327126.6387475_test",
+    "timestamp": "2026-04-16T16:12:12.275012",
+    "department": "BUE2",
+    "tool": "test",
+    "config": {},
+    "status": "success",
+    "output": "[TEST] 测试任务启动...\n[TEST] 等待10秒钟...\n[TEST] 已等待 1 秒...\n[TEST] 已等待 2 秒...\n[TEST] 已等待 3 秒...\n[TEST] 已等待 4 秒...\n[TEST] 已等待 5 秒...\n[TEST] 任务执行完成！\n[TEST] 输出: 测试成功\n",
+    "error": null,
+    "duration": 5.03
+  },
+  {
+    "id": "1776327116.0355463_queue_runtime_probe",
+    "timestamp": "2026-04-16T16:12:00.227949",
+    "department": "BUE2",
+    "tool": "queue_runtime_probe",
+    "config": {},
+    "status": "success",
+    "output": "[BUE2-QUEUE-PROBE] queue/runtime probe started\n[BUE2-QUEUE-PROBE] department=BUE2 tool=queue_runtime_probe run_id=1776327116.0355463_queue_runtime_probe\n[BUE2-QUEUE-PROBE] runtime_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776327116.0355463_queue_runtime_probe\n[BUE2-QUEUE-PROBE] artifact_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776327116.0355463_queue_runtime_probe\\artifacts\n[BUE2-QUEUE-PROBE] download_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776327116.0355463_queue_runtime_probe\\downloads\n[BUE2-QUEUE-PROBE] screenshot_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776327116.0355463_queue_runtime_probe\\screenshots\n[BUE2-QUEUE-PROBE] browser_profile_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776327116.0355463_queue_runtime_probe\\browser-profile\n[BUE2-QUEUE-PROBE] config_path=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776327116.0355463_queue_runtime_probe\\config.json\n[BUE2-QUEUE-PROBE] stdout_log_path=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776327116.0355463_queue_runtime_probe\\stdout.log\n[BUE2-QUEUE-PROBE] stderr_log_path=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776327116.0355463_queue_runtime_probe\\stderr.log\n[BUE2-QUEUE-PROBE] step 1/6: simulate long-running work\n[BUE2-QUEUE-PROBE] step 2/6: simulate long-running work\n[BUE2-QUEUE-PROBE] step 3/6: simulate long-running work\n[BUE2-QUEUE-PROBE] step 4/6: simulate long-running work\n[BUE2-QUEUE-PROBE] step 5/6: simulate long-running work\n[BUE2-QUEUE-PROBE] step 6/6: simulate long-running work\n[BUE2-QUEUE-PROBE] probe finished in 12.0s\n",
+    "error": null,
+    "duration": 12.05
+  },
+  {
+    "id": "1776327115.1878753_test",
+    "timestamp": "2026-04-16T16:11:55.195428",
+    "department": "BUE2",
+    "tool": "test",
+    "config": {},
+    "status": "success",
+    "output": "[TEST] 测试任务启动...\n[TEST] 等待10秒钟...\n[TEST] 已等待 1 秒...\n[TEST] 已等待 2 秒...\n[TEST] 已等待 3 秒...\n[TEST] 已等待 4 秒...\n[TEST] 已等待 5 秒...\n[TEST] 任务执行完成！\n[TEST] 输出: 测试成功\n",
+    "error": null,
+    "duration": 5.03
+  },
+  {
+    "id": "1776327003.5514438_queue_runtime_probe",
+    "timestamp": "2026-04-16T16:10:03.558923",
+    "department": "BUE2",
+    "tool": "queue_runtime_probe",
+    "config": {},
+    "status": "success",
+    "output": "[BUE2-QUEUE-PROBE] queue/runtime probe started\n[BUE2-QUEUE-PROBE] department=BUE2 tool=queue_runtime_probe run_id=1776327003.5514438_queue_runtime_probe\n[BUE2-QUEUE-PROBE] runtime_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776327003.5514438_queue_runtime_probe\n[BUE2-QUEUE-PROBE] artifact_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776327003.5514438_queue_runtime_probe\\artifacts\n[BUE2-QUEUE-PROBE] download_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776327003.5514438_queue_runtime_probe\\downloads\n[BUE2-QUEUE-PROBE] screenshot_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776327003.5514438_queue_runtime_probe\\screenshots\n[BUE2-QUEUE-PROBE] browser_profile_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776327003.5514438_queue_runtime_probe\\browser-profile\n[BUE2-QUEUE-PROBE] config_path=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776327003.5514438_queue_runtime_probe\\config.json\n[BUE2-QUEUE-PROBE] stdout_log_path=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776327003.5514438_queue_runtime_probe\\stdout.log\n[BUE2-QUEUE-PROBE] stderr_log_path=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776327003.5514438_queue_runtime_probe\\stderr.log\n[BUE2-QUEUE-PROBE] step 1/6: simulate long-running work\n[BUE2-QUEUE-PROBE] step 2/6: simulate long-running work\n[BUE2-QUEUE-PROBE] step 3/6: simulate long-running work\n[BUE2-QUEUE-PROBE] step 4/6: simulate long-running work\n[BUE2-QUEUE-PROBE] step 5/6: simulate long-running work\n[BUE2-QUEUE-PROBE] step 6/6: simulate long-running work\n[BUE2-QUEUE-PROBE] probe finished in 12.0s\n",
+    "error": null,
+    "duration": 12.05
+  },
+  {
+    "id": "1776326837.0254924_test",
+    "timestamp": "2026-04-16T16:07:28.420158",
+    "department": "BUE2",
+    "tool": "test",
+    "config": {},
+    "status": "terminated",
+    "output": "[TEST] 测试任务启动...\n[TEST] 等待10秒钟...\n[TEST] 已等待 1 秒...\n[TEST] 已等待 2 秒...\n[TEST] 已等待 3 秒...\n[TEST] 已等待 4 秒...\n",
+    "error": "用户手动终止流程",
+    "duration": 5.0
+  },
+  {
+    "id": "1776326836.3643413_queue_runtime_probe",
+    "timestamp": "2026-04-16T16:07:16.368357",
+    "department": "BUE2",
+    "tool": "queue_runtime_probe",
+    "config": {},
+    "status": "success",
+    "output": "[BUE2-QUEUE-PROBE] queue/runtime probe started\n[BUE2-QUEUE-PROBE] department=BUE2 tool=queue_runtime_probe run_id=1776326836.3643413_queue_runtime_probe\n[BUE2-QUEUE-PROBE] runtime_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776326836.3643413_queue_runtime_probe\n[BUE2-QUEUE-PROBE] artifact_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776326836.3643413_queue_runtime_probe\\artifacts\n[BUE2-QUEUE-PROBE] download_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776326836.3643413_queue_runtime_probe\\downloads\n[BUE2-QUEUE-PROBE] screenshot_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776326836.3643413_queue_runtime_probe\\screenshots\n[BUE2-QUEUE-PROBE] browser_profile_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776326836.3643413_queue_runtime_probe\\browser-profile\n[BUE2-QUEUE-PROBE] config_path=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776326836.3643413_queue_runtime_probe\\config.json\n[BUE2-QUEUE-PROBE] stdout_log_path=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776326836.3643413_queue_runtime_probe\\stdout.log\n[BUE2-QUEUE-PROBE] stderr_log_path=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\bue2\\queue_runtime_probe\\1776326836.3643413_queue_runtime_probe\\stderr.log\n[BUE2-QUEUE-PROBE] step 1/6: simulate long-running work\n[BUE2-QUEUE-PROBE] step 2/6: simulate long-running work\n[BUE2-QUEUE-PROBE] step 3/6: simulate long-running work\n[BUE2-QUEUE-PROBE] step 4/6: simulate long-running work\n[BUE2-QUEUE-PROBE] step 5/6: simulate long-running work\n[BUE2-QUEUE-PROBE] step 6/6: simulate long-running work\n[BUE2-QUEUE-PROBE] probe finished in 12.0s\n",
+    "error": null,
+    "duration": 12.05
+  },
+  {
     "id": "1776313078.557461_queue_runtime_probe",
     "timestamp": "2026-04-16T12:17:58.558568",
     "department": "BUE2",

@@ -1,20 +1,8 @@
 {
   "scripts": {
-    "dev:backend": "./scripts/dev-backend.sh",
-    "dev:frontend": "./scripts/dev-frontend.sh",
-    "dev:start": "./scripts/start-dev.sh",
-    "dev:stop": "./scripts/stop-dev.sh",
+    "dev:backend": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-backend.ps1",
+    "dev:frontend": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-frontend.ps1",
     "dev:backend:win": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-backend.ps1",
-    "dev:frontend:win": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-frontend.ps1",
-    "dev:start:win": "powershell -ExecutionPolicy Bypass -File ./scripts/start-dev.ps1",
-    "dev:stop:win": "powershell -ExecutionPolicy Bypass -File ./scripts/stop-dev.ps1"
-  },
-  "dependencies": {
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "lucide-vue-next": "^1.0.0",
-    "ogl": "^1.0.11",
-    "radix-vue": "^1.9.17",
-    "tailwind-merge": "^3.5.0"
+    "dev:frontend:win": "powershell -ExecutionPolicy Bypass -File ./scripts/dev-frontend.ps1"
   }
 }

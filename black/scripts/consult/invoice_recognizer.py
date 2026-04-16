@@ -279,6 +279,55 @@ def validate_config(config: dict) -> tuple[Path, Path]:
     return folder_path, list_excel_path
 
 
+def ensure_readable_directory(path: Path, label: str) -> None:
+    try:
+        entries = path.iterdir()
+        next(entries, None)
+    except PermissionError as exc:
+        raise PermissionError(f"{label}无读取权限: {path}") from exc
+    except OSError as exc:
+        raise OSError(f"{label}无法读取: {path}; {exc}") from exc
+
+
+def ensure_writable_directory(path: Path, label: str) -> None:
+    probe_path = path / f".yisi_perm_probe_{time.time_ns()}.tmp"
+    try:
+        with open(probe_path, "w", encoding="utf-8") as file:
+            file.write("ok")
+        probe_path.unlink()
+    except PermissionError as exc:
+        raise PermissionError(f"{label}无写入权限: {path}") from exc
+    except OSError as exc:
+        raise OSError(f"{label}无法写入: {path}; {exc}") from exc
+
+
+def ensure_readable_file(path: Path, label: str) -> None:
+    try:
+        with open(path, "rb") as file:
+            file.read(1)
+    except PermissionError as exc:
+        raise PermissionError(f"{label}无读取权限: {path}") from exc
+    except OSError as exc:
+        raise OSError(f"{label}无法读取: {path}; {exc}") from exc
+
+
+def validate_runtime_access(
+    folder_path: Path,
+    list_excel_path: Path,
+    customer_folders: list[tuple[str, Path]],
+) -> None:
+    ensure_readable_directory(folder_path, "递延税单据总文件夹")
+    ensure_writable_directory(folder_path, "递延税单据总文件夹")
+    ensure_readable_file(list_excel_path, "Excel 清单文件")
+
+    for customer_id, customer_folder_path in customer_folders:
+        ensure_readable_directory(customer_folder_path, f"客户文件夹[{customer_id}]")
+        ensure_writable_directory(customer_folder_path, f"客户文件夹[{customer_id}]")
+
+        for pdf_file_path in collect_customer_pdf_files(customer_folder_path):
+            ensure_readable_file(pdf_file_path, f"PDF 文件[{customer_id}/{pdf_file_path.name}]")
+
+
 def normalize_customer_id(value: str) -> str:
     text = value.strip()
     if text.endswith(".0") and text[:-2].isdigit():
@@ -1453,6 +1502,7 @@ def main() -> int:
         summary_path = initialize_summary_workbook(folder_path)
         list_customer_records = extract_list_customer_records(list_excel_path)
         customer_folders = collect_customer_folders(folder_path)
+        validate_runtime_access(folder_path, list_excel_path, customer_folders)
         summary_rows, missing_customer_count, zero_pdf_count = process_customer_folders(
             customer_folders,
             list_customer_records,

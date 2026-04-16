@@ -15,8 +15,6 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
-yarn.lock
 
 # IDE
 .vscode/
@@ -34,5 +32,9 @@ dist/
 build/
 *.log
 
-# Configs (keep templates)
-configs/*.json
+# Runtime and local workspace artifacts
+.run/
+.windsurf/
+.rollback_snapshots/
+black/runtime/
+tmp*/

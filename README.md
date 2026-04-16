@@ -98,52 +98,15 @@ npm install
 npm run dev
 ```
 
-### 3.1 标准启动脚本
+### 3.1 启动说明
 
-项目根目录已提供一套标准脚本：
+项目已移除根目录的一键启动 / 停止脚本，请按上面的原始命令分别启动后端与前端。
 
-```bash
-npm run dev:backend
-```
 
-```bash
-npm run dev:frontend
-```
 
-```bash
-npm run dev:start
-```
 
-```bash
-npm run dev:stop
-```
 
-Windows 部署环境可直接使用：
 
-```powershell
-npm run dev:backend:win
-```
-
-```powershell
-npm run dev:frontend:win
-```
-
-```powershell
-npm run dev:start:win
-```
-
-```powershell
-npm run dev:stop:win
-```
-
-说明：
-
-- `dev:backend`：前台启动后端
-- `dev:frontend`：前台启动前端
-- `dev:start`：后台一键启动前后端，日志写入 `.run/`
-- `dev:stop`：停止后台启动的前后端
-- `dev:*:win`：给 Windows 工作电脑使用的 PowerShell 版本
-- 后端脚本会优先使用项目根目录的 `.venv`，其次才回退到系统 Python
 
 默认开发代理会把 `/api` 转发到 `http://localhost:8000`。
 

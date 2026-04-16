@@ -10,11 +10,11 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Optional
 from uuid import uuid4
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -40,14 +40,10 @@ app = FastAPI()
 CONFIG_DIR = Path(__file__).parent / "configs"
 CONFIG_DIR.mkdir(exist_ok=True)
 RUNTIME_LIMITS_FILE = CONFIG_DIR / "runtime_limits.json"
-UPLOADS_DIR = Path(__file__).parent / "uploads"
-UPLOADS_DIR.mkdir(exist_ok=True)
-
 TOOL_STORAGE_POLICIES = {
     ("CONSULT", "invoice_recognizer"): {
         "requires_network_path": True,
         "inputs_must_live_in_network_path": True,
-        "shared_storage_folder": "英德单据识别",
     },
 }
 
@@ -76,6 +72,12 @@ DEPARTMENT_SCRIPTS = {
     }
 }
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+REQUIREMENTS_FILE = Path(__file__).parent / "requirements.txt"
+TOOL_REQUIRED_PYTHON_MODULES = {
+    ("CONSULT", "invoice_recognizer"): ("fitz", "openai"),
+}
+
 
 class ConfigRequest(BaseModel):
     folderPath: Optional[str] = None
@@ -97,6 +99,93 @@ class FileSelectRequest(BaseModel):
 
 class RunToolRequest(BaseModel):
     configOverride: Optional[ConfigRequest] = None
+
+
+def _iter_python_candidates() -> list[tuple[list[str], str]]:
+    candidates: list[tuple[list[str], str]] = []
+    seen: set[tuple[str, ...]] = set()
+
+    def add_candidate(command: list[str], label: str) -> None:
+        key = tuple(command)
+        if not command or key in seen:
+            return
+        seen.add(key)
+        candidates.append((command, label))
+
+    for env_name in ("YISI_TOOL_PYTHON_BIN", "YISI_PYTHON_BIN"):
+        candidate = (os.environ.get(env_name) or "").strip()
+        if candidate:
+            add_candidate([candidate], candidate)
+
+    venv_windows = PROJECT_ROOT / ".venv" / "Scripts" / "python.exe"
+    venv_posix = PROJECT_ROOT / ".venv" / "bin" / "python"
+    if venv_windows.exists():
+        add_candidate([str(venv_windows)], str(venv_windows))
+    if venv_posix.exists():
+        add_candidate([str(venv_posix)], str(venv_posix))
+
+    add_candidate([sys.executable], sys.executable)
+
+    if shutil.which("python"):
+        add_candidate(["python"], "python")
+    if shutil.which("py"):
+        add_candidate(["py", "-3"], "py -3")
+
+    return candidates
+
+
+def _python_candidate_supports_modules(command: list[str], modules: tuple[str, ...]) -> bool:
+    if not modules:
+        return True
+
+    probe_code = (
+        "import importlib.util, sys;"
+        "missing=[name for name in sys.argv[1:] if importlib.util.find_spec(name) is None];"
+        "raise SystemExit(0 if not missing else 1)"
+    )
+
+    try:
+        result = subprocess.run(
+            [*command, "-c", probe_code, *modules],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+    return result.returncode == 0
+
+
+def _resolve_tool_python_command(department: str, tool: str) -> tuple[list[str], str]:
+    required_modules = TOOL_REQUIRED_PYTHON_MODULES.get((department.upper(), tool), ())
+    if not required_modules:
+        return [sys.executable], sys.executable
+
+    candidates = _iter_python_candidates()
+    attempted_labels: list[str] = []
+    install_target = candidates[0][1] if candidates else sys.executable
+
+    for command, label in candidates:
+        attempted_labels.append(label)
+        if _python_candidate_supports_modules(command, required_modules):
+            return command, label
+
+    requirements_path = REQUIREMENTS_FILE
+    install_command = (
+        f'{install_target} -m pip install --upgrade --force-reinstall -r "{requirements_path}"'
+        if requirements_path.exists()
+        else f"{install_target} -m pip install --upgrade --force-reinstall {' '.join(required_modules)}"
+    )
+    attempted_text = ", ".join(attempted_labels) if attempted_labels else sys.executable
+    raise RuntimeError(
+        "未找到可执行该工具的 Python 环境。\n"
+        f"工具: {department}/{tool}\n"
+        f"缺少模块: {', '.join(required_modules)}\n"
+        f"已尝试解释器: {attempted_text}\n"
+        f"建议修复命令: {install_command}"
+    )
 
 
 def _config_file(department: str, tool: str) -> Path:
@@ -168,9 +257,25 @@ def _get_tool_storage_policy(department: str, tool: str) -> dict:
 
 
 def _validate_network_path_or_raise(path_value: str) -> Path:
+    target_path = _normalize_absolute_path_or_raise(path_value, "部门局域网路径")
+    if not target_path.exists():
+        raise FileNotFoundError("路径不存在，请检查路径是否正确")
+
+    if not target_path.is_dir():
+        raise NotADirectoryError("路径不是有效的文件夹")
+
+    _ensure_readable_directory(target_path, "部门局域网路径")
+    _ensure_writable_directory(target_path, "部门局域网路径")
+
+    return target_path
+
+
+def _normalize_absolute_path_or_raise(path_value: str, label: str) -> Path:
     path = (path_value or "").strip()
+    if len(path) >= 2 and path[0] == path[-1] and path[0] in ('"', "'"):
+        path = path[1:-1].strip()
     if not path:
-        raise ValueError("请先配置部门局域网路径，并确保部署电脑可以访问该目录。")
+        raise ValueError(f"{label}未配置，请填写部署电脑可访问的真实绝对路径。")
 
     expanded_path = str(Path(path).expanduser()) if path.startswith("~") else path
     is_unc_path = expanded_path.startswith(r"\\")
@@ -179,8 +284,8 @@ def _validate_network_path_or_raise(path_value: str) -> Path:
 
     if not (is_unc_path or is_posix_path or is_windows_drive):
         raise ValueError(
-            "路径格式错误：请填写部署电脑可访问的绝对路径。推荐使用 Windows 路径，例如 "
-            "\\\\\\\\服务器\\\\共享文件夹\\\\顾问部 或 D:\\\\工作目录\\\\顾问部。"
+            f"{label}格式错误：请填写部署电脑可访问的真实绝对路径。"
+            "推荐使用 Windows 路径，例如 \\\\服务器\\共享文件夹\\顾问部 或 D:\\工作目录\\顾问部。"
         )
 
     if is_unc_path and os.name != "nt":
@@ -189,21 +294,81 @@ def _validate_network_path_or_raise(path_value: str) -> Path:
             "请改用当前机器可访问的挂载路径，或在 Windows 部署机上再测试该共享路径。"
         )
 
-    target_path = Path(expanded_path)
-    if not target_path.exists():
-        raise FileNotFoundError("路径不存在，请检查路径是否正确")
+    return Path(expanded_path)
 
-    if not target_path.is_dir():
-        raise NotADirectoryError("路径不是有效的文件夹")
 
-    probe_file = target_path / f".yisi_write_test_{uuid4().hex[:8]}"
+def _ensure_readable_directory(path: Path, label: str) -> None:
+    try:
+        entries = path.iterdir()
+        next(entries, None)
+    except PermissionError as exc:
+        raise PermissionError(f"{label}没有读取权限: {path}") from exc
+    except OSError as exc:
+        raise OSError(f"{label}无法读取: {path}; {exc}") from exc
+
+
+def _ensure_writable_directory(path: Path, label: str) -> None:
+    probe_file = path / f".yisi_write_test_{uuid4().hex[:8]}"
     try:
         probe_file.write_text("test", encoding="utf-8")
         probe_file.unlink()
-    except Exception as exc:
-        raise PermissionError(f"没有写入权限：{exc}") from exc
+    except PermissionError as exc:
+        raise PermissionError(f"{label}没有写入权限: {path}") from exc
+    except OSError as exc:
+        raise OSError(f"{label}无法写入: {path}; {exc}") from exc
 
-    return target_path
+
+def _ensure_readable_file(path: Path, label: str) -> None:
+    try:
+        with open(path, "rb") as file:
+            file.read(1)
+    except PermissionError as exc:
+        raise PermissionError(f"{label}没有读取权限: {path}") from exc
+    except OSError as exc:
+        raise OSError(f"{label}无法读取: {path}; {exc}") from exc
+
+
+def _validate_invoice_recognizer_config_or_raise(config: dict) -> dict:
+    folder_path_text = (config.get("folderPath") or "").strip()
+    excel_path_text = (config.get("excelPath") or config.get("listExcelPath") or "").strip()
+
+    folder_path = _normalize_absolute_path_or_raise(folder_path_text, "递延税单据总文件夹")
+    excel_path = _normalize_absolute_path_or_raise(excel_path_text, "Excel 清单文件")
+
+    if not folder_path.exists():
+        raise FileNotFoundError(f"递延税单据总文件夹不存在: {folder_path}")
+    if not folder_path.is_dir():
+        raise NotADirectoryError(f"递延税单据总文件夹不是有效目录: {folder_path}")
+
+    if not excel_path.exists():
+        raise FileNotFoundError(f"Excel 清单文件不存在: {excel_path}")
+    if not excel_path.is_file():
+        raise FileNotFoundError(f"Excel 清单路径不是有效文件: {excel_path}")
+    if excel_path.suffix.lower() != ".xlsx":
+        raise ValueError("当前仅支持读取 .xlsx 格式的 Excel 清单文件。")
+
+    _ensure_readable_directory(folder_path, "递延税单据总文件夹")
+    _ensure_writable_directory(folder_path, "递延税单据总文件夹")
+    _ensure_readable_file(excel_path, "Excel 清单文件")
+
+    normalized_config = dict(config)
+    normalized_folder_path = str(folder_path)
+    normalized_excel_path = str(excel_path)
+    normalized_config["folderPath"] = normalized_folder_path
+    normalized_config["folderDisplay"] = normalized_folder_path
+    normalized_config["excelPath"] = normalized_excel_path
+    normalized_config["listExcelPath"] = normalized_excel_path
+    normalized_config["listExcelDisplay"] = normalized_excel_path
+    return normalized_config
+
+
+def _validate_tool_config_or_raise(department: str, tool: str, config: dict) -> dict:
+    normalized_config = dict(config or {})
+
+    if department.upper() == "CONSULT" and tool == "invoice_recognizer":
+        return _validate_invoice_recognizer_config_or_raise(normalized_config)
+
+    return normalized_config
 
 
 def _ensure_tool_network_root(department: str, tool: str) -> tuple[dict, Path]:
@@ -234,45 +399,12 @@ def _validate_network_bound_config(department: str, tool: str, config: dict, net
 
         for label, path_value in required_paths:
             if not path_value:
-                raise ValueError(f"{label}未配置，请先上传到部门共享盘处理目录。")
+                raise ValueError(f"{label}未配置，请先填写部门共享盘中的真实路径。")
             if not _is_path_within_root(path_value, network_root):
                 raise ValueError(
-                    f"{label}不在部门共享盘目录下，请重新通过页面上传后再运行。\n当前路径: {path_value}\n"
+                    f"{label}不在部门共享盘目录下，请改为填写部门共享盘中的真实路径后再运行。\n当前路径: {path_value}\n"
                     f"共享盘根目录: {network_root}"
                 )
-
-
-def _build_network_upload_session_root(network_root: Path, department: str, tool: str, category: str) -> Path:
-    session_id = f"{datetime.now():%Y%m%d_%H%M%S}_{uuid4().hex[:8]}"
-    policy = _get_tool_storage_policy(department, tool)
-    tool_folder = policy.get("shared_storage_folder") or tool
-    root = network_root / tool_folder / "上传缓存" / category / session_id
-    root.mkdir(parents=True, exist_ok=True)
-    return root
-
-
-def _build_upload_session_root(department: str, tool: str, category: str) -> Path:
-    session_id = f"{datetime.now():%Y%m%d_%H%M%S}_{uuid4().hex[:8]}"
-    root = UPLOADS_DIR / department.lower() / tool / category / session_id
-    root.mkdir(parents=True, exist_ok=True)
-    return root
-
-
-def _sanitize_upload_relative_path(path_value: str) -> Path:
-    normalized = PurePosixPath((path_value or "").replace("\\", "/"))
-    safe_parts: list[str] = []
-
-    for part in normalized.parts:
-        if part in ("", ".", "/"):
-            continue
-        if part == "..":
-            raise ValueError("上传路径包含非法上级目录")
-        safe_parts.append(part)
-
-    if not safe_parts:
-        raise ValueError("上传路径不能为空")
-
-    return Path(*safe_parts)
 
 
 def _shorten_path(path_value: Optional[str], limit: int = 56) -> str:
@@ -456,12 +588,16 @@ def _run_script_async(log_id: str, department: str, tool: str, script_path: Path
 
     try:
         # 启动进程
+        python_command, python_label = _resolve_tool_python_command(department, tool)
+        run_env = env.copy()
+        run_env["YISI_TOOL_PYTHON_BIN_RESOLVED"] = python_label
+
         process = subprocess.Popen(
-            [sys.executable, str(script_path)],
+            [*python_command, str(script_path)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env=env,
+            env=run_env,
         )
 
         # 注册活跃进程（传入开始时间）
@@ -579,8 +715,11 @@ def _run_script_async_live(log_id: str, department: str, tool: str, script_path:
         run_env["PYTHONIOENCODING"] = "utf-8"
         run_env["PYTHONUTF8"] = "1"
 
+        python_command, python_label = _resolve_tool_python_command(department, tool)
+        run_env["YISI_TOOL_PYTHON_BIN_RESOLVED"] = python_label
+
         process = subprocess.Popen(
-            [sys.executable, "-X", "utf8", "-u", str(script_path)],
+            [*python_command, "-X", "utf8", "-u", str(script_path)],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -679,6 +818,7 @@ def run_tool(department: str, tool: str, payload: Optional[RunToolRequest] = Non
         payload.configOverride if payload else None,
     )
     try:
+        config = _validate_tool_config_or_raise(normalized_department, tool, config)
         dept_config = _read_department_config(normalized_department)
         network_path = dept_config.get("networkPath", "") if dept_config else ""
         policy = _get_tool_storage_policy(normalized_department, tool)
@@ -748,11 +888,18 @@ def terminate_execution(log_id: str):
 
 @app.post("/api/departments/{department}/tools/{tool}/config")
 def save_tool_config(department: str, tool: str, config: ConfigRequest):
-    config_file = _config_file(department, tool)
+    normalized_department = department.upper()
+    config_file = _config_file(normalized_department, tool)
 
     try:
+        config_payload = _validate_tool_config_or_raise(normalized_department, tool, _config_payload(config))
+        policy = _get_tool_storage_policy(normalized_department, tool)
+        if policy.get("requires_network_path"):
+            _, validated_network_root = _ensure_tool_network_root(normalized_department, tool)
+            _validate_network_bound_config(normalized_department, tool, config_payload, validated_network_root)
+
         with open(config_file, "w", encoding="utf-8") as file:
-            json.dump(_config_payload(config), file, ensure_ascii=False, indent=2)
+            json.dump(config_payload, file, ensure_ascii=False, indent=2)
         return {
             "success": True,
             "message": "配置已保存",
@@ -779,89 +926,68 @@ def get_tool_preview(department: str, tool: str):
         return {"success": False, "error": str(error)}
 
 
-@app.post("/api/uploads/consult/invoice-recognizer/folder")
-async def upload_invoice_folder(
-    files: list[UploadFile] = File(...),
-    relativePaths: list[str] = Form(...),
-    selectionName: str = Form(""),
-):
-    if not files:
-        return {"success": False, "error": "未接收到文件夹内容"}
-
-    if len(files) != len(relativePaths):
-        return {"success": False, "error": "上传文件与相对路径数量不一致"}
-
-    try:
-        _dept_config, network_root = _ensure_tool_network_root("CONSULT", "invoice_recognizer")
-        session_root = _build_network_upload_session_root(network_root, "CONSULT", "invoice_recognizer", "folder")
-    except Exception as error:
-        return {"success": False, "error": str(error)}
-    created_paths: list[Path] = []
-
-    try:
-        for upload, relative_path in zip(files, relativePaths):
-            safe_relative_path = _sanitize_upload_relative_path(relative_path)
-            destination = session_root / safe_relative_path
-            destination.parent.mkdir(parents=True, exist_ok=True)
-
-            with open(destination, "wb") as target_file:
-                shutil.copyfileobj(upload.file, target_file)
-
-            created_paths.append(destination)
-            await upload.close()
-
-        root_name = selectionName.strip() or _sanitize_upload_relative_path(relativePaths[0]).parts[0]
-        folder_root = session_root / root_name
-        if not folder_root.exists():
-            folder_root = session_root
-
-        return {
-            "success": True,
-            "path": str(folder_root),
-            "selectionName": root_name,
-            "displayPath": root_name,
-            "fileCount": len(created_paths),
-            "networkRoot": str(network_root),
-        }
-    except Exception as error:
-        shutil.rmtree(session_root, ignore_errors=True)
-        return {"success": False, "error": str(error)}
-
-
-@app.post("/api/uploads/consult/invoice-recognizer/excel")
-async def upload_invoice_excel(file: UploadFile = File(...)):
-    if not file.filename:
-        return {"success": False, "error": "未接收到 Excel 文件"}
-
-    suffix = Path(file.filename).suffix.lower()
-    if suffix != ".xlsx":
-        return {"success": False, "error": "当前仅支持上传 .xlsx 文件"}
-
-    try:
-        _dept_config, network_root = _ensure_tool_network_root("CONSULT", "invoice_recognizer")
-        session_root = _build_network_upload_session_root(network_root, "CONSULT", "invoice_recognizer", "excel")
-    except Exception as error:
-        return {"success": False, "error": str(error)}
-    destination = session_root / Path(file.filename).name
-
-    try:
-        with open(destination, "wb") as target_file:
-            shutil.copyfileobj(file.file, target_file)
-
-        await file.close()
-        return {
-            "success": True,
-            "path": str(destination),
-            "displayPath": Path(file.filename).name,
-            "networkRoot": str(network_root),
-        }
-    except Exception as error:
-        shutil.rmtree(session_root, ignore_errors=True)
-        return {"success": False, "error": str(error)}
-
-
 def _open_folder_dialog():
     if sys.platform.startswith("win"):
+        try:
+            result = subprocess.run(
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-Command",
+                    (
+                        "Add-Type -AssemblyName System.Windows.Forms; "
+                        "$dialog = New-Object System.Windows.Forms.OpenFileDialog; "
+                        '$dialog.Title = "Select invoice folder (open target folder and click Open)"; '
+                        '$dialog.Filter = "Folder selection|*.folder"; '
+                        "$dialog.CheckFileExists = $false; "
+                        "$dialog.CheckPathExists = $true; "
+                        "$dialog.ValidateNames = $false; "
+                        '$dialog.FileName = "Select current folder"; '
+                        "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { "
+                        "$selectedPath = Split-Path -Parent $dialog.FileName; "
+                        'if ([string]::IsNullOrWhiteSpace($selectedPath)) { $selectedPath = $dialog.FileName }; '
+                        "Write-Output $selectedPath "
+                        "}"
+                    ),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout.strip()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return ""
+
+        try:
+            result = subprocess.run(
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-Command",
+                    (
+                        "Add-Type -AssemblyName System.Windows.Forms; "
+                        "$dialog = New-Object System.Windows.Forms.OpenFileDialog; "
+                        '$dialog.Title = "选择递延税单据总文件夹（进入目标文件夹后直接点打开）"; '
+                        '$dialog.Filter = "文件夹选择|*.folder"; '
+                        "$dialog.CheckFileExists = $false; "
+                        "$dialog.CheckPathExists = $true; "
+                        "$dialog.ValidateNames = $false; "
+                        '$dialog.FileName = "选择当前文件夹"; '
+                        "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { "
+                        "$selectedPath = Split-Path -Parent $dialog.FileName; "
+                        'if ([string]::IsNullOrWhiteSpace($selectedPath)) { $selectedPath = $dialog.FileName }; '
+                        "Write-Output $selectedPath "
+                        "}"
+                    ),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout.strip()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return ""
+
         try:
             result = subprocess.run(
                 [
@@ -912,6 +1038,62 @@ def _open_folder_dialog():
     return folder_path
 
 
+def _open_folder_dialog_native():
+    if sys.platform.startswith("win"):
+        try:
+            result = subprocess.run(
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-Command",
+                    (
+                        "Add-Type -AssemblyName System.Windows.Forms; "
+                        "$dialog = New-Object System.Windows.Forms.OpenFileDialog; "
+                        '$dialog.Title = "Select invoice folder (open target folder and click Open)"; '
+                        '$dialog.Filter = "Folder selection|*.folder"; '
+                        "$dialog.CheckFileExists = $false; "
+                        "$dialog.CheckPathExists = $true; "
+                        "$dialog.ValidateNames = $false; "
+                        '$dialog.FileName = "Select current folder"; '
+                        "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { "
+                        "$selectedPath = Split-Path -Parent $dialog.FileName; "
+                        'if ([string]::IsNullOrWhiteSpace($selectedPath)) { $selectedPath = $dialog.FileName }; '
+                        "Write-Output $selectedPath "
+                        "}"
+                    ),
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout.strip()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return ""
+
+    if sys.platform == "darwin":
+        try:
+            result = subprocess.run(
+                [
+                    "osascript",
+                    "-e",
+                    'POSIX path of (choose folder with prompt "Select invoice folder")',
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout.strip()
+        except subprocess.CalledProcessError:
+            return ""
+
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    folder_path = filedialog.askdirectory(title="Select invoice folder")
+    root.destroy()
+    return folder_path
+
+
 @app.post("/api/select-folder")
 async def select_folder():
     if not sys.platform.startswith("win") and sys.platform != "darwin" and not TKINTER_AVAILABLE:
@@ -919,7 +1101,7 @@ async def select_folder():
 
     try:
         loop = asyncio.get_event_loop()
-        folder_path = await loop.run_in_executor(executor, _open_folder_dialog)
+        folder_path = await loop.run_in_executor(executor, _open_folder_dialog_native)
         if folder_path:
             return {"success": True, "path": folder_path}
         return {"success": False, "path": None, "message": "未选择文件夹"}
@@ -1185,9 +1367,16 @@ def _department_config_file(department: str) -> Path:
 def save_department_config(department: str, config: DepartmentConfig):
     """保存部门配置"""
     try:
-        config_file = _department_config_file(department)
+        normalized_department = department.upper()
+        config_file = _department_config_file(normalized_department)
+        payload = _config_payload(config)
+        network_path = (payload.get("networkPath") or "").strip()
+        if network_path:
+            payload["networkPath"] = str(_validate_network_path_or_raise(network_path))
+        else:
+            payload["networkPath"] = ""
         with open(config_file, "w", encoding="utf-8") as f:
-            json.dump(_config_payload(config), f, ensure_ascii=False, indent=2)
+            json.dump(payload, f, ensure_ascii=False, indent=2)
         return {"success": True, "message": "部门配置已保存"}
     except Exception as error:
         return {"success": False, "error": str(error)}

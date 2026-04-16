@@ -170,13 +170,6 @@ button {
   letter-spacing: -0.05em;
 }
 
-.page-lead {
-  max-width: 680px;
-  margin-top: 14px;
-  color: var(--muted-foreground);
-  font-size: 1rem;
-}
-
 .status-panel {
   display: grid;
   gap: 20px;
@@ -241,12 +234,6 @@ button {
   font-size: 1.45rem;
   line-height: 1.1;
   letter-spacing: -0.04em;
-}
-
-.section-note {
-  max-width: 440px;
-  color: var(--muted-foreground);
-  font-size: 0.94rem;
 }
 
 .tabs-list {
@@ -332,13 +319,6 @@ button {
   color: var(--muted-foreground);
 }
 
-.department-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: end;
-}
-
 .tool-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -388,15 +368,13 @@ button {
   margin: 0;
 }
 
-.tool-card-body h3,
-.aside-block h3 {
+.tool-card-body h3 {
   font-size: 1.1rem;
   line-height: 1.2;
   letter-spacing: -0.03em;
 }
 
-.tool-card-body p,
-.aside-text {
+.tool-card-body p {
   color: var(--muted-foreground);
   font-size: 0.94rem;
 }
@@ -405,36 +383,6 @@ button {
   display: flex;
   flex-direction: column;
   gap: 20px;
-}
-
-.aside-block {
-  display: grid;
-  gap: 12px;
-}
-
-
-.info-list {
-  padding: 0;
-  list-style: none;
-  border-top: 1px solid var(--border);
-}
-
-.info-list li {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.info-list span {
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-
-.info-list strong {
-  color: var(--foreground);
-  text-align: right;
 }
 
 .ui-card {
@@ -640,27 +588,16 @@ button {
     min-width: calc(50% - 4px);
   }
 
-  .department-actions,
   .tool-card-foot {
     width: 100%;
   }
 
-  .department-actions .ui-button,
   .tool-card-foot .ui-button {
     flex: 1 1 0;
   }
 
   .tool-card-actions {
     width: 100%;
-  }
-
-  .info-list li {
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .info-list strong {
-    text-align: left;
   }
 
   .input-with-button {
