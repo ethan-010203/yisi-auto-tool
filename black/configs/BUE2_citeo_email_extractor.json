@@ -1,10 +1,12 @@
 {
   "folderPath": "",
-  "excelPath": null,
+  "folderDisplay": "",
+  "excelPath": "",
   "listExcelPath": "",
+  "listExcelDisplay": "",
   "email": "infoeuvat@163.com",
   "authCode": "FPdskjj8kTW5Fu4q",
-  "maxEmails": 652,
+  "maxEmails": 50,
   "subjectKeyword": "注销成功",
   "selectedFolder": "Citeo-&bOiVAA-"
 }

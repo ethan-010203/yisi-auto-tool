@@ -148,13 +148,16 @@ function dismissToast(id) {
   toasts.value = toasts.value.filter((toast) => toast.id !== id)
 }
 
-async function loadLogs() {
+async function loadLogs(options = {}) {
+  const { silent = false } = options
   if (!props.department) {
     logs.value = []
     return
   }
 
-  loading.value = true
+  if (!silent) {
+    loading.value = true
+  }
   error.value = null
 
   try {
@@ -178,14 +181,16 @@ async function loadLogs() {
   } catch (err) {
     error.value = err.message || '网络错误'
   } finally {
-    loading.value = false
+    if (!silent) {
+      loading.value = false
+    }
   }
 }
 
 function startPolling() {
   stopPolling()
   pollInterval.value = setInterval(() => {
-    loadLogs()
+    loadLogs({ silent: true })
   }, POLL_DELAY)
 }
 

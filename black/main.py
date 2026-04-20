@@ -59,6 +59,9 @@ app.add_middleware(
 )
 
 DEPARTMENT_SCRIPTS = {
+    "BUE1": {
+        "ear_declaration_data_fetcher": Path(__file__).parent / "scripts" / "bue1" / "ear_declaration_data_fetcher.py",
+    },
     "CONSULT": {
         "test_hello": Path(__file__).parent / "scripts" / "consult" / "test_hello.py",
         "queue_runtime_probe": Path(__file__).parent / "scripts" / "consult" / "testing" / "queue_runtime_probe.py",
@@ -75,6 +78,7 @@ DEPARTMENT_SCRIPTS = {
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REQUIREMENTS_FILE = Path(__file__).parent / "requirements.txt"
 TOOL_REQUIRED_PYTHON_MODULES = {
+    ("BUE1", "ear_declaration_data_fetcher"): ("playwright", "openpyxl"),
     ("CONSULT", "invoice_recognizer"): ("fitz", "openai"),
 }
 
@@ -85,6 +89,12 @@ class ConfigRequest(BaseModel):
     excelPath: Optional[str] = None
     listExcelPath: Optional[str] = None
     listExcelDisplay: Optional[str] = None
+    excelFilePath: Optional[str] = None
+    excelFileDisplay: Optional[str] = None
+    excelFolderPath: Optional[str] = None
+    excelFolderDisplay: Optional[str] = None
+    reportYear: Optional[str] = None
+    reportMonthGerman: Optional[str] = None
     # BUE2 email extractor fields
     email: Optional[str] = None
     authCode: Optional[str] = None
@@ -362,8 +372,40 @@ def _validate_invoice_recognizer_config_or_raise(config: dict) -> dict:
     return normalized_config
 
 
+def _validate_ear_declaration_data_fetcher_config_or_raise(config: dict) -> dict:
+    excel_file_path_text = (config.get("excelFilePath") or config.get("excelFolderPath") or "").strip()
+    report_year = str(config.get("reportYear") or "").strip()
+    report_month_german = str(config.get("reportMonthGerman") or "").strip()
+    excel_file_path = _normalize_absolute_path_or_raise(excel_file_path_text, "EAR 申报数据 Excel 文件")
+    if not excel_file_path.exists():
+        raise FileNotFoundError(f"EAR 申报数据 Excel 文件不存在: {excel_file_path}")
+    if not excel_file_path.is_file():
+        raise FileNotFoundError(f"EAR 申报数据 Excel 路径不是有效文件: {excel_file_path}")
+    if excel_file_path.suffix.lower() not in {".xlsx", ".xlsm"}:
+        raise ValueError("EAR 申报数据 Excel 文件必须是 .xlsx 或 .xlsm 文件。")
+    if not report_year:
+        raise ValueError("EAR 抓取配置中的年份不能为空。")
+    if not report_month_german:
+        raise ValueError("EAR 抓取配置中的德语月份不能为空。")
+
+    _ensure_readable_file(excel_file_path, "EAR 申报数据 Excel 文件")
+
+    normalized_config = dict(config)
+    normalized_excel_file_path = str(excel_file_path)
+    normalized_config["excelFilePath"] = normalized_excel_file_path
+    normalized_config["excelFileDisplay"] = normalized_excel_file_path
+    normalized_config["excelFolderPath"] = normalized_excel_file_path
+    normalized_config["excelFolderDisplay"] = normalized_excel_file_path
+    normalized_config["reportYear"] = report_year
+    normalized_config["reportMonthGerman"] = report_month_german
+    return normalized_config
+
+
 def _validate_tool_config_or_raise(department: str, tool: str, config: dict) -> dict:
     normalized_config = dict(config or {})
+
+    if department.upper() == "BUE1" and tool == "ear_declaration_data_fetcher":
+        return _validate_ear_declaration_data_fetcher_config_or_raise(normalized_config)
 
     if department.upper() == "CONSULT" and tool == "invoice_recognizer":
         return _validate_invoice_recognizer_config_or_raise(normalized_config)

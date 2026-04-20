@@ -62,6 +62,12 @@ const createDefaultConfigData = () => ({
   excelPath: '',
   listExcelPath: '',
   listExcelDisplay: '',
+  excelFilePath: '',
+  excelFileDisplay: '',
+  excelFolderPath: '',
+  excelFolderDisplay: '',
+  reportYear: '',
+  reportMonthGerman: '',
   // BUE2 email extractor config
   email: '',
   authCode: '',
@@ -145,6 +151,20 @@ const configDialogDescription = computed(() => {
   return ''
 })
 
+const activeConfigDialogTitle = computed(() => {
+  if (currentConfigTool.value.toolId === 'ear_declaration_data_fetcher') {
+    return 'EAR 抓取配置'
+  }
+  return configDialogTitle.value
+})
+
+const activeConfigDialogDescription = computed(() => {
+  if (currentConfigTool.value.toolId === 'ear_declaration_data_fetcher') {
+    return '填写申报数据 Excel 文件路径，并配置检测年份和德语月份；EAR 官网账号和密码将从表格列中读取。'
+  }
+  return configDialogDescription.value
+})
+
 function getToolKey(departmentCode, toolId) {
   return `${departmentCode}:${toolId}`
 }
@@ -188,6 +208,22 @@ function normalizeInvoiceRecognizerConfig(config) {
   }
 }
 
+function normalizeEarDeclarationFetcherConfig(config) {
+  const excelFilePath = sanitizePathInput(config.excelFilePath || config.excelFolderPath || '')
+  const reportYear = String(config.reportYear || '').trim()
+  const reportMonthGerman = String(config.reportMonthGerman || '').trim()
+
+  return {
+    ...config,
+    excelFilePath,
+    excelFileDisplay: excelFilePath,
+    excelFolderPath: excelFilePath,
+    excelFolderDisplay: excelFilePath,
+    reportYear,
+    reportMonthGerman,
+  }
+}
+
 function updateInvoiceFolderPath(value) {
   const normalizedValue = sanitizePathInput(value)
   configData.value.folderPath = normalizedValue
@@ -199,6 +235,14 @@ function updateInvoiceExcelPath(value) {
   configData.value.listExcelPath = normalizedValue
   configData.value.excelPath = normalizedValue
   configData.value.listExcelDisplay = normalizedValue
+}
+
+function updateEarExcelFilePath(value) {
+  const normalizedValue = sanitizePathInput(value)
+  configData.value.excelFilePath = normalizedValue
+  configData.value.excelFileDisplay = normalizedValue
+  configData.value.excelFolderPath = normalizedValue
+  configData.value.excelFolderDisplay = normalizedValue
 }
 
 function validateInvoiceRecognizerPathsOrThrow(config) {
@@ -222,6 +266,26 @@ function validateInvoiceRecognizerManualPathsOrThrow(config) {
   }
   if (!excelPath.toLowerCase().endsWith('.xlsx')) {
     throw new Error('Excel 清单必须是 .xlsx 文件。')
+  }
+}
+
+function validateEarDeclarationFetcherConfigOrThrow(config) {
+  const excelFilePath = sanitizePathInput(config.excelFilePath || config.excelFolderPath || '')
+  const reportYear = String(config.reportYear || '').trim()
+  const reportMonthGerman = String(config.reportMonthGerman || '').trim()
+
+  if (!excelFilePath) {
+    throw new Error('请先填写申报数据 Excel 文件路径。')
+  }
+  const lowerPath = excelFilePath.toLowerCase()
+  if (!lowerPath.endsWith('.xlsx') && !lowerPath.endsWith('.xlsm')) {
+    throw new Error('申报数据 Excel 必须是 .xlsx 或 .xlsm 文件。')
+  }
+  if (!reportYear) {
+    throw new Error('请先填写检测年份。')
+  }
+  if (!reportMonthGerman) {
+    throw new Error('请先填写德语月份。')
   }
 }
 
@@ -431,6 +495,12 @@ async function loadToolConfig(department, toolId) {
       excelPath: cfg.excelPath || cfg.listExcelPath || '',
       listExcelPath: cfg.listExcelPath || '',
       listExcelDisplay: cfg.listExcelDisplay || cfg.listExcelPath || cfg.excelPath || '',
+      excelFilePath: cfg.excelFilePath || cfg.excelFolderPath || '',
+      excelFileDisplay: cfg.excelFileDisplay || cfg.excelFilePath || cfg.excelFolderDisplay || cfg.excelFolderPath || '',
+      excelFolderPath: cfg.excelFilePath || cfg.excelFolderPath || '',
+      excelFolderDisplay: cfg.excelFileDisplay || cfg.excelFilePath || cfg.excelFolderDisplay || cfg.excelFolderPath || '',
+      reportYear: cfg.reportYear || '',
+      reportMonthGerman: cfg.reportMonthGerman || '',
       email: cfg.email || '',
       authCode: cfg.authCode || '',
       maxEmails: cfg.maxEmails || 50,
@@ -509,12 +579,18 @@ async function saveConfiguration() {
   const targetTool = toolId || PREVIEW_TOOL_ID
 
   try {
-    const payload = targetTool === 'invoice_recognizer'
-      ? normalizeInvoiceRecognizerConfig(configData.value)
-      : { ...configData.value }
+    let payload = { ...configData.value }
+
+    if (targetTool === 'invoice_recognizer') {
+      payload = normalizeInvoiceRecognizerConfig(configData.value)
+    } else if (targetTool === 'ear_declaration_data_fetcher') {
+      payload = normalizeEarDeclarationFetcherConfig(configData.value)
+    }
 
     if (targetTool === 'invoice_recognizer') {
       validateInvoiceRecognizerManualPathsOrThrow(payload)
+    } else if (targetTool === 'ear_declaration_data_fetcher') {
+      validateEarDeclarationFetcherConfigOrThrow(payload)
     }
 
     const response = await saveConfig(targetDept, targetTool, payload)
@@ -685,9 +761,6 @@ async function runDepartmentScript(tool) {
         duration: 3000,
       })
       logPanel.value?.onTaskStarted(tool.id)
-      setTimeout(async () => {
-        await logPanel.value?.refresh()
-      }, 200)
       return
     }
 
@@ -941,11 +1014,48 @@ onBeforeUnmount(() => {
     <UiDialog
       v-model:open="configDialogOpen"
       keep-mounted
-      :title="configDialogTitle"
-      :description="configDialogDescription"
+      :title="activeConfigDialogTitle"
+      :description="activeConfigDialogDescription"
     >
       <!-- 顾问部单据识别配置 -->
-      <div v-if="currentConfigTool.toolId !== 'citeo_email_extractor'" class="config-form">
+      <div v-if="currentConfigTool.toolId === 'ear_declaration_data_fetcher'" class="config-form">
+        <div class="form-field">
+          <UiLabel for="ear-excel-file-path">申报数据 Excel 文件</UiLabel>
+          <UiInput
+            id="ear-excel-file-path"
+            :model-value="configData.excelFilePath || configData.excelFileDisplay || configData.excelFolderPath || configData.excelFolderDisplay"
+            @update:model-value="updateEarExcelFilePath"
+            placeholder="请填写申报数据 Excel 的绝对路径"
+          />
+          <small class="field-hint">当前会校验该 Excel 文件是否已填写；运行时只读取这一个表，不再扫描整个文件夹。</small>
+        </div>
+
+        <div class="form-field">
+          <UiLabel for="ear-report-year">检测年份</UiLabel>
+          <UiInput
+            id="ear-report-year"
+            :model-value="configData.reportYear"
+            @update:model-value="value => { configData.reportYear = String(value || '').trim() }"
+            placeholder="例如 2026"
+          />
+        </div>
+
+        <div class="form-field">
+          <UiLabel for="ear-report-month-german">检测月份（德语）</UiLabel>
+          <UiInput
+            id="ear-report-month-german"
+            :model-value="configData.reportMonthGerman"
+            @update:model-value="value => { configData.reportMonthGerman = String(value || '').trim() }"
+            placeholder="例如 März"
+          />
+        </div>
+
+        <div class="form-field">
+          <small class="field-hint">表头需包含：授权代表\nbevollmächtigter Vertreter、WEEE号\nWEEE-Nummer、中文名\nFirmenname auf Chinesisch、英文名\nFirmenname auf Englisch、类别\nKategorie、德语类目、账号、密码、3月申报数据、官网上抓取的数据（3月）。年份和德语月份从配置项读取，不再从 Excel 表中读取。</small>
+        </div>
+      </div>
+
+      <div v-else-if="currentConfigTool.toolId !== 'citeo_email_extractor'" class="config-form">
         <div class="form-field">
           <UiLabel for="folder-path">递延税单据总文件夹</UiLabel>
           <UiInput
