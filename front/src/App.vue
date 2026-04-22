@@ -1,6 +1,6 @@
 ﻿<script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { getData, getToolConfig, getToolPreview, runDepartmentTool, saveConfig, getDepartmentConfig, saveDepartmentConfig, testNetworkPath } from './api/index'
+import { getData, getToolConfig, getToolPreview, getToolTemplateUrl, runDepartmentTool, saveConfig, getDepartmentConfig, saveDepartmentConfig, testNetworkPath } from './api/index'
 import ExecutionLogPanel from './components/ExecutionLogPanel.vue'
 import ToolPreviewDialog from './components/preview/ToolPreviewDialog.vue'
 import UiBadge from './components/ui/UiBadge.vue'
@@ -286,6 +286,19 @@ function validateEarDeclarationFetcherConfigOrThrow(config) {
   }
   if (!reportMonthGerman) {
     throw new Error('请先填写德语月份。')
+  }
+}
+
+function downloadEarTemplate() {
+  try {
+    const url = getToolTemplateUrl('BUE1', 'ear_declaration_data_fetcher')
+    window.open(url, '_blank', 'noopener')
+  } catch (error) {
+    pushToast({
+      type: 'error',
+      title: '模板下载失败',
+      message: error?.message || '无法下载 EAR 模板，请稍后重试。',
+    })
   }
 }
 
@@ -1021,6 +1034,12 @@ onBeforeUnmount(() => {
       <div v-if="currentConfigTool.toolId === 'ear_declaration_data_fetcher'" class="config-form">
         <div class="form-field">
           <UiLabel for="ear-excel-file-path">申报数据 Excel 文件</UiLabel>
+          <div class="folder-select-header">
+            <UiLabel for="ear-excel-file-path">申报数据 Excel 文件</UiLabel>
+            <UiButton variant="outline" @click="downloadEarTemplate">
+              下载模板
+            </UiButton>
+          </div>
           <UiInput
             id="ear-excel-file-path"
             :model-value="configData.excelFilePath || configData.excelFileDisplay || configData.excelFolderPath || configData.excelFolderDisplay"
@@ -1051,7 +1070,8 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="form-field">
-          <small class="field-hint">表头需包含：授权代表\nbevollmächtigter Vertreter、WEEE号\nWEEE-Nummer、中文名\nFirmenname auf Chinesisch、英文名\nFirmenname auf Englisch、类别\nKategorie、德语类目、账号、密码、3月申报数据、官网上抓取的数据（3月）。年份和德语月份从配置项读取，不再从 Excel 表中读取。</small>
+          <small class="field-hint">表头需包含：授权代表\nbevollmächtigter Vertreter、WEEE号\nWEEE-Nummer、中文名\nFirmenname auf Chinesisch、英文名\nFirmenname auf Englisch、类别\nKategorie、德语类目、账号、密码、*月申报数据、官网上抓取的数据（*月）。年份和德语月份从配置项读取，不再从 Excel 表中读取。</small>
+          <small class="field-hint">可先点击“下载模板”获取 Excel 示例。</small>
         </div>
       </div>
 
@@ -1210,6 +1230,10 @@ onBeforeUnmount(() => {
   margin-top: 0.25rem;
   font-size: 0.75rem;
   color: var(--danger);
+}
+
+.form-field > .ui-label:has(+ .folder-select-header) {
+  display: none;
 }
 
 .folder-select-header {

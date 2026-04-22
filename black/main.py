@@ -10,12 +10,15 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote
 from uuid import uuid4
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from runner.logger import (
@@ -583,6 +586,58 @@ def _build_preview_payload(department: str, tool: str, config: Optional[dict]) -
     return {"success": False, "error": f"Preview not available for {department}/{tool}"}
 
 
+def _build_bue1_ear_template_workbook_bytes() -> bytes:
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "EAR模板"
+
+    headers = [
+        "授权代表\nbevollmächtigter Vertreter",
+        "WEEE号\nWEEE-Nummer",
+        "中文名\nFirmenname auf Chinesisch",
+        "英文名\nFirmenname auf Englisch",
+        "月份",
+        "类别\nKategorie",
+        "德语类目",
+        "账号",
+        "密码",
+        "*月申报数据",
+        "官网上抓取的数据（*月）",
+    ]
+
+    worksheet.append(headers)
+
+    for cell in worksheet[1]:
+        cell.alignment = Alignment(wrap_text=True, vertical="center")
+
+    column_widths = {
+        "A": 24,
+        "B": 20,
+        "C": 28,
+        "D": 28,
+        "E": 12,
+        "F": 20,
+        "G": 36,
+        "H": 16,
+        "I": 16,
+        "J": 18,
+        "K": 24,
+    }
+    for column, width in column_widths.items():
+        worksheet.column_dimensions[column].width = width
+
+    worksheet.row_dimensions[1].height = 36
+
+    buffer = BytesIO()
+    workbook.save(buffer)
+    workbook.close()
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
 @app.get("/")
 def read_root():
     return {"message": ""}
@@ -966,6 +1021,27 @@ def get_tool_preview(department: str, tool: str):
         return _build_preview_payload(department, tool, config)
     except Exception as error:
         return {"success": False, "error": str(error)}
+
+
+@app.get("/api/departments/{department}/tools/{tool}/template")
+def download_tool_template(department: str, tool: str):
+    normalized_department = department.upper()
+
+    if normalized_department == "BUE1" and tool == "ear_declaration_data_fetcher":
+        file_bytes = _build_bue1_ear_template_workbook_bytes()
+        filename = "EAR抓取配置-模板表.xlsx"
+        fallback_filename = "BUE1_EAR_template.xlsx"
+        content_disposition = (
+            f'attachment; filename="{fallback_filename}"; '
+            f"filename*=UTF-8''{quote(filename)}"
+        )
+        return StreamingResponse(
+            BytesIO(file_bytes),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": content_disposition},
+        )
+
+    raise HTTPException(status_code=404, detail=f"Template not available for {normalized_department}/{tool}")
 
 
 def _open_folder_dialog():

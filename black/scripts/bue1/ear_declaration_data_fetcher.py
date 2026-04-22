@@ -247,7 +247,7 @@ def launch_isolated_browser_context(playwright, browser_profile_dir: Path) -> tu
         context = playwright.chromium.launch_persistent_context(
             user_data_dir=str(browser_profile_dir),
             channel="chrome",
-            headless=False,
+            headless=True,
             viewport={"width": 1440, "height": 960},
             args=common_args,
         )
@@ -256,7 +256,7 @@ def launch_isolated_browser_context(playwright, browser_profile_dir: Path) -> tu
         log_info(f"独立 Chrome 实例启动失败，改用 Playwright Chromium: {error}")
         context = playwright.chromium.launch_persistent_context(
             user_data_dir=str(browser_profile_dir),
-            headless=False,
+            headless=True,
             viewport={"width": 1440, "height": 960},
             args=common_args,
         )

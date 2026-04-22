@@ -56,6 +56,10 @@ export function getToolPreview(department, tool, signal) {
   })
 }
 
+export function getToolTemplateUrl(department, tool) {
+  return `${API_BASE_URL}/departments/${department}/tools/${tool}/template`
+}
+
 export function getExecutionLogs(limit = 20, department = null, signal) {
   const deptParam = department ? `&department=${department}` : ''
   return requestJson(`${API_BASE_URL}/logs?limit=${limit}${deptParam}`, { signal })
