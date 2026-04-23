@@ -65,7 +65,7 @@ if (-not (Test-Path $backendPidFile) -and -not $externalBackendDetected) {
         -RedirectStandardOutput $backendLog `
         -RedirectStandardError $backendErrorLog `
         -PassThru `
-        -WindowStyle Minimized
+        -WindowStyle Hidden
 
     $backendProcess.Id | Set-Content -LiteralPath $backendPidFile -Encoding ascii
     Write-Host "Backend started with PID $($backendProcess.Id)"
@@ -84,7 +84,7 @@ if (-not (Test-Path $workerPidFile)) {
         -RedirectStandardOutput $workerLog `
         -RedirectStandardError $workerErrorLog `
         -PassThru `
-        -WindowStyle Minimized
+        -WindowStyle Hidden
 
     $workerProcess.Id | Set-Content -LiteralPath $workerPidFile -Encoding ascii
     Write-Host "Worker started with PID $($workerProcess.Id)"
