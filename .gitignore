@@ -37,4 +37,5 @@ build/
 .windsurf/
 .rollback_snapshots/
 black/runtime/
+black/data/
 tmp*/

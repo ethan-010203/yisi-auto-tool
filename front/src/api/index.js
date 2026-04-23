@@ -1,5 +1,14 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
+function buildAbsoluteApiBase() {
+  if (/^https?:\/\//i.test(API_BASE_URL)) {
+    return API_BASE_URL.replace(/\/$/, '')
+  }
+
+  const normalized = API_BASE_URL.startsWith('/') ? API_BASE_URL : `/${API_BASE_URL}`
+  return `${window.location.origin}${normalized}`.replace(/\/$/, '')
+}
+
 async function requestJson(url, options = {}) {
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData
   const response = await fetch(url, {
@@ -108,4 +117,27 @@ export function terminateExecution(logId, signal) {
     method: 'POST',
     signal,
   })
+}
+
+export function retryExecution(logId, signal) {
+  return requestJson(`${API_BASE_URL}/executions/${logId}/retry`, {
+    method: 'POST',
+    signal,
+  })
+}
+
+export function listMailFolders(payload, signal) {
+  return requestJson(`${API_BASE_URL}/list-mail-folders`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    signal,
+  })
+}
+
+export function getDepartmentEventsUrl(department, limit = 20) {
+  return `${buildAbsoluteApiBase()}/departments/${department}/events?limit=${limit}`
+}
+
+export function getGlobalEventsUrl(limit = 50) {
+  return `${buildAbsoluteApiBase()}/events?limit=${limit}`
 }

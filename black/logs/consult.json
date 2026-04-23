@@ -1,5 +1,27 @@
 [
   {
+    "id": "1776932347.3345158_test_hello",
+    "timestamp": "2026-04-23T16:19:18.574277",
+    "department": "CONSULT",
+    "tool": "test_hello",
+    "config": {},
+    "status": "failed",
+    "output": "[启动] 系统测试...\n[时间] 测试时间: 2026-04-23 16:19:18\n[Python] 版本: 3.12.7 | packaged by Anaconda, Inc. | (main, Oct  4 2024, 13:17:27) [MSC v.1929 64 bit (AMD64)]\n--------------------------------------------------\n  [1/4] 检查系统环境 ... [失败]\n  [2/4] 验证依赖模块 ... [通过]\n  [3/4] 测试数据解析 ... [通过]\n  [4/4] 检查输出路径 ... [通过]\n--------------------------------------------------\n[警告] 部分测试失败 (成功率: 75%)\n\n[摘要] 测试摘要: {\"test_time\": \"2026-04-23T16:19:18.608162\", \"python_version\": \"3.12.7\", \"total_tests\": 4, \"passed\": 3, \"failed\": 1, \"success_rate\": \"75%\", \"status\": \"PARTIAL\"}\n",
+    "error": "[摘要] 测试摘要: {\"test_time\": \"2026-04-23T16:19:18.608162\", \"python_version\": \"3.12.7\", \"total_tests\": 4, \"passed\": 3, \"failed\": 1, \"success_rate\": \"75%\", \"status\": \"PARTIAL\"}",
+    "duration": 0.04
+  },
+  {
+    "id": "1776932346.5076206_queue_runtime_probe",
+    "timestamp": "2026-04-23T16:19:06.514577",
+    "department": "CONSULT",
+    "tool": "queue_runtime_probe",
+    "config": {},
+    "status": "success",
+    "output": "[CONSULT-QUEUE-PROBE] queue/runtime probe started\n[CONSULT-QUEUE-PROBE] department=CONSULT tool=queue_runtime_probe run_id=1776932346.5076206_queue_runtime_probe\n[CONSULT-QUEUE-PROBE] runtime_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\consult\\queue_runtime_probe\\1776932346.5076206_queue_runtime_probe\n[CONSULT-QUEUE-PROBE] artifact_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\consult\\queue_runtime_probe\\1776932346.5076206_queue_runtime_probe\\artifacts\n[CONSULT-QUEUE-PROBE] download_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\consult\\queue_runtime_probe\\1776932346.5076206_queue_runtime_probe\\downloads\n[CONSULT-QUEUE-PROBE] screenshot_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\consult\\queue_runtime_probe\\1776932346.5076206_queue_runtime_probe\\screenshots\n[CONSULT-QUEUE-PROBE] browser_profile_dir=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\consult\\queue_runtime_probe\\1776932346.5076206_queue_runtime_probe\\browser-profile\n[CONSULT-QUEUE-PROBE] config_path=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\consult\\queue_runtime_probe\\1776932346.5076206_queue_runtime_probe\\config.json\n[CONSULT-QUEUE-PROBE] stdout_log_path=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\consult\\queue_runtime_probe\\1776932346.5076206_queue_runtime_probe\\stdout.log\n[CONSULT-QUEUE-PROBE] stderr_log_path=E:\\localhost-auto\\yisi-auto-tool-1\\black\\runtime\\consult\\queue_runtime_probe\\1776932346.5076206_queue_runtime_probe\\stderr.log\n[CONSULT-QUEUE-PROBE] step 1/6: simulate long-running work\n[CONSULT-QUEUE-PROBE] step 2/6: simulate long-running work\n[CONSULT-QUEUE-PROBE] step 3/6: simulate long-running work\n[CONSULT-QUEUE-PROBE] step 4/6: simulate long-running work\n[CONSULT-QUEUE-PROBE] step 5/6: simulate long-running work\n[CONSULT-QUEUE-PROBE] step 6/6: simulate long-running work\n[CONSULT-QUEUE-PROBE] probe finished in 12.0s\n",
+    "error": null,
+    "duration": 12.06
+  },
+  {
     "id": "1776332189.2999985_invoice_recognizer",
     "timestamp": "2026-04-16T17:36:29.305465",
     "department": "CONSULT",

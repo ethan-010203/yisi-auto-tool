@@ -1,7 +1,8 @@
 ﻿<script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { getData, getToolConfig, getToolPreview, getToolTemplateUrl, runDepartmentTool, saveConfig, getDepartmentConfig, saveDepartmentConfig, testNetworkPath } from './api/index'
+import { getData, getToolConfig, getToolPreview, getToolTemplateUrl, listMailFolders, runDepartmentTool, saveConfig, getDepartmentConfig, saveDepartmentConfig, testNetworkPath } from './api/index'
 import ExecutionLogPanel from './components/ExecutionLogPanel.vue'
+import GlobalRunningTasksBar from './components/GlobalRunningTasksBar.vue'
 import ToolPreviewDialog from './components/preview/ToolPreviewDialog.vue'
 import UiBadge from './components/ui/UiBadge.vue'
 import UiButton from './components/ui/UiButton.vue'
@@ -37,9 +38,11 @@ const previewLoading = ref(false)
 const previewData = ref(null)
 const previewTargetKey = ref('')
 const configDialogOpen = ref(false)
+const configPanelOpen = ref(false)
 const toolConfigCache = ref({})
 const toasts = ref([])
 const logPanel = ref(null)
+const globalRunningBar = ref(null)
 
 const lastUpdated = ref('等待同步')
 const connectionStatus = ref({
@@ -54,7 +57,9 @@ const departmentConfig = ref({
 })
 const testingNetworkPath = ref(false)
 const networkPathTestResult = ref(null)
-const NETWORK_REQUIRED_TOOL_KEYS = new Set([])
+const NETWORK_REQUIRED_TOOL_KEYS = new Set([
+  'CONSULT:invoice_recognizer',
+])
 
 const createDefaultConfigData = () => ({
   folderPath: '',
@@ -81,6 +86,10 @@ const currentConfigTool = ref({ department: '', toolId: '' })
 const mailFolders = ref([])
 const loadingFolders = ref(false)
 const mailFoldersError = ref('')
+const loadingToolConfig = ref(false)
+const savingToolConfig = ref(false)
+const savingDepartmentConfig = ref(false)
+const pendingToolKeys = ref({})
 
 // 将邮件文件夹列表转换为 UiSelect 需要的 options 格式
 const folderOptions = computed(() => {
@@ -125,6 +134,51 @@ const totalTools = computed(() => {
   return departments.reduce((count, department) => count + department.tools.length, 0)
 })
 
+const activeToolCount = computed(() => {
+  return activeDepartment.value.tools.length
+})
+
+const activeRunningToolCount = computed(() => {
+  return getDepartmentActiveToolIds(activeDepartmentCode.value).length
+})
+
+const normalizedDepartmentNetworkPath = computed(() => {
+  return sanitizePathInput(departmentConfig.value.networkPath)
+})
+
+const networkPathBadgeVariant = computed(() => {
+  if (networkPathTestResult.value?.success) {
+    return 'success'
+  }
+  if (networkPathTestResult.value && !networkPathTestResult.value.success) {
+    return 'warning'
+  }
+  if (normalizedDepartmentNetworkPath.value) {
+    return 'secondary'
+  }
+  return 'outline'
+})
+
+const networkPathStatusLabel = computed(() => {
+  if (networkPathTestResult.value?.success) {
+    return '路径已验证'
+  }
+  if (networkPathTestResult.value && !networkPathTestResult.value.success) {
+    return '验证失败'
+  }
+  if (normalizedDepartmentNetworkPath.value) {
+    return '已填写待验证'
+  }
+  return '尚未配置'
+})
+
+const configPanelToggleLabel = computed(() => {
+  if (configPanelOpen.value) {
+    return '收起共享路径'
+  }
+  return normalizedDepartmentNetworkPath.value ? '编辑共享路径' : '配置共享路径'
+})
+
 const statusBadgeVariant = computed(() => {
   if (connectionStatus.value.state === 'online') {
     return 'success'
@@ -163,6 +217,183 @@ const activeConfigDialogDescription = computed(() => {
     return '填写申报数据 Excel 文件路径，并配置检测年份和德语月份；EAR 官网账号和密码将从表格列中读取。'
   }
   return configDialogDescription.value
+})
+
+function getCachedToolConfig(departmentCode, toolId) {
+  return toolConfigCache.value[getToolKey(departmentCode, toolId)] || null
+}
+
+function hasSavedToolConfig(departmentCode, toolId) {
+  const config = getCachedToolConfig(departmentCode, toolId)
+  if (!config) {
+    return false
+  }
+
+  if (toolId === 'invoice_recognizer') {
+    const folderPath = sanitizePathInput(config.folderPath || config.folderDisplay || '')
+    const excelPath = sanitizePathInput(config.listExcelPath || config.excelPath || config.listExcelDisplay || '')
+    return Boolean(folderPath && excelPath)
+  }
+
+  if (toolId === 'ear_declaration_data_fetcher') {
+    const excelFilePath = sanitizePathInput(config.excelFilePath || config.excelFolderPath || '')
+    const reportYear = String(config.reportYear || '').trim()
+    const reportMonthGerman = String(config.reportMonthGerman || '').trim()
+    return Boolean(excelFilePath && reportYear && reportMonthGerman)
+  }
+
+  if (toolId === 'citeo_email_extractor') {
+    const selectedFolder = String(config.selectedFolder || '').trim()
+    return Boolean(selectedFolder)
+  }
+
+  return true
+}
+
+function getToolSetupState(departmentCode, tool) {
+  if (tool.action !== 'run_script') {
+    return {
+      key: 'coming-soon',
+      label: '建设中',
+      variant: 'secondary',
+      description: '当前能力还在搭建中，暂时不可执行。',
+      primaryLabel: '建设中',
+      primaryAction: 'noop',
+      primaryDisabled: true,
+    }
+  }
+
+  if (isToolBusy(departmentCode, tool.id)) {
+    return {
+      key: 'running',
+      label: '运行中',
+      variant: 'warning',
+      description: '任务已在后台运行，可以在右侧查看进度。',
+      primaryLabel: '查看进度',
+      primaryAction: 'focus-log',
+      primaryDisabled: false,
+    }
+  }
+
+  if (toolRequiresNetworkPath(departmentCode, tool.id) && !normalizedDepartmentNetworkPath.value) {
+    return {
+      key: 'needs-path',
+      label: '待配置目录',
+      variant: 'warning',
+      description: '先完成部门共享目录配置和验证，再运行这个任务。',
+      primaryLabel: '配置目录',
+      primaryAction: 'open-path',
+      primaryDisabled: false,
+    }
+  }
+
+  if (tool.configurable && !hasSavedToolConfig(departmentCode, tool.id)) {
+    return {
+      key: 'needs-config',
+      label: '待配置',
+      variant: 'outline',
+      description: '先补齐运行所需参数，这样使用时不会半路卡住。',
+      primaryLabel: '先配置',
+      primaryAction: 'open-config',
+      primaryDisabled: false,
+    }
+  }
+
+  return {
+    key: 'ready',
+    label: '可直接执行',
+    variant: 'success',
+    description: tool.previewable
+      ? '配置已就绪，可先预览再启动任务。'
+      : '当前配置已就绪，可以直接启动。',
+    primaryLabel: '立即运行',
+    primaryAction: 'run',
+    primaryDisabled: false,
+  }
+}
+
+const activeDepartmentNeedsNetworkPath = computed(() => {
+  return activeDepartment.value.tools.some((tool) => toolRequiresNetworkPath(activeDepartmentCode.value, tool.id))
+})
+
+const activeReadyToolCount = computed(() => {
+  return activeDepartment.value.tools.filter((tool) => getToolSetupState(activeDepartmentCode.value, tool).key === 'ready').length
+})
+
+const activeConfiguredToolCount = computed(() => {
+  return activeDepartment.value.tools.filter((tool) => !tool.configurable || hasSavedToolConfig(activeDepartmentCode.value, tool.id)).length
+})
+
+const activeDepartmentStatus = computed(() => {
+  if (connectionStatus.value.state === 'offline') {
+    return {
+      label: '服务待恢复',
+      variant: 'warning',
+      description: '后端服务暂时不可用，建议先确认 FastAPI 服务状态。',
+    }
+  }
+
+  if (activeRunningToolCount.value > 0) {
+    return {
+      label: '有任务在跑',
+      variant: 'warning',
+      description: '当前部门已有任务在后台执行，可以直接查看记录或继续启动其他任务。',
+    }
+  }
+
+  if (activeDepartmentNeedsNetworkPath.value && !normalizedDepartmentNetworkPath.value) {
+    return {
+      label: '先配置目录',
+      variant: 'warning',
+      description: '这个部门的核心任务依赖共享目录，先把目录配好会顺手很多。',
+    }
+  }
+
+  if (activeReadyToolCount.value === 0) {
+    return {
+      label: '待准备',
+      variant: 'secondary',
+      description: '首选补全工具配置，让常用任务可以一键启动。',
+    }
+  }
+
+  return {
+    label: '已就绪',
+    variant: 'success',
+    description: '当前部门已基本就绪，可以直接从下面的任务卡片开始执行。',
+  }
+})
+
+const activeDepartmentOverview = computed(() => {
+  return [
+    {
+      label: '可直接执行',
+      value: `${activeReadyToolCount.value}/${activeToolCount.value}`,
+      hint: activeReadyToolCount.value > 0 ? '已就绪' : '需先准备',
+    },
+    {
+      label: '已完成配置',
+      value: `${activeConfiguredToolCount.value}/${activeToolCount.value}`,
+      hint: '含默认无需配置的任务',
+    },
+    {
+      label: '后台运行',
+      value: String(activeRunningToolCount.value),
+      hint: activeRunningToolCount.value > 0 ? '正在处理' : '当前空闲',
+    },
+    {
+      label: '最近同步',
+      value: lastUpdated.value,
+      hint: connectionStatus.value.label,
+    },
+  ]
+})
+
+const activeToolCards = computed(() => {
+  return activeDepartment.value.tools.map((tool) => ({
+    ...tool,
+    setupState: getToolSetupState(activeDepartmentCode.value, tool),
+  }))
 })
 
 function getToolKey(departmentCode, toolId) {
@@ -310,6 +541,29 @@ function isToolActive(departmentCode, toolId) {
   return getDepartmentActiveToolIds(departmentCode).includes(toolId)
 }
 
+function setToolPendingState(departmentCode, toolId, pending) {
+  const key = getToolKey(departmentCode, toolId)
+  if (pending) {
+    pendingToolKeys.value = {
+      ...pendingToolKeys.value,
+      [key]: true,
+    }
+    return
+  }
+
+  const nextState = { ...pendingToolKeys.value }
+  delete nextState[key]
+  pendingToolKeys.value = nextState
+}
+
+function isToolPending(departmentCode, toolId) {
+  return Boolean(pendingToolKeys.value[getToolKey(departmentCode, toolId)])
+}
+
+function isToolBusy(departmentCode, toolId) {
+  return isToolPending(departmentCode, toolId) || isToolActive(departmentCode, toolId)
+}
+
 function setDepartmentActiveTools(departmentCode, toolIds) {
   activeToolIdsByDepartment.value = {
     ...activeToolIdsByDepartment.value,
@@ -331,6 +585,13 @@ function handleActiveToolsChange(payload) {
   setDepartmentActiveTools(payload.department, payload.toolIds || [])
 }
 
+function focusDepartmentFromGlobalTasks(departmentCode) {
+  if (!departmentCode) {
+    return
+  }
+  activeDepartmentCode.value = departmentCode
+}
+
 function pushToast({ type = 'info', title, message = '', duration = 4200 }) {
   const id = `toast-${Date.now()}-${Math.random().toString(16).slice(2)}`
   toasts.value = [...toasts.value, { id, type, title, message }]
@@ -349,6 +610,13 @@ function dismissToast(id) {
   }
 
   toasts.value = toasts.value.filter((toast) => toast.id !== id)
+}
+
+async function refreshExecutionViews() {
+  await Promise.allSettled([
+    logPanel.value?.refresh?.({ silent: true }),
+    globalRunningBar.value?.refresh?.({ silent: true }),
+  ])
 }
 
 function clearPreviewRequest() {
@@ -389,9 +657,16 @@ async function loadDepartmentConfig(department) {
   try {
     const response = await getDepartmentConfig(department)
     if (response?.success && response.config) {
+      const networkPath = response.config.networkPath || ''
       departmentConfig.value = {
-        networkPath: response.config.networkPath || ''
+        networkPath
       }
+      configPanelOpen.value = !sanitizePathInput(networkPath)
+    } else {
+      departmentConfig.value = {
+        networkPath: ''
+      }
+      configPanelOpen.value = true
     }
   } catch (error) {
     console.error('Failed to load department config:', error)
@@ -400,6 +675,7 @@ async function loadDepartmentConfig(department) {
 
 async function saveDepartmentConfiguration() {
   const dept = activeDepartmentCode.value
+  savingDepartmentConfig.value = true
   try {
     const networkPath = sanitizePathInput(departmentConfig.value.networkPath)
     departmentConfig.value.networkPath = networkPath
@@ -422,6 +698,8 @@ async function saveDepartmentConfiguration() {
       title: '保存失败',
       message: error.message || '无法保存部门配置。',
     })
+  } finally {
+    savingDepartmentConfig.value = false
   }
 }
 
@@ -526,27 +804,58 @@ async function loadToolConfig(department, toolId) {
   }
 }
 
+async function preloadDepartmentToolConfigs(departmentCode) {
+  const department = departments.find((item) => item.code === departmentCode)
+  if (!department) {
+    return
+  }
+
+  const configurableTools = department.tools.filter((tool) => tool.configurable)
+  await Promise.allSettled(configurableTools.map(async (tool) => {
+    const response = await getToolConfig(departmentCode, tool.id)
+    const config = response?.success && response.config ? response.config : {}
+
+    if (tool.id === 'invoice_recognizer') {
+      cacheToolConfig(departmentCode, tool.id, normalizeInvoiceRecognizerConfig(config))
+      return
+    }
+
+    if (tool.id === 'ear_declaration_data_fetcher') {
+      cacheToolConfig(departmentCode, tool.id, normalizeEarDeclarationFetcherConfig(config))
+      return
+    }
+
+    cacheToolConfig(departmentCode, tool.id, {
+      ...createDefaultConfigData(),
+      ...config,
+    })
+  }))
+}
+
 // Legacy support
 async function loadInvoiceConfig() {
   await loadToolConfig(PREVIEW_DEPARTMENT, PREVIEW_TOOL_ID)
 }
 
-function openConfigDialog(tool) {
+async function openConfigDialog(tool) {
   currentConfigTool.value = {
     department: activeDepartmentCode.value,
     toolId: tool.id,
   }
+  configData.value = createDefaultConfigData()
   mailFolders.value = []
-  // Load config for this specific tool
-  loadToolConfig(activeDepartmentCode.value, tool.id)
+  mailFoldersError.value = ''
   configDialogOpen.value = true
-  // If BUE2 tool, auto-load folders if credentials available
-  if (tool.id === 'citeo_email_extractor') {
-    nextTick(() => {
-      if (configData.value.email && configData.value.authCode) {
-        loadMailFolders()
-      }
-    })
+  loadingToolConfig.value = true
+
+  try {
+    await loadToolConfig(activeDepartmentCode.value, tool.id)
+
+    if (tool.id === 'citeo_email_extractor' && configData.value.email && configData.value.authCode) {
+      await loadMailFolders()
+    }
+  } finally {
+    loadingToolConfig.value = false
   }
 }
 
@@ -559,13 +868,7 @@ async function loadMailFolders() {
   loadingFolders.value = true
   mailFoldersError.value = ''
   try {
-    const response = await fetch('/api/list-mail-folders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, authCode }),
-    })
-
-    const result = await response.json()
+    const result = await listMailFolders({ email, authCode })
     if (result?.success && result.folders && result.folders.length > 0) {
       mailFolders.value = result.folders
       mailFoldersError.value = ''
@@ -587,9 +890,14 @@ async function loadMailFolders() {
 }
 
 async function saveConfiguration() {
+  if (loadingToolConfig.value) {
+    return
+  }
+
   const { department, toolId } = currentConfigTool.value
   const targetDept = department || PREVIEW_DEPARTMENT
   const targetTool = toolId || PREVIEW_TOOL_ID
+  savingToolConfig.value = true
 
   try {
     let payload = { ...configData.value }
@@ -631,6 +939,8 @@ async function saveConfiguration() {
       title: '保存失败',
       message: error.message || '请检查配置内容后重试。',
     })
+  } finally {
+    savingToolConfig.value = false
   }
 }
 
@@ -729,15 +1039,53 @@ async function refreshPreview() {
   await openToolPreview(tool, { force: true })
 }
 
+function focusExecutionPanel() {
+  const panel = document.querySelector('.aside-card')
+  panel?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+async function handleToolPrimaryAction(tool) {
+  const setupState = getToolSetupState(activeDepartmentCode.value, tool)
+
+  if (setupState.primaryAction === 'open-path') {
+    configPanelOpen.value = true
+    return
+  }
+
+  if (setupState.primaryAction === 'open-config') {
+    await openConfigDialog(tool)
+    return
+  }
+
+  if (setupState.primaryAction === 'focus-log') {
+    focusExecutionPanel()
+    return
+  }
+
+  if (setupState.primaryAction === 'run') {
+    await runDepartmentScript(tool)
+  }
+}
+
 async function runDepartmentScript(tool) {
   if (tool.action !== 'run_script') {
     return
   }
 
   const departmentCode = activeDepartmentCode.value
+  if (isToolBusy(departmentCode, tool.id)) {
+    return
+  }
+
+  setToolPendingState(departmentCode, tool.id, true)
 
   try {
     let runtimeConfigOverride = null
+    const networkReady = await ensureNetworkPathReadyForTool(departmentCode, tool.id)
+    if (!networkReady) {
+      return
+    }
+
     if (tool.id === 'invoice_recognizer') {
       const cacheKey = getToolKey(departmentCode, tool.id)
       const cachedConfig = toolConfigCache.value[cacheKey]
@@ -765,6 +1113,17 @@ async function runDepartmentScript(tool) {
 
     if (result?.success && ['queued', 'running'].includes(result?.status)) {
       addActiveTool(departmentCode, tool.id)
+      globalRunningBar.value?.onTaskStarted({
+        toolId: tool.id,
+        logId: result.logId,
+        status: result.status,
+      })
+      logPanel.value?.onTaskStarted({
+        toolId: tool.id,
+        logId: result.logId,
+        status: result.status,
+      })
+      await refreshExecutionViews()
       pushToast({
         type: 'info',
         title: result.status === 'queued' ? '任务已入队' : '任务已启动',
@@ -773,7 +1132,6 @@ async function runDepartmentScript(tool) {
           : `${tool.name} 正在后台运行，请查看右侧执行记录。`,
         duration: 3000,
       })
-      logPanel.value?.onTaskStarted(tool.id)
       return
     }
 
@@ -803,6 +1161,8 @@ async function runDepartmentScript(tool) {
       message: error.message || '请确认 FastAPI 服务已启动，例如 uvicorn main:app --reload。',
       duration: 5200,
     })
+  } finally {
+    setToolPendingState(departmentCode, tool.id, false)
   }
 }
 
@@ -828,12 +1188,18 @@ watch(previewDialogOpen, (open) => {
 onMounted(async () => {
   await Promise.all([loadConnectionStatus(), loadInvoiceConfig()])
   await warmToolPreview(findPreviewTool())
-  await loadDepartmentConfig(activeDepartmentCode.value)
+  await Promise.all([
+    loadDepartmentConfig(activeDepartmentCode.value),
+    preloadDepartmentToolConfigs(activeDepartmentCode.value),
+  ])
 })
 
 // 监听部门切换并加载对应配置
 watch(activeDepartmentCode, async (newDept) => {
-  await loadDepartmentConfig(newDept)
+  await Promise.all([
+    loadDepartmentConfig(newDept),
+    preloadDepartmentToolConfigs(newDept),
+  ])
   // 清空测试结果
   networkPathTestResult.value = null
 })
@@ -852,36 +1218,40 @@ onBeforeUnmount(() => {
     <header class="page-header">
       <div class="page-copy">
         <UiBadge variant="secondary">部门工作台</UiBadge>
-        <h1>部门工具工作台</h1>
+        <h1>先看清状态，再开始执行</h1>
+        <p class="page-lead">
+          把常用任务、目录配置和运行反馈放回同一条操作链里，减少使用者在页面上来回判断的成本。
+        </p>
       </div>
-
-      <UiCard class="status-panel">
-        <div class="status-top">
-          <UiBadge :variant="statusBadgeVariant">{{ connectionStatus.label }}</UiBadge>
-          <p class="status-detail">{{ connectionStatus.detail }}</p>
+      <UiCard class="hero-strip">
+        <div class="hero-strip-copy">
+          <div class="hero-strip-head">
+            <p class="section-label">当前部门</p>
+            <UiBadge :variant="activeDepartmentStatus.variant">{{ activeDepartmentStatus.label }}</UiBadge>
+          </div>
+          <h2>{{ activeDepartment.name }}</h2>
+          <p>{{ activeDepartmentStatus.description }}</p>
         </div>
-        <div class="status-meta">
-          <div>
-            <span>部门数量</span>
-            <strong>{{ departments.length }}</strong>
-          </div>
-          <div>
-            <span>工具总数</span>
-            <strong>{{ totalTools }}</strong>
-          </div>
-          <div>
-            <span>最近同步</span>
-            <strong>{{ lastUpdated }}</strong>
+        <div class="hero-strip-stats">
+          <div v-for="item in activeDepartmentOverview" :key="item.label" class="hero-stat">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+            <small>{{ item.hint }}</small>
           </div>
         </div>
       </UiCard>
     </header>
 
-    <UiCard class="tabs-card">
+    <UiCard class="switcher-card">
       <div class="tabs-head">
         <div>
-          <p class="section-label">部门列表</p>
-          <h2>部门切换</h2>
+          <p class="section-label">部门切换</p>
+          <h2>选择你现在要处理的工作区</h2>
+          <p class="switcher-copy">先确认部门，再看下方任务是否已经就绪。</p>
+        </div>
+        <div class="switcher-status">
+          <UiBadge :variant="statusBadgeVariant">{{ connectionStatus.label }}</UiBadge>
+          <small>{{ connectionStatus.detail }}</small>
         </div>
       </div>
 
@@ -900,22 +1270,77 @@ onBeforeUnmount(() => {
       </div>
     </UiCard>
 
+    <GlobalRunningTasksBar
+      ref="globalRunningBar"
+      :limit="50"
+      :display-limit="4"
+      @focus-department="focusDepartmentFromGlobalTasks"
+    />
+
     <section class="content-grid">
       <UiCard class="department-card">
-        <div class="department-header">
+        <div class="department-header department-header--stacked">
           <div class="department-copy">
             <div class="department-badges">
               <UiBadge>{{ activeDepartment.code }}</UiBadge>
+              <UiBadge variant="secondary">{{ activeToolCount }} 个任务</UiBadge>
+              <UiBadge :variant="activeDepartmentStatus.variant">{{ activeDepartmentStatus.label }}</UiBadge>
             </div>
             <h2>{{ activeDepartment.name }}</h2>
+            <p>{{ activeDepartmentStatus.description }}</p>
+          </div>
+          <div class="department-header-actions">
+            <UiButton variant="outline" @click="configPanelOpen = !configPanelOpen">
+              {{ configPanelToggleLabel }}
+            </UiButton>
+            <UiButton
+              variant="outline"
+              :loading="testingNetworkPath"
+              :disabled="savingDepartmentConfig"
+              @click="testDeptNetworkPath"
+            >
+              测试目录
+            </UiButton>
           </div>
         </div>
 
-        <!-- 部门局域网路径配置 -->
-        <div class="department-config-section">
+        <div class="overview-grid">
+          <div v-for="item in activeDepartmentOverview" :key="item.label" class="overview-card">
+            <span class="section-label">{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+            <small>{{ item.hint }}</small>
+          </div>
+        </div>
+
+        <div class="workspace-toolbar">
+          <div class="workspace-toolbar-copy">
+            <p class="section-label">部门目录</p>
+            <strong>{{ normalizedDepartmentNetworkPath || '尚未配置共享目录' }}</strong>
+            <small>
+              {{ activeDepartmentNeedsNetworkPath ? '当前部门有任务依赖共享目录，建议先验证可读写。' : '当前部门没有强依赖共享目录的任务。' }}
+            </small>
+          </div>
+          <div class="workspace-toolbar-actions">
+            <UiBadge :variant="networkPathBadgeVariant">{{ networkPathStatusLabel }}</UiBadge>
+            <UiButton :loading="savingDepartmentConfig" :disabled="testingNetworkPath" @click="saveDepartmentConfiguration">
+              保存目录
+            </UiButton>
+          </div>
+        </div>
+
+        <div v-if="configPanelOpen" class="department-config-section">
+          <div class="department-config-head minimal">
+            <div>
+              <p class="section-label">配置区</p>
+              <h3>部门共享目录</h3>
+              <p class="department-config-copy">
+                只在需要时展开编辑，避免首页长期被配置表单占满。
+              </p>
+            </div>
+          </div>
           <div class="config-row">
             <div class="config-field">
-              <UiLabel for="network-path">部门局域网路径</UiLabel>
+              <UiLabel for="network-path">部门局域网目录</UiLabel>
               <UiInput
                 id="network-path"
                 v-model="departmentConfig.networkPath"
@@ -926,95 +1351,110 @@ onBeforeUnmount(() => {
               <UiButton
                 variant="outline"
                 :loading="testingNetworkPath"
+                :disabled="savingDepartmentConfig"
                 @click="testDeptNetworkPath"
               >
                 测试连接
               </UiButton>
-              <UiButton @click="saveDepartmentConfiguration">
+              <UiButton :loading="savingDepartmentConfig" :disabled="testingNetworkPath" @click="saveDepartmentConfiguration">
                 保存配置
               </UiButton>
             </div>
           </div>
-          <div class="test-result">
-            这里填写局域网数据存储地址，例如 `\\192.168.76.93\厦门部门\BUE2`。
+          <div class="config-note-row">
+            <div class="test-result config-tip">
+              这里填写局域网数据存储地址，例如 `\\192.168.76.93\厦门部门\BUE2`。
+            </div>
+            <div
+              v-if="networkPathTestResult"
+              class="test-result"
+              :class="{ success: networkPathTestResult.success, error: !networkPathTestResult.success }"
+            >
+              {{ networkPathTestResult.message }}
+            </div>
           </div>
-          <div v-if="networkPathTestResult" class="test-result" :class="{ success: networkPathTestResult.success, error: !networkPathTestResult.success }">
-            {{ networkPathTestResult.message }}
+        </div>
+
+        <div class="tools-section-head">
+          <div>
+            <p class="section-label">任务入口</p>
+            <h3>按“能否立刻执行”来组织工具</h3>
+            <p>每张卡片都直接告诉你当前缺什么、下一步该点哪里，不再让使用者自己推断。</p>
           </div>
         </div>
 
         <div class="tool-grid">
           <UiCard
-            v-for="tool in activeDepartment.tools"
+            v-for="tool in activeToolCards"
             :key="tool.id"
             class="tool-card"
-            tone="muted"
+            :tone="tool.setupState.key === 'ready' ? 'default' : 'muted'"
           >
             <div class="tool-card-head">
-              <UiBadge variant="secondary">{{ tool.tag }}</UiBadge>
-              <UiBadge v-if="tool.previewable" variant="outline">支持预览</UiBadge>
+              <div class="tool-card-headline">
+                <div class="tool-card-badges">
+                  <UiBadge variant="secondary">{{ tool.tag }}</UiBadge>
+                  <UiBadge :variant="tool.setupState.variant">{{ tool.setupState.label }}</UiBadge>
+                </div>
+                <h3>{{ tool.name }}</h3>
+              </div>
             </div>
             <div class="tool-card-body">
-              <h3>{{ tool.name }}</h3>
               <p>{{ tool.description }}</p>
+              <p class="tool-card-state-copy">{{ tool.setupState.description }}</p>
+              <div class="tool-card-meta">
+                <UiBadge v-if="tool.configurable" variant="outline">支持配置</UiBadge>
+                <UiBadge
+                  v-if="toolRequiresNetworkPath(activeDepartmentCode, tool.id)"
+                  variant="warning"
+                >
+                  依赖共享目录
+                </UiBadge>
+                <UiBadge v-if="tool.previewable" variant="outline">支持预览</UiBadge>
+              </div>
             </div>
             <div class="tool-card-foot">
-              <template v-if="tool.previewable">
-                <div class="tool-card-actions">
-                  <UiButton
-                    variant="outline"
-                    @mouseenter="warmToolPreview(tool)"
-                    @focus="warmToolPreview(tool)"
-                    @click="openToolPreview(tool)"
-                  >
-                    预览
-                  </UiButton>
-                  <UiButton v-if="tool.configurable" variant="outline" @click="openConfigDialog(tool)">
-                    配置
-                  </UiButton>
-                </div>
-                <UiButton
-                  :loading="isToolActive(activeDepartmentCode, tool.id)"
-                  @click="runDepartmentScript(tool)"
-                >
-                  运行识别
-                </UiButton>
-              </template>
-
-              <template v-else-if="tool.action === 'run_script'">
+              <div class="tool-card-actions">
                 <UiButton
                   v-if="tool.configurable"
                   variant="outline"
-                  style="margin-right: auto;"
+                  :disabled="isToolPending(activeDepartmentCode, tool.id)"
                   @click="openConfigDialog(tool)"
                 >
                   配置
                 </UiButton>
                 <UiButton
-                  :loading="isToolActive(activeDepartmentCode, tool.id)"
-                  @click="runDepartmentScript(tool)"
+                  v-if="tool.previewable"
+                  variant="outline"
+                  @mouseenter="warmToolPreview(tool)"
+                  @focus="warmToolPreview(tool)"
+                  @click="openToolPreview(tool)"
                 >
-                  {{ isToolActive(activeDepartmentCode, tool.id) ? '运行中' : '运行' }}
+                  预览
                 </UiButton>
-              </template>
-
-              <template v-else>
-                <UiButton variant="outline" disabled>预览建设中</UiButton>
-                <UiButton disabled>能力建设中</UiButton>
-              </template>
+              </div>
+              <UiButton
+                :variant="tool.setupState.key === 'ready' ? 'default' : 'outline'"
+                :loading="tool.setupState.primaryAction === 'run' && isToolBusy(activeDepartmentCode, tool.id)"
+                :disabled="tool.setupState.primaryDisabled || isToolPending(activeDepartmentCode, tool.id)"
+                @click="handleToolPrimaryAction(tool)"
+              >
+                {{ tool.setupState.primaryLabel }}
+              </UiButton>
             </div>
           </UiCard>
         </div>
       </UiCard>
 
-      <UiCard class="aside-card">
-        <ExecutionLogPanel 
+      <aside class="aside-card">
+        <ExecutionLogPanel
           ref="logPanel"
           :department="activeDepartment.code"
-          :limit="10"
+          :limit="12"
           @active-tools-change="handleActiveToolsChange"
+          @execution-mutated="globalRunningBar?.refresh?.({ silent: true })"
         />
-      </UiCard>
+      </aside>
     </section>
 
     <ToolPreviewDialog
@@ -1030,8 +1470,13 @@ onBeforeUnmount(() => {
       :title="activeConfigDialogTitle"
       :description="activeConfigDialogDescription"
     >
+      <div v-if="loadingToolConfig" class="config-loading-state">
+        <UiBadge variant="secondary">加载中</UiBadge>
+        <p>正在同步当前工具配置，请稍候。</p>
+      </div>
+
       <!-- 顾问部单据识别配置 -->
-      <div v-if="currentConfigTool.toolId === 'ear_declaration_data_fetcher'" class="config-form">
+      <div v-else-if="currentConfigTool.toolId === 'ear_declaration_data_fetcher'" class="config-form">
         <div class="form-field">
           <UiLabel for="ear-excel-file-path">申报数据 Excel 文件</UiLabel>
           <div class="folder-select-header">
@@ -1152,8 +1597,20 @@ onBeforeUnmount(() => {
       </div>
 
       <template #footer>
-        <UiButton variant="outline" @click="configDialogOpen = false">取消</UiButton>
-        <UiButton @click="saveConfiguration">保存配置</UiButton>
+        <UiButton
+          variant="outline"
+          :disabled="savingToolConfig"
+          @click="configDialogOpen = false"
+        >
+          取消
+        </UiButton>
+        <UiButton
+          :loading="savingToolConfig"
+          :disabled="loadingToolConfig || savingToolConfig"
+          @click="saveConfiguration"
+        >
+          保存配置
+        </UiButton>
       </template>
     </UiDialog>
 
@@ -1162,7 +1619,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* Page shell */
 .page-shell {
   position: relative;
   min-height: 100vh;
@@ -1174,13 +1630,118 @@ onBeforeUnmount(() => {
   z-index: 1;
 }
 
-/* 部门局域网路径配置样式 */
+.hero-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.hero-strip-copy,
+.hero-strip-stats {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.hero-strip-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.hero-strip-copy h2 {
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.hero-strip-copy p:last-child,
+.switcher-copy,
+.switcher-status small,
+.department-config-copy,
+.workspace-toolbar-copy small {
+  color: var(--muted-foreground);
+  line-height: 1.6;
+}
+
+.hero-strip-stats,
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.hero-stat,
+.overview-card {
+  display: grid;
+  gap: 0.4rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card-muted);
+}
+
+.hero-stat strong,
+.overview-card strong {
+  font-size: 1.2rem;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.hero-stat small,
+.overview-card small {
+  color: var(--muted-foreground);
+  line-height: 1.55;
+}
+
+.switcher-card {
+  margin-top: 1.25rem;
+}
+
+.switcher-status {
+  display: grid;
+  gap: 0.45rem;
+  justify-items: end;
+  max-width: 24rem;
+}
+
+.department-header--stacked {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.department-header-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.overview-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .department-config-section {
-  margin: 1.5rem 0;
+  margin: 0.25rem 0 0;
   padding: 1rem;
   background: var(--card-muted);
-  border-radius: 8px;
+  border-radius: 16px;
   border: 1px solid var(--border);
+}
+
+.department-config-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.department-config-head h3 {
+  margin: 0.5rem 0 0;
+  font-size: 1.1rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
 .config-row {
@@ -1198,12 +1759,23 @@ onBeforeUnmount(() => {
   gap: 0.5rem;
 }
 
+.config-note-row {
+  display: grid;
+  gap: 0.75rem;
+}
+
 .test-result {
   margin-top: 0.75rem;
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
   font-size: 0.875rem;
   border: 1px solid transparent;
+}
+
+.config-tip {
+  color: var(--muted-foreground);
+  background: var(--card);
+  border-color: var(--border);
 }
 
 .test-result.success {
@@ -1232,6 +1804,18 @@ onBeforeUnmount(() => {
   color: var(--danger);
 }
 
+.config-loading-state {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.25rem 0 0.5rem;
+}
+
+.config-loading-state p {
+  margin: 0;
+  color: var(--muted-foreground);
+  line-height: 1.6;
+}
+
 .form-field > .ui-label:has(+ .folder-select-header) {
   display: none;
 }
@@ -1243,4 +1827,72 @@ onBeforeUnmount(() => {
   margin-bottom: 0.5rem;
 }
 
+.tool-card {
+  gap: 0.9rem;
+}
+
+.tool-card-headline,
+.tool-card-badges {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.tool-card-headline h3 {
+  font-size: 1.08rem;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
+
+.tool-card-state-copy {
+  color: var(--foreground);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+@media (max-width: 900px) {
+  .hero-strip,
+  .overview-grid,
+  .department-config-head,
+  .config-row,
+  .folder-select-header,
+  .department-header--stacked {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-strip-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .switcher-status {
+    justify-items: start;
+    max-width: none;
+  }
+
+  .config-actions {
+    width: 100%;
+  }
+
+  .config-actions > * {
+    flex: 1 1 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .hero-strip-stats,
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .department-header-actions,
+  .workspace-toolbar-actions {
+    width: 100%;
+  }
+
+  .department-header-actions > *,
+  .workspace-toolbar-actions > * {
+    flex: 1 1 0;
+  }
+}
 </style>
