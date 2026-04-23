@@ -260,6 +260,9 @@ async function loadLogs(options = {}) {
     return
   }
 
+  if (!silent && loading.value) {
+    return
+  }
   if (!silent) loading.value = true
   error.value = null
 
@@ -667,8 +670,27 @@ defineExpose({
       </div>
 
       <div class="panel-actions">
-        <UiButton variant="outline" :loading="loading" @click="loadLogs">
+        <UiButton variant="outline" @click="loadLogs">
+          <!--
           刷新
+          -->
+          <span class="refresh-button-content">
+            <svg
+              class="refresh-button-icon"
+              :class="{ 'refresh-button-icon--spinning': loading }"
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            >
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+            <span>刷新</span>
+          </span>
         </UiButton>
         <UiButton variant="outline" :disabled="filteredLogs.length === 0" @click="exportLogs">
           导出
@@ -908,6 +930,20 @@ defineExpose({
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.refresh-button-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.refresh-button-icon {
+  flex-shrink: 0;
+}
+
+.refresh-button-icon--spinning {
+  animation: spin 1s linear infinite;
 }
 
 .summary-strip {
