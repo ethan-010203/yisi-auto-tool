@@ -32,15 +32,6 @@ const getSavedDepartment = () => {
   return departments[0].code
 }
 
-const hasSavedDepartment = () => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    return Boolean(saved && departments.some(d => d.code === saved))
-  } catch {
-    return false
-  }
-}
-
 const saveDepartment = (departmentCode) => {
   try {
     localStorage.setItem(STORAGE_KEY, departmentCode)
@@ -58,10 +49,6 @@ const saveWorkspaceView = (workspaceView) => {
 }
 
 const getSavedWorkspaceView = () => {
-  if (hasSavedDepartment()) {
-    return 'department'
-  }
-
   try {
     const saved = localStorage.getItem(WORKSPACE_VIEW_STORAGE_KEY)
     if (saved === 'dashboard' || saved === 'department') {

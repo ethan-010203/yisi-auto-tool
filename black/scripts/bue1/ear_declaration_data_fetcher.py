@@ -33,6 +33,7 @@ HEADER_ACCOUNT = "账号"
 HEADER_PASSWORD = "密码"
 HEADER_DECLARED_WEIGHT = "3月申报数据"
 HEADER_FETCHED_WEIGHT = "官网上抓取的数据（3月）"
+MISSING_MATCH_WRITEBACK_VALUE = "查无此数据"
 
 EXPECTED_HEADERS = [
     HEADER_AUTHORIZED_REP,
@@ -903,18 +904,22 @@ def main() -> int:
                     active_session_reusable = result["status"] in {"weight_found", "matching_entry_not_found"}
                     active_session_route = result.get("route", "")
 
-                    if result.get("matchedWeight"):
+                    write_back_value = result.get("matchedWeight")
+                    if not write_back_value and result.get("status") == "matching_entry_not_found":
+                        write_back_value = MISSING_MATCH_WRITEBACK_VALUE
+
+                    if write_back_value:
                         try:
                             write_weight_back(
                                 task.row_index,
                                 output_column,
-                                result["matchedWeight"],
+                                write_back_value,
                                 excel_file_path,
                             )
                             result["writeBackSucceeded"] = True
                             result["writeBackError"] = ""
                             log_info(
-                                f"{task_log_prefix} 已将官网重量 {result['matchedWeight']} 回填到 Excel 第{task.row_index}行"
+                                f"{task_log_prefix} 已将官网数据 {write_back_value} 回填到 Excel 第{task.row_index}行"
                             )
                         except Exception as error:
                             friendly_error = build_write_back_error_message(error, excel_file_path)
