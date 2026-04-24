@@ -283,7 +283,7 @@ function getToolSetupState(departmentCode, tool) {
       label: '运行中',
       variant: 'warning',
       description: '任务已在后台运行，可以在右侧查看进度。',
-      primaryLabel: '查看进度',
+      primaryLabel: '运行中',
       primaryAction: 'focus-log',
       primaryDisabled: false,
     }
