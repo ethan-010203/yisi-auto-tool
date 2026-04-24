@@ -18,6 +18,7 @@ const PREVIEW_TOOL_ID = 'invoice_recognizer'
 const PREVIEW_DEPARTMENT = 'CONSULT'
 
 const STORAGE_KEY = 'yisi-auto-tool:department'
+const WORKSPACE_VIEW_STORAGE_KEY = 'yisi-auto-tool:workspace-view'
 
 const getSavedDepartment = () => {
   try {
@@ -31,8 +32,49 @@ const getSavedDepartment = () => {
   return departments[0].code
 }
 
+const hasSavedDepartment = () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    return Boolean(saved && departments.some(d => d.code === saved))
+  } catch {
+    return false
+  }
+}
+
+const saveDepartment = (departmentCode) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, departmentCode)
+  } catch {
+    // localStorage 不可用时静默处理
+  }
+}
+
+const saveWorkspaceView = (workspaceView) => {
+  try {
+    localStorage.setItem(WORKSPACE_VIEW_STORAGE_KEY, workspaceView)
+  } catch {
+    // localStorage 不可用时静默处理
+  }
+}
+
+const getSavedWorkspaceView = () => {
+  if (hasSavedDepartment()) {
+    return 'department'
+  }
+
+  try {
+    const saved = localStorage.getItem(WORKSPACE_VIEW_STORAGE_KEY)
+    if (saved === 'dashboard' || saved === 'department') {
+      return saved
+    }
+  } catch {
+    return 'dashboard'
+  }
+  return 'dashboard'
+}
+
 const activeDepartmentCode = ref(getSavedDepartment())
-const activeWorkspaceView = ref('dashboard')
+const activeWorkspaceView = ref(getSavedWorkspaceView())
 const activeDashboardTab = ref('overview')
 const activeToolIdsByDepartment = ref({})
 const previewDialogOpen = ref(false)
@@ -369,7 +411,7 @@ const dashboardOverview = computed(() => {
       hint: '左侧可切换工作区',
     },
     {
-      label: '任务入口',
+      label: '工具数量',
       value: String(totalTools.value),
       hint: '覆盖所有部门',
     },
@@ -592,17 +634,21 @@ function handleActiveToolsChange(payload) {
 
 function showDashboard() {
   activeWorkspaceView.value = 'dashboard'
+  saveWorkspaceView('dashboard')
   activeDashboardTab.value = 'overview'
 }
 
 function showNetworkConfig() {
   activeWorkspaceView.value = 'dashboard'
+  saveWorkspaceView('dashboard')
   activeDashboardTab.value = 'network'
 }
 
 function selectDepartment(departmentCode) {
   activeDepartmentCode.value = departmentCode
   activeWorkspaceView.value = 'department'
+  saveDepartment(departmentCode)
+  saveWorkspaceView('department')
 }
 
 function focusDepartmentFromGlobalTasks(departmentCode) {
@@ -1185,15 +1231,15 @@ async function runDepartmentScript(tool) {
 }
 
 watch(activeDepartmentCode, async (departmentCode) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, departmentCode)
-  } catch {
-    // localStorage 不可用时静默处理
-  }
+  saveDepartment(departmentCode)
   if (departmentCode === PREVIEW_DEPARTMENT) {
     const tool = findPreviewTool()
     await warmToolPreview(tool)
   }
+})
+
+watch(activeWorkspaceView, (workspaceView) => {
+  saveWorkspaceView(workspaceView)
 })
 
 watch(previewDialogOpen, (open) => {
@@ -1396,7 +1442,6 @@ onBeforeUnmount(() => {
             <UiBadge :variant="activeDepartmentStatus.variant">{{ activeDepartmentStatus.label }}</UiBadge>
           </div>
           <h2>{{ activeDepartment.name }}</h2>
-          <p>当前部门已选中，下方只展示可运行的脚本程序。</p>
           <div class="hero-network-path">
             <span>固定共享目录</span>
             <strong>{{ normalizedDepartmentNetworkPath }}</strong>
@@ -1449,9 +1494,6 @@ onBeforeUnmount(() => {
               <UiBadge variant="secondary">{{ activeToolCount }} 个工具</UiBadge>
               <UiBadge :variant="activeDepartmentStatus.variant">{{ activeDepartmentStatus.label }}</UiBadge>
             </div>
-            <UiBadge variant="outline">脚本程序</UiBadge>
-            <h2>脚本入口</h2>
-            <p>这里专门放置 {{ activeDepartment.name }} 可执行的脚本程序。</p>
           </div>
           </div>
         <div v-if="false" class="overview-grid">
@@ -1459,14 +1501,6 @@ onBeforeUnmount(() => {
             <span class="section-label">{{ item.label }}</span>
             <strong>{{ item.value }}</strong>
             <small>{{ item.hint }}</small>
-          </div>
-        </div>
-
-        <div class="tools-section-head">
-          <div>
-            <p class="section-label">任务入口</p>
-            <h3>脚本程序</h3>
-            <p>选择需要运行的脚本，完成必要参数后即可启动。</p>
           </div>
         </div>
 
@@ -1992,14 +2026,12 @@ onBeforeUnmount(() => {
 
 
 .workspace-main {
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   align-content: start;
 }
 
 .page-header {
-  height: 360px;
-  min-height: 360px;
-  overflow: hidden;
+  min-height: 0;
 }
 
 
