@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onUnmounted, ref, watch } from 'vue'
 import {
   clearDepartmentLogs,
@@ -36,6 +36,8 @@ const emit = defineEmits(['task-complete', 'active-tools-change', 'execution-mut
 const logs = ref([])
 const loading = ref(false)
 const error = ref(null)
+const refreshFeedback = ref('')
+const refreshFeedbackTone = ref('muted')
 const searchQuery = ref('')
 const statusFilter = ref('all')
 const currentPage = ref(1)
@@ -70,6 +72,7 @@ const toasts = ref([])
 const toastTimers = new Map()
 const copySuccess = ref(false)
 const hadRunningTasks = ref(false)
+let refreshFeedbackTimer = null
 
 function defaultSummary() {
   return {
@@ -131,6 +134,23 @@ function getToolName(toolId) {
   if (!dept) return toolId
   const tool = dept.tools.find((item) => item.id === toolId)
   return tool?.name || toolId
+}
+
+function setRefreshFeedback(message, tone = 'muted', duration = 2400) {
+  refreshFeedback.value = message
+  refreshFeedbackTone.value = tone
+
+  if (refreshFeedbackTimer) {
+    clearTimeout(refreshFeedbackTimer)
+    refreshFeedbackTimer = null
+  }
+
+  if (duration > 0) {
+    refreshFeedbackTimer = setTimeout(() => {
+      refreshFeedback.value = ''
+      refreshFeedbackTimer = null
+    }, duration)
+  }
 }
 
 function emitActiveTools() {
@@ -253,7 +273,7 @@ function syncSnapshot(snapshot) {
 }
 
 async function loadLogs(options = {}) {
-  const { silent = false } = options
+  const { silent = false, manual = false } = options
   if (!props.department) {
     logs.value = []
     summary.value = defaultSummary()
@@ -263,7 +283,12 @@ async function loadLogs(options = {}) {
   if (!silent && loading.value) {
     return
   }
-  if (!silent) loading.value = true
+  if (!silent) {
+    loading.value = true
+    if (manual) {
+      setRefreshFeedback('刷新中...', 'muted', 0)
+    }
+  }
   error.value = null
 
   try {
@@ -278,6 +303,9 @@ async function loadLogs(options = {}) {
     logs.value = response.logs || []
     updateSummaryFromLogs(logs.value)
     emitActiveTools()
+    if (!silent && manual) {
+      setRefreshFeedback('已刷新', 'success')
+    }
 
     if (detailDialogOpen.value && selectedLog.value) {
       const updatedLog = logs.value.find((log) => log.id === selectedLog.value.id)
@@ -285,6 +313,9 @@ async function loadLogs(options = {}) {
     }
   } catch (err) {
     error.value = err.message || '请求失败'
+    if (!silent && manual) {
+      setRefreshFeedback('刷新失败', 'danger')
+    }
   } finally {
     prunePendingExecutions(logs.value)
     if (shouldKeepLiveRefresh()) {
@@ -627,6 +658,9 @@ watch(
 onUnmounted(() => {
   closeEventStream()
   stopLiveRefresh()
+  if (refreshFeedbackTimer) {
+    clearTimeout(refreshFeedbackTimer)
+  }
   for (const timer of toastTimers.values()) {
     clearTimeout(timer)
   }
@@ -670,10 +704,7 @@ defineExpose({
       </div>
 
       <div class="panel-actions">
-        <UiButton variant="outline" @click="loadLogs">
-          <!--
-          刷新
-          -->
+        <UiButton size="icon" variant="outline" title="刷新运行记录" aria-label="刷新运行记录" @click="loadLogs({ manual: true })">
           <span class="refresh-button-content">
             <svg
               class="refresh-button-icon"
@@ -687,9 +718,11 @@ defineExpose({
               stroke-width="2"
               aria-hidden="true"
             >
-              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+              <path d="M8 16H3v5" />
             </svg>
-            <span>刷新</span>
           </span>
         </UiButton>
         <UiButton variant="outline" :disabled="filteredLogs.length === 0" @click="exportLogs">
@@ -700,6 +733,17 @@ defineExpose({
         </UiButton>
       </div>
     </div>
+
+    <Transition name="refresh-toast">
+      <div
+        v-if="refreshFeedback && refreshFeedbackTone !== 'muted'"
+        class="refresh-toast"
+        :class="`refresh-toast--${refreshFeedbackTone}`"
+        aria-live="polite"
+      >
+        {{ refreshFeedback }}
+      </div>
+    </Transition>
 
     <div class="summary-strip">
       <div v-for="card in summaryCards" :key="card.label" class="summary-pill">
@@ -890,6 +934,7 @@ defineExpose({
 
 <style scoped>
 .log-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -935,7 +980,6 @@ defineExpose({
 .refresh-button-content {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
 }
 
 .refresh-button-icon {
@@ -944,6 +988,46 @@ defineExpose({
 
 .refresh-button-icon--spinning {
   animation: spin 1s linear infinite;
+}
+
+.refresh-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  transform-origin: bottom right;
+  z-index: 81;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--card), var(--card-muted));
+  box-shadow: var(--card-shadow);
+  color: var(--foreground);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.refresh-toast--success {
+  border-color: var(--success-border);
+  background: linear-gradient(135deg, var(--success-soft), var(--card));
+  color: var(--success);
+}
+
+.refresh-toast--danger {
+  border-color: var(--danger-border);
+  background: linear-gradient(135deg, var(--danger-soft), var(--card));
+  color: var(--danger);
+}
+
+.refresh-toast-enter-active,
+.refresh-toast-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.refresh-toast-enter-from,
+.refresh-toast-leave-to {
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
 }
 
 .summary-strip {

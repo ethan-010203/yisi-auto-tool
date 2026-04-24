@@ -577,6 +577,15 @@ button {
   color: var(--foreground);
 }
 
+.ui-button--size-icon {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
 .ui-button--danger {
   background: var(--danger);
   border-color: var(--danger);

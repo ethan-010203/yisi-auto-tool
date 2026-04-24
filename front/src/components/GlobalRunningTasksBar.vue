@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { getExecutionLogs, getGlobalEventsUrl } from '../api/index'
 import { departments } from '../data/departments'
@@ -17,17 +17,20 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['focus-department'])
+const emit = defineEmits(['focus-department', 'active-tools-change'])
 
 const logs = ref([])
 const loading = ref(false)
 const error = ref('')
+const refreshFeedback = ref('')
+const refreshFeedbackTone = ref('muted')
 const streamConnected = ref(false)
 const reconnectTimer = ref(null)
 const liveRefreshTimer = ref(null)
 const liveRefreshInFlight = ref(false)
 const pendingExecutions = ref({})
 let eventSource = null
+let refreshFeedbackTimer = null
 
 function isActiveStatus(status) {
   return status === 'queued' || status === 'running' || status === 'cancelling'
@@ -59,15 +62,48 @@ function getToolName(departmentCode, toolId) {
   return tool?.name || toolId
 }
 
+function setRefreshFeedback(message, tone = 'muted', duration = 2400) {
+  refreshFeedback.value = message
+  refreshFeedbackTone.value = tone
+
+  if (refreshFeedbackTimer) {
+    clearTimeout(refreshFeedbackTimer)
+    refreshFeedbackTimer = null
+  }
+
+  if (duration > 0) {
+    refreshFeedbackTimer = setTimeout(() => {
+      refreshFeedback.value = ''
+      refreshFeedbackTimer = null
+    }, duration)
+  }
+}
+
 function syncSnapshot(snapshot) {
   logs.value = Array.isArray(snapshot?.logs) ? snapshot.logs : []
   error.value = ''
   streamConnected.value = true
+  emitActiveToolsByDepartment()
   prunePendingExecutions(logs.value)
   if (shouldKeepLiveRefresh()) {
     scheduleLiveRefresh()
   } else {
     stopLiveRefresh()
+  }
+}
+
+function emitActiveToolsByDepartment() {
+  for (const department of departments) {
+    const toolIds = [...new Set(
+      activeLogs.value
+        .filter((log) => log.department === department.code)
+        .map((log) => log.tool),
+    )]
+
+    emit('active-tools-change', {
+      department: department.code,
+      toolIds,
+    })
   }
 }
 
@@ -151,12 +187,15 @@ function startTaskLiveRefresh(payload = {}) {
 }
 
 async function loadLogs(options = {}) {
-  const { silent = false } = options
+  const { silent = false, manual = false } = options
   if (!silent && loading.value) {
     return
   }
   if (!silent) {
     loading.value = true
+    if (manual) {
+      setRefreshFeedback('刷新中...', 'muted', 0)
+    }
   }
   try {
     const response = await getExecutionLogs(props.limit)
@@ -165,8 +204,15 @@ async function loadLogs(options = {}) {
     }
     logs.value = response.logs || []
     error.value = ''
+    emitActiveToolsByDepartment()
+    if (!silent && manual) {
+      setRefreshFeedback('已刷新', 'success')
+    }
   } catch (err) {
     error.value = err.message || '请求失败'
+    if (!silent && manual) {
+      setRefreshFeedback('刷新失败', 'danger')
+    }
   } finally {
     prunePendingExecutions(logs.value)
     if (shouldKeepLiveRefresh()) {
@@ -250,6 +296,9 @@ onMounted(async () => {
 onUnmounted(() => {
   closeEventStream()
   stopLiveRefresh()
+  if (refreshFeedbackTimer) {
+    clearTimeout(refreshFeedbackTimer)
+  }
 })
 
 defineExpose({
@@ -288,10 +337,7 @@ defineExpose({
             <strong>{{ activeDepartmentCount }}</strong>
           </div>
         </div>
-        <UiButton variant="outline" @click="loadLogs">
-          <!--
-          刷新
-          -->
+        <UiButton size="icon" variant="outline" title="刷新全局任务" aria-label="刷新全局任务" @click="loadLogs({ manual: true })">
           <span class="refresh-button-content">
             <svg
               class="refresh-button-icon"
@@ -305,13 +351,26 @@ defineExpose({
               stroke-width="2"
               aria-hidden="true"
             >
-              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+              <path d="M8 16H3v5" />
             </svg>
-            <span>刷新</span>
           </span>
         </UiButton>
       </div>
     </div>
+
+    <Transition name="refresh-toast">
+      <div
+        v-if="refreshFeedback && refreshFeedbackTone !== 'muted'"
+        class="refresh-toast"
+        :class="`refresh-toast--${refreshFeedbackTone}`"
+        aria-live="polite"
+      >
+        {{ refreshFeedback }}
+      </div>
+    </Transition>
 
     <div v-if="error" class="global-running-error">
       {{ error }}
@@ -353,6 +412,7 @@ defineExpose({
 
 <style scoped>
 .global-running-bar {
+  position: relative;
   display: grid;
   gap: 0.85rem;
 }
@@ -368,7 +428,6 @@ defineExpose({
 .refresh-button-content {
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
 }
 
 .refresh-button-icon {
@@ -377,6 +436,46 @@ defineExpose({
 
 .refresh-button-icon--spinning {
   animation: spin 1s linear infinite;
+}
+
+.refresh-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  transform-origin: bottom right;
+  z-index: 81;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--card), var(--card-muted));
+  box-shadow: var(--card-shadow);
+  color: var(--foreground);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.refresh-toast--success {
+  border-color: var(--success-border);
+  background: linear-gradient(135deg, var(--success-soft), var(--card));
+  color: var(--success);
+}
+
+.refresh-toast--danger {
+  border-color: var(--danger-border);
+  background: linear-gradient(135deg, var(--danger-soft), var(--card));
+  color: var(--danger);
+}
+
+.refresh-toast-enter-active,
+.refresh-toast-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.refresh-toast-enter-from,
+.refresh-toast-leave-to {
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
 }
 
 .global-running-copy {

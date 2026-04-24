@@ -16,6 +16,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  size: {
+    type: String,
+    default: 'default',
+  },
 })
 </script>
 
@@ -23,7 +27,7 @@ const props = defineProps({
   <button
     :type="props.type"
     class="ui-button"
-    :class="[`ui-button--${props.variant}`, { 'ui-button--loading': props.loading }]"
+    :class="[`ui-button--${props.variant}`, `ui-button--size-${props.size}`, { 'ui-button--loading': props.loading }]"
     :disabled="props.loading || props.disabled"
   >
     <span v-if="props.loading" class="ui-button-spinner">

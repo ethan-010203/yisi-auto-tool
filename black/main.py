@@ -66,6 +66,15 @@ CONFIG_DIR.mkdir(exist_ok=True)
 FRONT_DIST_DIR = Path(__file__).parent.parent / "front" / "dist"
 FRONT_ASSETS_DIR = FRONT_DIST_DIR / "assets"
 
+DEPARTMENT_NETWORK_PATHS = {
+    "BUE1": r"\\192.168.76.93\厦门部门\BUE1",
+    "BUE2": r"\\192.168.76.93\厦门部门\BUE2",
+    "BUV1": r"\\192.168.76.93\厦门部门\BUV1",
+    "BUV2": r"\\192.168.76.93\厦门部门\BUV2",
+    "BUV3": r"\\192.168.76.93\厦门部门\BUV3",
+    "CONSULT": r"\\192.168.76.93\厦门部门\顾问部",
+}
+
 TOOL_STORAGE_POLICIES = {
     ("CONSULT", "invoice_recognizer"): {
         "requires_network_path": True,
@@ -168,6 +177,11 @@ def _read_tool_config(department: str, tool: str) -> Optional[dict[str, Any]]:
 
 
 def _read_department_config(department: str) -> Optional[dict[str, Any]]:
+    normalized_department = department.upper()
+    fixed_network_path = DEPARTMENT_NETWORK_PATHS.get(normalized_department)
+    if fixed_network_path:
+        return {"networkPath": fixed_network_path}
+
     config_file = _department_config_file(department.upper())
     if not config_file.exists():
         return None
@@ -1027,6 +1041,10 @@ def save_department_config(department: str, config: DepartmentConfig):
 @app.get("/api/departments/{department}/config")
 def get_department_config(department: str):
     try:
+        fixed_config = _read_department_config(department.upper())
+        if fixed_config:
+            return {"success": True, "config": fixed_config}
+
         config_file = _department_config_file(department.upper())
         if not config_file.exists():
             return {"success": True, "config": {}}

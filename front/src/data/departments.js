@@ -1,3 +1,12 @@
+export const departmentNetworkPaths = {
+  BUE1: '\\\\192.168.76.93\\厦门部门\\BUE1',
+  BUE2: '\\\\192.168.76.93\\厦门部门\\BUE2',
+  BUV1: '\\\\192.168.76.93\\厦门部门\\BUV1',
+  BUV2: '\\\\192.168.76.93\\厦门部门\\BUV2',
+  BUV3: '\\\\192.168.76.93\\厦门部门\\BUV3',
+  CONSULT: '\\\\192.168.76.93\\厦门部门\\顾问部',
+}
+
 export const departments = [
   {
     code: 'BUE1',
@@ -80,7 +89,7 @@ export const departments = [
   },
   {
     code: 'CONSULT',
-    name: 'CONSULT',
+    name: '顾问部',
     tone: 'consulting',
     summary: '顾问部自动化工具集合。',
     tools: [
