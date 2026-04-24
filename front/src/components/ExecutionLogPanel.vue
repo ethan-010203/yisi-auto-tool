@@ -35,6 +35,7 @@ const emit = defineEmits(['task-complete', 'active-tools-change', 'execution-mut
 
 const logs = ref([])
 const loading = ref(false)
+const refreshSpinning = ref(false)
 const error = ref(null)
 const refreshFeedback = ref('')
 const refreshFeedbackTone = ref('muted')
@@ -57,6 +58,7 @@ const liveRefreshTimer = ref(null)
 const liveRefreshInFlight = ref(false)
 const pendingExecutions = ref({})
 let eventSource = null
+let refreshSpinTimer = null
 
 const clearDialogOpen = ref(false)
 const clearLoading = ref(false)
@@ -327,6 +329,27 @@ async function loadLogs(options = {}) {
   }
 }
 
+function spinRefreshButton() {
+  refreshSpinning.value = false
+  if (refreshSpinTimer) {
+    clearTimeout(refreshSpinTimer)
+  }
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      refreshSpinning.value = true
+      refreshSpinTimer = setTimeout(() => {
+        refreshSpinning.value = false
+        refreshSpinTimer = null
+      }, 700)
+    })
+  })
+}
+
+function handleManualRefresh() {
+  spinRefreshButton()
+  void loadLogs({ manual: true })
+}
+
 function closeEventStream() {
   if (eventSource) {
     eventSource.close()
@@ -590,29 +613,6 @@ const displayedLogs = computed(() => {
 
 const hasRunningTasks = computed(() => logs.value.some((log) => isActiveStatus(log.status)))
 
-const summaryCards = computed(() => [
-  {
-    label: '运行中',
-    value: summary.value.running + summary.value.cancelling,
-    variant: 'warning',
-  },
-  {
-    label: '排队中',
-    value: summary.value.queued,
-    variant: 'secondary',
-  },
-  {
-    label: '失败',
-    value: summary.value.failed,
-    variant: 'danger',
-  },
-  {
-    label: '已完成',
-    value: summary.value.success,
-    variant: 'success',
-  },
-])
-
 watch(
   () => props.department,
   async () => {
@@ -658,6 +658,9 @@ watch(
 onUnmounted(() => {
   closeEventStream()
   stopLiveRefresh()
+  if (refreshSpinTimer) {
+    clearTimeout(refreshSpinTimer)
+  }
   if (refreshFeedbackTimer) {
     clearTimeout(refreshFeedbackTimer)
   }
@@ -704,11 +707,11 @@ defineExpose({
       </div>
 
       <div class="panel-actions">
-        <UiButton size="icon" variant="outline" title="刷新运行记录" aria-label="刷新运行记录" @click="loadLogs({ manual: true })">
+        <UiButton size="icon" variant="outline" title="刷新运行记录" aria-label="刷新运行记录" @click="handleManualRefresh">
           <span class="refresh-button-content">
             <svg
               class="refresh-button-icon"
-              :class="{ 'refresh-button-icon--spinning': loading }"
+              :class="{ 'refresh-button-icon--spinning': loading || refreshSpinning }"
               xmlns="http://www.w3.org/2000/svg"
               width="14"
               height="14"
@@ -744,13 +747,6 @@ defineExpose({
         {{ refreshFeedback }}
       </div>
     </Transition>
-
-    <div class="summary-strip">
-      <div v-for="card in summaryCards" :key="card.label" class="summary-pill">
-        <span class="summary-pill-label">{{ card.label }}</span>
-        <strong>{{ card.value }}</strong>
-      </div>
-    </div>
 
     <div class="filters">
       <UiInput v-model="searchQuery" placeholder="搜索任务名或错误信息" class="search-input" />
@@ -1028,34 +1024,6 @@ defineExpose({
 .refresh-toast-leave-to {
   opacity: 0;
   transform: translateY(10px) scale(0.98);
-}
-
-.summary-strip {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
-}
-
-.summary-pill {
-  border: 1px solid var(--border);
-  border-radius: 1rem;
-  background: var(--card-muted);
-  padding: 0.8rem 0.85rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.summary-pill-label {
-  color: var(--muted);
-  font-size: 0.74rem;
-  letter-spacing: 0.02em;
-}
-
-.summary-pill strong {
-  font-size: 1rem;
-  line-height: 1;
 }
 
 .filters {

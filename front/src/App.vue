@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getData, getToolConfig, getToolPreview, getToolTemplateUrl, listMailFolders, runDepartmentTool, saveConfig, testNetworkPath } from './api/index'
 import ExecutionLogPanel from './components/ExecutionLogPanel.vue'
@@ -1306,7 +1306,6 @@ onBeforeUnmount(() => {
                   <span>全局运行任务</span>
                 </div>
               </div>
-              <p class="sidebar-department-summary">集中查看所有部门的排队与运行任务</p>
             </button>
 
             <button
@@ -1513,10 +1512,6 @@ onBeforeUnmount(() => {
           >
             <div class="tool-card-head">
               <div class="tool-card-headline">
-                <div class="tool-card-badges">
-                  <UiBadge variant="secondary">{{ tool.tag }}</UiBadge>
-                  <UiBadge :variant="tool.setupState.variant">{{ tool.setupState.label }}</UiBadge>
-                </div>
                 <h3>{{ tool.name }}</h3>
               </div>
             </div>
@@ -1745,9 +1740,9 @@ onBeforeUnmount(() => {
 <style scoped>
 .page-shell {
   position: relative;
-  height: 100vh;
+  min-height: 100vh;
   padding: 1.5rem;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .page-shell > *:not(.page-toast-stack) {
@@ -1760,13 +1755,12 @@ onBeforeUnmount(() => {
   grid-template-columns: 280px minmax(0, 1fr);
   gap: 1.25rem;
   align-items: start;
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
+  min-height: calc(100vh - 3rem);
+  overflow: visible;
 }
 
 .workspace-sidebar {
-  height: 100%;
+  max-height: calc(100vh - 3rem);
   min-height: 0;
   overflow: hidden;
   align-self: start;
@@ -1775,13 +1769,9 @@ onBeforeUnmount(() => {
 .workspace-main {
   display: grid;
   gap: 1.25rem;
-  height: 100%;
   min-height: 0;
   min-width: 0;
-  overflow-y: scroll;
-  scrollbar-gutter: stable;
   padding-right: 0.25rem;
-  overscroll-behavior: contain;
 }
 
 .department-sidebar {
@@ -1902,15 +1892,17 @@ onBeforeUnmount(() => {
 
 .hero-strip {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.8fr);
   gap: 1rem;
   margin-top: 0.5rem;
+  align-items: start;
 }
 
 .hero-strip-copy,
 .hero-strip-stats {
   display: grid;
   gap: 0.75rem;
+  min-width: 0;
 }
 
 .hero-strip-head {
@@ -1950,7 +1942,11 @@ onBeforeUnmount(() => {
 }
 
 .hero-network-path strong {
-  overflow-wrap: anywhere;
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.95rem;
   line-height: 1.45;
 }
@@ -2026,7 +2022,7 @@ onBeforeUnmount(() => {
 
 
 .workspace-main {
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-auto-rows: max-content;
   align-content: start;
 }
 
@@ -2036,7 +2032,7 @@ onBeforeUnmount(() => {
 
 
 .page-header > .hero-strip {
-  min-height: 220px;
+  min-height: 0;
 }
 
 .page-copy {
@@ -2060,31 +2056,24 @@ onBeforeUnmount(() => {
 }
 
 .content-grid {
-  height: 100%;
-  overflow: hidden;
+  align-items: start;
 }
 
 .content-grid > .department-card,
 .aside-card {
-  height: 100%;
-  overflow: hidden;
+  align-self: start;
 }
 
 .content-grid > .department-card {
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto;
 }
 
 .tool-grid {
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
   align-content: start;
-  padding-right: 0.25rem;
   grid-auto-rows: minmax(220px, auto);
 }
 
 .aside-card :deep(.log-panel) {
-  height: 100%;
   min-height: 0;
 }
 
@@ -2266,8 +2255,7 @@ onBeforeUnmount(() => {
   gap: 0.9rem;
 }
 
-.tool-card-headline,
-.tool-card-badges {
+.tool-card-headline {
   display: grid;
   gap: 0.55rem;
 }
