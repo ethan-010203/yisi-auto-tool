@@ -341,19 +341,6 @@ watch(isOpen, (open) => {
   -webkit-overflow-scrolling: touch;
 }
 
-.select-options::-webkit-scrollbar {
-  width: 6px;
-}
-
-.select-options::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.select-options::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-
 .select-option {
   display: flex;
   align-items: center;

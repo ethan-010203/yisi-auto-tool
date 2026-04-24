@@ -92,10 +92,4 @@ const emit = defineEmits(['dismiss'])
   background: linear-gradient(0deg, var(--danger-soft), var(--danger-soft)), var(--card);
 }
 
-@media (max-width: 720px) {
-  .ui-toast-stack {
-    right: 12px;
-    bottom: 12px;
-  }
-}
 </style>

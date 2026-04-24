@@ -1239,17 +1239,4 @@ defineExpose({
   color: var(--danger);
 }
 
-@media (max-width: 980px) {
-  .summary-strip,
-  .detail-meta-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 720px) {
-  .summary-strip,
-  .detail-meta-grid {
-    grid-template-columns: 1fr;
-  }
-}
 </style>

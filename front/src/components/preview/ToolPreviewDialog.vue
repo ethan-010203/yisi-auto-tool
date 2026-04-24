@@ -282,18 +282,4 @@ const emit = defineEmits(['update:open', 'refresh'])
   }
 }
 
-@media (max-width: 720px) {
-  .preview-hero,
-  .preview-section-head,
-  .preview-layout,
-  .preview-metrics,
-  .skeleton-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .preview-hero,
-  .preview-section-head {
-    display: grid;
-  }
-}
 </style>

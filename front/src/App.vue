@@ -32,6 +32,7 @@ const getSavedDepartment = () => {
 }
 
 const activeDepartmentCode = ref(getSavedDepartment())
+const activeWorkspaceView = ref('dashboard')
 const activeToolIdsByDepartment = ref({})
 const previewDialogOpen = ref(false)
 const previewLoading = ref(false)
@@ -389,6 +390,31 @@ const activeDepartmentOverview = computed(() => {
   ]
 })
 
+const dashboardOverview = computed(() => {
+  return [
+    {
+      label: '部门数量',
+      value: String(departments.length),
+      hint: '左侧可切换工作区',
+    },
+    {
+      label: '任务入口',
+      value: String(totalTools.value),
+      hint: '覆盖所有部门',
+    },
+    {
+      label: '服务状态',
+      value: connectionStatus.value.label,
+      hint: connectionStatus.value.detail,
+    },
+    {
+      label: '最近同步',
+      value: lastUpdated.value,
+      hint: '来自后端状态',
+    },
+  ]
+})
+
 const activeToolCards = computed(() => {
   return activeDepartment.value.tools.map((tool) => ({
     ...tool,
@@ -537,6 +563,10 @@ function getDepartmentActiveToolIds(departmentCode) {
   return activeToolIdsByDepartment.value[departmentCode] || []
 }
 
+function getDepartmentActiveToolCount(departmentCode) {
+  return getDepartmentActiveToolIds(departmentCode).length
+}
+
 function isToolActive(departmentCode, toolId) {
   return getDepartmentActiveToolIds(departmentCode).includes(toolId)
 }
@@ -585,11 +615,20 @@ function handleActiveToolsChange(payload) {
   setDepartmentActiveTools(payload.department, payload.toolIds || [])
 }
 
+function showDashboard() {
+  activeWorkspaceView.value = 'dashboard'
+}
+
+function selectDepartment(departmentCode) {
+  activeDepartmentCode.value = departmentCode
+  activeWorkspaceView.value = 'department'
+}
+
 function focusDepartmentFromGlobalTasks(departmentCode) {
   if (!departmentCode) {
     return
   }
-  activeDepartmentCode.value = departmentCode
+  selectDepartment(departmentCode)
 }
 
 function pushToast({ type = 'info', title, message = '', duration = 4200 }) {
@@ -1215,7 +1254,110 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="page-shell">
-    <header class="page-header">
+    <div class="workspace-shell">
+      <aside class="workspace-sidebar">
+        <UiCard class="department-sidebar">
+          <div class="sidebar-head">
+            <div class="sidebar-copy">
+              <UiBadge variant="secondary">部门导航</UiBadge>
+              <h2>工作区切换</h2>
+              <p>左侧切换部门，右侧直接处理当前工作区的任务与配置。</p>
+            </div>
+            <div class="sidebar-status">
+              <UiBadge :variant="statusBadgeVariant">{{ connectionStatus.label }}</UiBadge>
+              <small>{{ connectionStatus.detail }}</small>
+            </div>
+          </div>
+
+          <nav class="sidebar-department-list" aria-label="部门切换">
+            <button
+              type="button"
+              class="sidebar-department-button sidebar-dashboard-button"
+              :class="{ active: activeWorkspaceView === 'dashboard' }"
+              :aria-current="activeWorkspaceView === 'dashboard' ? 'page' : undefined"
+              @click="showDashboard"
+            >
+              <div class="sidebar-department-top">
+                <div class="sidebar-department-title">
+                  <strong>仪表盘</strong>
+                  <span>全局运行任务</span>
+                </div>
+                <UiBadge v-if="activeWorkspaceView === 'dashboard'" variant="default">当前</UiBadge>
+              </div>
+              <p class="sidebar-department-summary">集中查看所有部门的排队与运行任务</p>
+            </button>
+
+            <button
+              v-for="department in departments"
+              :key="department.code"
+              type="button"
+              class="sidebar-department-button"
+              :class="{ active: activeWorkspaceView === 'department' && department.code === activeDepartmentCode }"
+              :aria-current="activeWorkspaceView === 'department' && department.code === activeDepartmentCode ? 'page' : undefined"
+              @click="selectDepartment(department.code)"
+            >
+              <div class="sidebar-department-top">
+                <div class="sidebar-department-title">
+                  <strong>{{ department.name }}</strong>
+                  <span>{{ department.code }}</span>
+                </div>
+                <UiBadge
+                  v-if="(activeWorkspaceView === 'department' && department.code === activeDepartmentCode) || getDepartmentActiveToolCount(department.code) > 0"
+                  :variant="activeWorkspaceView === 'department' && department.code === activeDepartmentCode ? 'default' : getDepartmentActiveToolCount(department.code) > 0 ? 'warning' : 'outline'"
+                >
+                  {{ activeWorkspaceView === 'department' && department.code === activeDepartmentCode ? '当前' : '运行中' }}
+                </UiBadge>
+              </div>
+              <p class="sidebar-department-summary">
+                {{ department.tools.length }} 个任务
+                <span v-if="getDepartmentActiveToolCount(department.code) > 0">
+                  / {{ getDepartmentActiveToolCount(department.code) }} 个运行中
+                </span>
+              </p>
+            </button>
+          </nav>
+        </UiCard>
+      </aside>
+
+      <main class="workspace-main">
+        <template v-if="activeWorkspaceView === 'dashboard'">
+          <header class="page-header">
+            <div class="page-copy">
+              <UiBadge variant="secondary">全局仪表盘</UiBadge>
+              <h1>先看全局，再进部门</h1>
+              <p class="page-lead">
+                把所有部门的运行任务集中放在这里，部门页只保留当前部门的配置、入口和运行记录。
+              </p>
+            </div>
+            <UiCard class="hero-strip">
+              <div class="hero-strip-copy">
+                <div class="hero-strip-head">
+                  <p class="section-label">总览</p>
+                  <UiBadge :variant="statusBadgeVariant">{{ connectionStatus.label }}</UiBadge>
+                </div>
+                <h2>仪表盘</h2>
+                <p>这里集中查看全局排队、运行和跨部门任务状态，需要处理具体任务时再进入对应部门。</p>
+              </div>
+              <div class="hero-strip-stats">
+                <div v-for="item in dashboardOverview" :key="item.label" class="hero-stat">
+                  <span>{{ item.label }}</span>
+                  <strong>{{ item.value }}</strong>
+                  <small>{{ item.hint }}</small>
+                </div>
+              </div>
+            </UiCard>
+          </header>
+
+          <GlobalRunningTasksBar
+            ref="globalRunningBar"
+            :limit="50"
+            :display-limit="8"
+            @focus-department="focusDepartmentFromGlobalTasks"
+          />
+        </template>
+
+        <template v-else>
+        <header class="page-header">
       <div class="page-copy">
         <UiBadge variant="secondary">部门工作台</UiBadge>
         <h1>先看清状态，再开始执行</h1>
@@ -1230,7 +1372,7 @@ onBeforeUnmount(() => {
             <UiBadge :variant="activeDepartmentStatus.variant">{{ activeDepartmentStatus.label }}</UiBadge>
           </div>
           <h2>{{ activeDepartment.name }}</h2>
-          <p>{{ activeDepartmentStatus.description }}</p>
+          <p>{{ activeDepartment.code }} 已选中，下方区域会同步显示它的共享目录、任务入口和运行记录。</p>
         </div>
         <div class="hero-strip-stats">
           <div v-for="item in activeDepartmentOverview" :key="item.label" class="hero-stat">
@@ -1242,7 +1384,7 @@ onBeforeUnmount(() => {
       </UiCard>
     </header>
 
-    <UiCard class="switcher-card">
+    <UiCard v-if="false" class="switcher-card">
       <div class="tabs-head">
         <div>
           <p class="section-label">部门切换</p>
@@ -1270,24 +1412,18 @@ onBeforeUnmount(() => {
       </div>
     </UiCard>
 
-    <GlobalRunningTasksBar
-      ref="globalRunningBar"
-      :limit="50"
-      :display-limit="4"
-      @focus-department="focusDepartmentFromGlobalTasks"
-    />
-
     <section class="content-grid">
       <UiCard class="department-card">
         <div class="department-header department-header--stacked">
           <div class="department-copy">
-            <div class="department-badges">
+            <div v-if="false" class="department-badges">
               <UiBadge>{{ activeDepartment.code }}</UiBadge>
               <UiBadge variant="secondary">{{ activeToolCount }} 个任务</UiBadge>
               <UiBadge :variant="activeDepartmentStatus.variant">{{ activeDepartmentStatus.label }}</UiBadge>
             </div>
-            <h2>{{ activeDepartment.name }}</h2>
-            <p>{{ activeDepartmentStatus.description }}</p>
+            <UiBadge variant="outline">配置与执行</UiBadge>
+            <h2>共享目录与任务入口</h2>
+            <p>这里专门处理 {{ activeDepartment.name }} 的共享目录、任务参数和执行入口。</p>
           </div>
           <div class="department-header-actions">
             <UiButton variant="outline" @click="configPanelOpen = !configPanelOpen">
@@ -1304,7 +1440,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="overview-grid">
+        <div v-if="false" class="overview-grid">
           <div v-for="item in activeDepartmentOverview" :key="item.label" class="overview-card">
             <span class="section-label">{{ item.label }}</span>
             <strong>{{ item.value }}</strong>
@@ -1456,6 +1592,9 @@ onBeforeUnmount(() => {
         />
       </aside>
     </section>
+        </template>
+      </main>
+    </div>
 
     <ToolPreviewDialog
       v-model:open="previewDialogOpen"
@@ -1621,13 +1760,131 @@ onBeforeUnmount(() => {
 <style scoped>
 .page-shell {
   position: relative;
-  min-height: 100vh;
+  height: 100vh;
   padding: 1.5rem;
+  overflow: hidden;
 }
 
 .page-shell > *:not(.page-toast-stack) {
   position: relative;
   z-index: 1;
+}
+
+.workspace-shell {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-sidebar {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  align-self: start;
+}
+
+.workspace-main {
+  display: grid;
+  gap: 1.25rem;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  overscroll-behavior: contain;
+}
+
+.department-sidebar {
+  display: grid;
+  gap: 1rem;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.sidebar-head,
+.sidebar-copy,
+.sidebar-status,
+.sidebar-department-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.sidebar-copy h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.sidebar-status {
+  padding: 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card-muted);
+}
+
+.sidebar-status small,
+.sidebar-copy p {
+  color: var(--muted-foreground);
+  line-height: 1.6;
+}
+
+.sidebar-department-button {
+  display: grid;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.95rem 1rem;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  color: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.sidebar-department-button:hover {
+  border-color: var(--border-strong);
+  background: var(--card-muted);
+  box-shadow: 0 0 0 3px var(--ring);
+  transform: translateY(-1px);
+}
+
+.sidebar-department-button.active {
+  border-color: var(--accent);
+  background: var(--card-muted);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.sidebar-department-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.sidebar-department-title {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.sidebar-department-title strong {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.sidebar-department-title span,
+.sidebar-department-summary {
+  color: var(--muted-foreground);
+  line-height: 1.55;
 }
 
 .hero-strip {
@@ -1658,8 +1915,6 @@ onBeforeUnmount(() => {
 }
 
 .hero-strip-copy p:last-child,
-.switcher-copy,
-.switcher-status small,
 .department-config-copy,
 .workspace-toolbar-copy small {
   color: var(--muted-foreground);
@@ -1696,15 +1951,26 @@ onBeforeUnmount(() => {
   line-height: 1.55;
 }
 
-.switcher-card {
-  margin-top: 1.25rem;
+.department-card {
+  display: grid;
+  gap: 1rem;
 }
 
-.switcher-status {
+.department-copy {
   display: grid;
-  gap: 0.45rem;
-  justify-items: end;
-  max-width: 24rem;
+  gap: 0.55rem;
+}
+
+.department-copy h2 {
+  margin: 0;
+  font-size: 1.18rem;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.department-copy p {
+  color: var(--muted-foreground);
+  line-height: 1.6;
 }
 
 .department-header--stacked {
@@ -1849,50 +2115,4 @@ onBeforeUnmount(() => {
   line-height: 1.55;
 }
 
-@media (max-width: 900px) {
-  .hero-strip,
-  .overview-grid,
-  .department-config-head,
-  .config-row,
-  .folder-select-header,
-  .department-header--stacked {
-    grid-template-columns: 1fr;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .hero-strip-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .switcher-status {
-    justify-items: start;
-    max-width: none;
-  }
-
-  .config-actions {
-    width: 100%;
-  }
-
-  .config-actions > * {
-    flex: 1 1 0;
-  }
-}
-
-@media (max-width: 720px) {
-  .hero-strip-stats,
-  .overview-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .department-header-actions,
-  .workspace-toolbar-actions {
-    width: 100%;
-  }
-
-  .department-header-actions > *,
-  .workspace-toolbar-actions > * {
-    flex: 1 1 0;
-  }
-}
 </style>

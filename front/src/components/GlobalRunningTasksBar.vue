@@ -355,7 +355,6 @@ defineExpose({
 .global-running-bar {
   display: grid;
   gap: 0.85rem;
-  margin-top: 20px;
 }
 
 .global-running-head {
@@ -507,23 +506,4 @@ defineExpose({
   background: var(--card-muted);
 }
 
-@media (max-width: 900px) {
-  .global-running-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 720px) {
-  .global-running-stats {
-    grid-template-columns: 1fr;
-  }
-
-  .global-running-actions {
-    width: 100%;
-  }
-
-  .global-running-actions .ui-button {
-    width: 100%;
-  }
-}
 </style>
