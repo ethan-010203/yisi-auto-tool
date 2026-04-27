@@ -129,6 +129,7 @@ VITE_PROXY_TARGET=http://<后端IP>:8000 npm run dev
   - 或本机盘符路径：`D:\\YisiData\\BUE2`
 - `CONSULT / invoice_recognizer` 的“选择文件夹 / 选择 Excel”会在访问网页的用户电脑上弹窗选择，并上传副本到部署电脑，不会在部署电脑桌面上弹系统选择框
 - 共享目录保存后，建议先通过页面内“测试路径”确认可读写
+- 后端 CORS 默认只允许 `https://auto.ethan010203.online`、`http://localhost:5173`、`http://127.0.0.1:5173` 访问；如需新增域名，可在启动前设置 `YISI_CORS_ORIGINS`，多个地址用英文逗号分隔。
 
 ## 配置文件
 

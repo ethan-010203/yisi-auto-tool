@@ -218,9 +218,26 @@ DEPARTMENT_SCRIPTS = {
 executor = ThreadPoolExecutor(max_workers=2)
 init_db()
 
+
+def _load_cors_origins() -> list[str]:
+    configured_origins = [
+        origin.strip().rstrip("/")
+        for origin in os.environ.get("YISI_CORS_ORIGINS", "").split(",")
+        if origin.strip()
+    ]
+    if configured_origins:
+        return configured_origins
+
+    return [
+        "https://auto.ethan010203.online",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_load_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
