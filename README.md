@@ -4,17 +4,18 @@
 
 ## 当前状态
 
-截至 `2026-04-14`，项目已经完成基础平台搭建，并有 2 个业务脚本接入到统一页面和后端执行链路中。
+截至 `2026-04-27`，项目已经完成基础平台搭建，并有 3 个业务脚本接入到统一页面和后端执行链路中。
 
-- 已上线脚本数量：`2`
-- 已接入部门：`CONSULT`、`BUE2`
+- 已上线脚本数量：`3`
+- 已接入部门：`BUE1`、`BUE2`、`CONSULT`
 - 已具备能力：工具配置保存、部门局域网路径配置、网络路径读写测试、实时日志、终止任务、浏览器本机文件选择上传、历史执行记录
-- 前端占位部门：`BUE1`、`BUV1`、`BUV2`、`BUV3`
+- 前端占位部门：`BUV1`、`BUV2`、`BUV3`
 
 ## 已上线脚本
 
 | 部门 | 工具 ID | 页面名称 | 当前用途 | 输入配置 | 输出结果 |
 |------|---------|----------|----------|----------|----------|
+| BUE1 | `ear_declaration_data_fetcher` | EAR官网申报数据抓取 | 读取申报数据 Excel，登录 EAR 官网并抓取指定年月的申报数据回写表格 | 申报数据 Excel、检测年份、德语月份；账号密码来自 Excel | 官网抓取数据回写 Excel |
 | CONSULT | `invoice_recognizer` | 英德单据识别 | 识别英国、德国递延税相关 PDF，提取关键字段并生成结果文件 | 单据总文件夹、总清单 Excel | 客户结果表、批次汇总表 |
 | BUE2 | `citeo_email_extractor` | FR-Citeo 注销成功名单邮件提取 | 连接 163 邮箱，提取匹配主题邮件中的会员号并导出 Excel | 邮件文件夹、邮件数量、部门共享路径 | 注销成功名单 Excel |
 
@@ -26,6 +27,8 @@
 - FastAPI 后端已完成工具注册、配置读写、脚本异步执行和日志查询。
 - 工具运行链路已支持实时输出回传和手动终止。
 - 部门级共享路径配置已接入，并提供写入权限测试接口。
+- 部门与工具元数据由后端 `/api/departments` 统一提供，前端仅保留离线 fallback，减少前后端配置不同步。
+- `BUE1 / ear_declaration_data_fetcher` 已接入模板下载、配置读取和正式执行。
 - `CONSULT / invoice_recognizer` 已接入预览弹窗、配置读取和正式执行。
 - `BUE2 / citeo_email_extractor` 已接入邮箱文件夹读取、配置保存和正式执行。
 - 部门日志已按 `black/logs/*.json` 独立存储。
@@ -34,12 +37,12 @@
 
 - `2026-04-14` 日志显示，`CONSULT / invoice_recognizer` 已有成功执行记录，能够更新共享目录中的 `汇总表.xlsx`。
 - `2026-04-14` 日志显示，`BUE2 / citeo_email_extractor` 已有成功执行记录，能够在部门共享目录生成注销成功名单 Excel。
+- `BUE1 / ear_declaration_data_fetcher` 已完成前后端接入与运行链路校验，实际抓取结果需结合 EAR 账号和 Excel 数据继续核验。
 - 两个部门的测试脚本 `test_hello`、`test` 已用于验证异步执行和日志展示。
 
 ### 待推进
 
-- 其他部门目前仍是前端占位卡片，尚未接入真实脚本。
-- 后端 `DEPARTMENT_SCRIPTS` 中存在 `pdf_classifier` 预留项，但当前脚本文件未落地，尚未上线。
+- `BUV1`、`BUV2`、`BUV3` 目前仍是前端占位卡片，尚未接入真实脚本。
 - 文档、依赖安装说明和环境约束此前滞后于代码，已在本次更新中补齐。
 
 ### 当前注意事项
@@ -55,7 +58,7 @@
 │   ├── src/
 │   │   ├── api/              # 前端 API 封装
 │   │   ├── components/       # UI、日志面板、预览弹窗等组件
-│   │   └── data/             # 部门与工具定义
+│   │   └── data/             # 部门与工具离线 fallback
 ├── black/                     # FastAPI 后端
 │   ├── configs/              # 工具与部门配置
 │   ├── logs/                 # 按部门存储的执行日志
@@ -155,6 +158,7 @@ VITE_PROXY_TARGET=http://<后端IP>:8000 npm run dev
 | 接口 | 说明 |
 |------|------|
 | `GET /api/health` | 健康检查 |
+| `GET /api/departments` | 查询部门、工具和固定局域网路径元数据 |
 | `GET /api/departments/{department}/tools` | 查询部门工具 |
 | `POST /api/departments/{department}/tools/{tool}/run` | 执行工具 |
 | `POST /api/departments/{department}/tools/{tool}/config` | 保存工具配置 |

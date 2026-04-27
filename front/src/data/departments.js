@@ -1,3 +1,4 @@
+// Offline fallback used before /api/departments responds, or if the backend is unavailable.
 export const departmentNetworkPaths = {
   BUE1: '\\\\192.168.76.93\\厦门部门\\BUE1',
   BUE2: '\\\\192.168.76.93\\厦门部门\\BUE2',
@@ -114,6 +115,7 @@ export const departments = [
         description: '识别共享目录中的单据并处理 Excel 清单。',
         action: 'run_script',
         configurable: true,
+        requiresNetworkPath: true,
       },
     ],
   },

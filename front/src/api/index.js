@@ -37,6 +37,10 @@ export function getData(signal) {
   return requestJson(`${API_BASE_URL}/health`, { signal })
 }
 
+export function getDepartments(signal) {
+  return requestJson(`${API_BASE_URL}/departments`, { signal })
+}
+
 export function runDepartmentTool(department, tool, configOverride = null, signal) {
   return requestJson(`${API_BASE_URL}/departments/${department}/tools/${tool}/run`, {
     method: 'POST',

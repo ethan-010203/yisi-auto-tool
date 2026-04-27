@@ -1,6 +1,6 @@
 ﻿<script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { getData, getToolConfig, getToolPreview, runDepartmentTool, testNetworkPath } from './api/index'
+import { getData, getDepartments, getToolConfig, getToolPreview, runDepartmentTool, testNetworkPath } from './api/index'
 import ConfigDialog from './components/ConfigDialog.vue'
 import DepartmentSidebar from './components/DepartmentSidebar.vue'
 import ExecutionLogPanel from './components/ExecutionLogPanel.vue'
@@ -11,6 +11,7 @@ import ToolPreviewDialog from './components/preview/ToolPreviewDialog.vue'
 import UiBadge from './components/ui/UiBadge.vue'
 import UiButton from './components/ui/UiButton.vue'
 import UiCard from './components/ui/UiCard.vue'
+import UiPageHeader from './components/ui/UiPageHeader.vue'
 import UiToastStack from './components/ui/UiToastStack.vue'
 import { useExecutionEvents } from './composables/useExecutionEvents'
 import {
@@ -18,7 +19,7 @@ import {
   sanitizePathInput,
   useToolConfig,
 } from './composables/useToolConfig'
-import { departmentNetworkPaths, departments } from './data/departments'
+import { departmentNetworkPaths as fallbackDepartmentNetworkPaths, departments as fallbackDepartments } from './data/departments'
 
 const PREVIEW_TOOL_ID = 'invoice_recognizer'
 const PREVIEW_DEPARTMENT = 'CONSULT'
@@ -29,13 +30,13 @@ const WORKSPACE_VIEW_STORAGE_KEY = 'yisi-auto-tool:workspace-view'
 const getSavedDepartment = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved && departments.some(d => d.code === saved)) {
+    if (saved && fallbackDepartments.some(d => d.code === saved)) {
       return saved
     }
   } catch {
     // localStorage 不可用时回退到默认部门
   }
-  return departments[0].code
+  return fallbackDepartments[0].code
 }
 
 const saveDepartment = (departmentCode) => {
@@ -69,6 +70,7 @@ const getSavedWorkspaceView = () => {
 const activeDepartmentCode = ref(getSavedDepartment())
 const activeWorkspaceView = ref(getSavedWorkspaceView())
 const activeDashboardTab = ref('overview')
+const departments = ref([...fallbackDepartments])
 const previewDialogOpen = ref(false)
 const previewLoading = ref(false)
 const previewData = ref(null)
@@ -85,15 +87,12 @@ const connectionStatus = ref({
 })
 
 // 部门局域网配置
-const departmentConfigs = ref({ ...departmentNetworkPaths })
+const departmentNetworkPaths = ref({ ...fallbackDepartmentNetworkPaths })
+const departmentConfigs = ref({ ...fallbackDepartmentNetworkPaths })
 const testingNetworkPath = ref(false)
 const testingAllNetworkPaths = ref(false)
 const testingNetworkDepartment = ref('')
 const networkPathTestResult = ref(null)
-const NETWORK_REQUIRED_TOOL_KEYS = new Set([
-  'CONSULT:invoice_recognizer',
-])
-
 const previewCache = new Map()
 let previewAbortController = null
 const toastTimers = new Map()
@@ -156,11 +155,11 @@ const {
 })
 
 const activeDepartment = computed(() => {
-  return departments.find((department) => department.code === activeDepartmentCode.value) ?? departments[0]
+  return departments.value.find((department) => department.code === activeDepartmentCode.value) ?? departments.value[0] ?? fallbackDepartments[0]
 })
 
 const totalTools = computed(() => {
-  return departments.reduce((count, department) => count + department.tools.length, 0)
+  return departments.value.reduce((count, department) => count + department.tools.length, 0)
 })
 
 const activeToolCount = computed(() => {
@@ -174,7 +173,7 @@ const activeRunningToolCount = computed(() => {
 const normalizedDepartmentNetworkPath = computed(() => getDepartmentNetworkPath(activeDepartmentCode.value))
 
 const networkConfigRows = computed(() => {
-  return departments.map((department) => ({
+  return departments.value.map((department) => ({
     ...department,
     networkPath: getDepartmentNetworkPath(department.code),
   }))
@@ -335,7 +334,7 @@ const dashboardOverview = computed(() => {
   return [
     {
       label: '部门数量',
-      value: String(departments.length),
+      value: String(departments.value.length),
       hint: '左侧可切换工作区',
     },
     {
@@ -364,11 +363,16 @@ const activeToolCards = computed(() => {
 })
 
 function toolRequiresNetworkPath(departmentCode, toolId) {
-  return NETWORK_REQUIRED_TOOL_KEYS.has(getToolKey(departmentCode, toolId))
+  return Boolean(
+    departments.value
+      .find((department) => department.code === departmentCode)
+      ?.tools.find((tool) => tool.id === toolId)
+      ?.requiresNetworkPath
+  )
 }
 
 function getDepartmentNetworkPath(departmentCode) {
-  return sanitizePathInput(departmentConfigs.value[departmentCode] || departmentNetworkPaths[departmentCode] || '')
+  return sanitizePathInput(departmentConfigs.value[departmentCode] || departmentNetworkPaths.value[departmentCode] || '')
 }
 
 function showDashboard() {
@@ -448,6 +452,32 @@ async function loadConnectionStatus() {
       label: '服务离线',
       detail: '未能连接到后端服务，请确认 FastAPI 已启动且地址可访问。',
     }
+  }
+}
+
+async function loadDepartmentMetadata() {
+  try {
+    const response = await getDepartments()
+    if (!response?.success || !Array.isArray(response.departments) || response.departments.length === 0) {
+      return
+    }
+
+    departments.value = response.departments
+    departmentNetworkPaths.value = {
+      ...fallbackDepartmentNetworkPaths,
+      ...(response.departmentNetworkPaths || Object.fromEntries(
+        response.departments.map((department) => [department.code, department.networkPath || ''])
+      )),
+    }
+    departmentConfigs.value = {
+      ...departmentNetworkPaths.value,
+    }
+
+    if (!departments.value.some((department) => department.code === activeDepartmentCode.value)) {
+      activeDepartmentCode.value = departments.value[0].code
+    }
+  } catch (error) {
+    console.warn('Department metadata fallback in use:', error)
   }
 }
 
@@ -565,7 +595,7 @@ async function loadInvoiceConfig() {
 }
 
 function findPreviewTool() {
-  return departments
+  return departments.value
     .find((department) => department.code === PREVIEW_DEPARTMENT)
     ?.tools.find((tool) => tool.id === PREVIEW_TOOL_ID)
 }
@@ -799,7 +829,7 @@ watch(previewDialogOpen, (open) => {
 })
 
 onMounted(async () => {
-  await Promise.all([loadConnectionStatus(), loadInvoiceConfig()])
+  await Promise.all([loadConnectionStatus(), loadDepartmentMetadata(), loadInvoiceConfig()])
   await warmToolPreview(findPreviewTool())
   await Promise.all([
     preloadDepartmentToolConfigs(activeDepartmentCode.value),
@@ -841,32 +871,17 @@ onBeforeUnmount(() => {
 
       <main class="workspace-main">
         <template v-if="activeWorkspaceView === 'dashboard'">
-          <header class="page-header">
-            <div class="page-copy">
-              <UiBadge variant="secondary">全局仪表盘</UiBadge>
-              <h1>先看全局，再进部门</h1>
-              <p class="page-lead">
-                把所有部门的运行任务和基础配置集中放在这里，需要处理具体任务时再进入对应部门。
-              </p>
-            </div>
-            <UiCard class="hero-strip">
-              <div class="hero-strip-copy">
-                <div class="hero-strip-head">
-                  <p class="section-label">总览</p>
-                  <UiBadge :variant="statusBadgeVariant">{{ connectionStatus.label }}</UiBadge>
-                </div>
-                <h2>仪表盘</h2>
-                <p>这里集中查看全局排队、运行、跨部门任务状态和固定局域网配置。</p>
-              </div>
-              <div class="hero-strip-stats">
-                <div v-for="item in dashboardOverview" :key="item.label" class="hero-stat">
-                  <span>{{ item.label }}</span>
-                  <strong>{{ item.value }}</strong>
-                  <small>{{ item.hint }}</small>
-                </div>
-              </div>
-            </UiCard>
-          </header>
+          <UiPageHeader
+            eyebrow="全局仪表盘"
+            title="先看全局，再进部门"
+            lead="把所有部门的运行任务和基础配置集中放在这里，需要处理具体任务时再进入对应部门。"
+            hero-label="总览"
+            hero-title="仪表盘"
+            hero-description="这里集中查看全局排队、运行、跨部门任务状态和固定局域网配置。"
+            :status-label="connectionStatus.label"
+            :status-variant="statusBadgeVariant"
+            :stats="dashboardOverview"
+          />
 
           <div class="dashboard-subtabs" role="tablist" aria-label="仪表盘子页">
             <UiButton :variant="activeDashboardTab === 'overview' ? 'default' : 'outline'" @click="showDashboard">
@@ -902,35 +917,18 @@ onBeforeUnmount(() => {
         </template>
 
         <template v-else>
-        <header class="page-header">
-      <div class="page-copy">
-        <UiBadge variant="secondary">部门工作台</UiBadge>
-        <h1>先看清状态，再开始执行</h1>
-        <p class="page-lead">
-          把常用任务、目录配置和运行反馈放回同一条操作链里，减少使用者在页面上来回判断的成本。
-        </p>
-      </div>
-      <UiCard class="hero-strip">
-        <div class="hero-strip-copy">
-          <div class="hero-strip-head">
-            <p class="section-label">当前部门</p>
-            <UiBadge :variant="activeDepartmentStatus.variant">{{ activeDepartmentStatus.label }}</UiBadge>
-          </div>
-          <h2>{{ activeDepartment.name }}</h2>
-          <div class="hero-network-path">
-            <span>固定共享目录</span>
-            <strong>{{ normalizedDepartmentNetworkPath }}</strong>
-          </div>
-        </div>
-        <div class="hero-strip-stats">
-          <div v-for="item in activeDepartmentOverview" :key="item.label" class="hero-stat">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <small>{{ item.hint }}</small>
-          </div>
-        </div>
-      </UiCard>
-    </header>
+    <UiPageHeader
+      eyebrow="部门工作台"
+      title="先看清状态，再开始执行"
+      lead="把常用任务、目录配置和运行反馈放回同一条操作链里，减少使用者在页面上来回判断的成本。"
+      hero-label="当前部门"
+      :hero-title="activeDepartment.name"
+      network-label="固定共享目录"
+      :network-value="normalizedDepartmentNetworkPath"
+      :status-label="activeDepartmentStatus.label"
+      :status-variant="activeDepartmentStatus.variant"
+      :stats="activeDepartmentOverview"
+    />
 
     <UiCard v-if="false" class="switcher-card">
       <div class="tabs-head">
@@ -1068,75 +1066,12 @@ onBeforeUnmount(() => {
   padding-right: 0.25rem;
 }
 
-.hero-strip {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.8fr);
-  gap: 1rem;
-  margin-top: 0.5rem;
-  align-items: start;
-}
-
-.hero-strip-copy,
-.hero-strip-stats {
-  display: grid;
-  gap: 0.75rem;
-  min-width: 0;
-}
-
-.hero-strip-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.hero-strip-copy h2 {
-  font-size: clamp(1.5rem, 3vw, 2.2rem);
-  line-height: 1.05;
-  letter-spacing: -0.04em;
-}
-
-.hero-strip-copy p:last-child,
-.department-config-copy,
-.workspace-toolbar-copy small {
-  color: var(--muted-foreground);
-  line-height: 1.6;
-}
-
-.hero-network-path {
-  display: grid;
-  gap: 0.35rem;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--card-muted);
-}
-
-.hero-network-path span {
-  color: var(--muted-foreground);
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.hero-network-path strong {
-  display: block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.95rem;
-  line-height: 1.45;
-}
-
-.hero-strip-stats,
 .overview-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
 }
 
-.hero-stat,
 .overview-card {
   display: grid;
   gap: 0.4rem;
@@ -1146,14 +1081,12 @@ onBeforeUnmount(() => {
   background: var(--card-muted);
 }
 
-.hero-stat strong,
 .overview-card strong {
   font-size: 1.2rem;
   line-height: 1.15;
   letter-spacing: -0.03em;
 }
 
-.hero-stat small,
 .overview-card small {
   color: var(--muted-foreground);
   line-height: 1.55;
@@ -1202,19 +1135,6 @@ onBeforeUnmount(() => {
 .workspace-main {
   grid-auto-rows: max-content;
   align-content: start;
-}
-
-.page-header {
-  min-height: 0;
-}
-
-
-.page-header > .hero-strip {
-  min-height: 0;
-}
-
-.page-copy {
-  min-height: 116px;
 }
 
 .dashboard-subtabs {
@@ -1288,37 +1208,10 @@ onBeforeUnmount(() => {
     padding-right: 0;
   }
 
-  .page-header {
-    display: grid;
-    gap: 0.85rem;
-  }
-
-  .page-copy {
-    min-height: 0;
-    padding-top: 0;
-  }
-
-  .page-copy h1 {
-    margin-top: 0.65rem;
-    font-size: clamp(2rem, 10vw, 2.85rem);
-  }
-
-  .page-lead {
-    font-size: 0.95rem;
-  }
-
-  .hero-strip {
-    grid-template-columns: 1fr;
-    margin-top: 0;
-    padding: 1rem;
-  }
-
-  .hero-strip-stats,
   .overview-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .hero-stat,
   .overview-card {
     padding: 0.85rem;
   }
@@ -1384,14 +1277,8 @@ onBeforeUnmount(() => {
     padding: 0.65rem;
   }
 
-  .hero-strip-stats,
   .overview-grid {
     grid-template-columns: 1fr;
-  }
-
-  .hero-network-path strong {
-    white-space: normal;
-    word-break: break-all;
   }
 
   .dashboard-subtabs {

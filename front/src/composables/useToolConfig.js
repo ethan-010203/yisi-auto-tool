@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, unref } from 'vue'
 import { getToolConfig, getToolTemplateUrl, listMailFolders, saveConfig } from '../api/index'
 
 export function createDefaultConfigData() {
@@ -112,6 +112,7 @@ export function useToolConfig({
   const mailFoldersError = ref('')
   const loadingToolConfig = ref(false)
   const savingToolConfig = ref(false)
+  const departmentList = computed(() => unref(departments) || [])
 
   const folderOptions = computed(() => {
     if (mailFolders.value.length === 0) {
@@ -279,7 +280,7 @@ export function useToolConfig({
   }
 
   async function preloadDepartmentToolConfigs(departmentCode) {
-    const department = departments.find((item) => item.code === departmentCode)
+    const department = departmentList.value.find((item) => item.code === departmentCode)
     if (!department) {
       return
     }
