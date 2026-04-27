@@ -1265,6 +1265,31 @@ onBeforeUnmount(() => {
 <template>
   <div class="page-shell">
     <div class="workspace-shell">
+      <UiCard class="mobile-workspace-card">
+        <div class="mobile-workspace-head">
+          <div class="mobile-workspace-copy">
+            <UiBadge variant="secondary">移动工作台</UiBadge>
+            <strong>{{ activeWorkspaceView === 'dashboard' ? '全局仪表盘' : activeDepartment.name }}</strong>
+            <small>{{ connectionStatus.label }} · {{ activeWorkspaceView === 'dashboard' ? '查看全部任务' : `${activeToolCount} 个可用工具` }}</small>
+          </div>
+          <UiButton :variant="activeWorkspaceView === 'dashboard' ? 'default' : 'outline'" size="sm" @click="showDashboard">
+            仪表盘
+          </UiButton>
+        </div>
+
+        <nav class="mobile-department-scroll" aria-label="移动端部门切换">
+          <UiButton
+            v-for="department in departments"
+            :key="department.code"
+            :variant="activeWorkspaceView === 'department' && department.code === activeDepartmentCode ? 'default' : 'outline'"
+            size="sm"
+            @click="selectDepartment(department.code)"
+          >
+            {{ department.name }}
+          </UiButton>
+        </nav>
+      </UiCard>
+
       <aside class="workspace-sidebar">
         <UiCard class="department-sidebar">
           <div class="sidebar-head">
@@ -1744,6 +1769,10 @@ onBeforeUnmount(() => {
   align-items: start;
   min-height: calc(100vh - 3rem);
   overflow: visible;
+}
+
+.mobile-workspace-card {
+  display: none;
 }
 
 .workspace-sidebar {
@@ -2257,6 +2286,237 @@ onBeforeUnmount(() => {
   color: var(--foreground);
   font-size: 0.88rem;
   line-height: 1.55;
+}
+
+@media (max-width: 980px) {
+  .page-shell {
+    padding: 0.85rem;
+  }
+
+  .workspace-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    min-height: auto;
+  }
+
+  .mobile-workspace-card {
+    position: sticky;
+    top: 0.65rem;
+    z-index: 10;
+    display: grid;
+    gap: 0.85rem;
+    width: 100%;
+    padding: 0.9rem;
+    backdrop-filter: blur(16px);
+  }
+
+  .mobile-workspace-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .mobile-workspace-copy {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .mobile-workspace-copy strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1.05rem;
+    line-height: 1.2;
+    letter-spacing: -0.03em;
+  }
+
+  .mobile-workspace-copy small {
+    color: var(--muted-foreground);
+    line-height: 1.4;
+  }
+
+  .mobile-department-scroll {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.15rem;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+
+  .mobile-department-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-department-scroll .ui-button {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+
+  .workspace-sidebar {
+    display: none;
+  }
+
+  .workspace-main {
+    width: 100%;
+    gap: 0.85rem;
+    padding-right: 0;
+  }
+
+  .page-header {
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .page-copy {
+    min-height: 0;
+    padding-top: 0;
+  }
+
+  .page-copy h1 {
+    margin-top: 0.65rem;
+    font-size: clamp(2rem, 10vw, 2.85rem);
+  }
+
+  .page-lead {
+    font-size: 0.95rem;
+  }
+
+  .hero-strip {
+    grid-template-columns: 1fr;
+    margin-top: 0;
+    padding: 1rem;
+  }
+
+  .hero-strip-stats,
+  .overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hero-stat,
+  .overview-card {
+    padding: 0.85rem;
+  }
+
+  .dashboard-subtabs {
+    position: sticky;
+    top: 8.45rem;
+    z-index: 9;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--card);
+  }
+
+  .dashboard-subtabs .ui-button {
+    width: 100%;
+  }
+
+  .app-stable-content,
+  .dashboard-tab-panel {
+    overflow: visible;
+  }
+
+  .content-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+    margin-top: 0.85rem;
+  }
+
+  .department-card {
+    padding: 1rem;
+  }
+
+  .department-header,
+  .department-header--stacked,
+  .workspace-toolbar {
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .department-header-actions,
+  .workspace-toolbar-actions,
+  .tool-card-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .department-header-actions .ui-button,
+  .workspace-toolbar-actions .ui-button,
+  .tool-card-actions .ui-button,
+  .tool-card-foot > .ui-button {
+    width: 100%;
+  }
+
+  .tool-grid {
+    grid-template-columns: 1fr;
+    grid-auto-rows: auto;
+    gap: 0.75rem;
+  }
+
+  .tool-card {
+    min-height: 0;
+    padding: 1rem;
+  }
+
+  .tool-card-foot {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .aside-card {
+    position: static;
+  }
+
+  .network-config-table {
+    min-width: 640px;
+  }
+
+  .input-with-button,
+  .folder-select-header {
+    display: grid;
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .page-shell {
+    padding: 0.65rem;
+  }
+
+  .mobile-workspace-card {
+    top: 0.5rem;
+    border-radius: 18px;
+  }
+
+  .mobile-workspace-head {
+    align-items: stretch;
+  }
+
+  .mobile-workspace-head > .ui-button {
+    min-width: 5rem;
+  }
+
+  .hero-strip-stats,
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-network-path strong {
+    white-space: normal;
+    word-break: break-all;
+  }
+
+  .dashboard-subtabs {
+    top: 8.2rem;
+  }
 }
 
 </style>
