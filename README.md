@@ -142,6 +142,8 @@ VITE_PROXY_TARGET=http://<后端IP>:8000 npm run dev
 - `black/configs/BUE2_config.json`
 - `black/configs/runtime_limits.json`
 
+运行现场目录 `black/runtime/` 会在每次新建运行任务时自动清理，仅保留最近 3 天的单次运行目录。
+
 `runtime_limits.json` 当前字段：
 
 - `global`：全局最多同时运行多少个任务

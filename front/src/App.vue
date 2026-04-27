@@ -1,17 +1,23 @@
 ﻿<script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { getData, getToolConfig, getToolPreview, getToolTemplateUrl, listMailFolders, runDepartmentTool, saveConfig, testNetworkPath } from './api/index'
+import { getData, getToolConfig, getToolPreview, runDepartmentTool, testNetworkPath } from './api/index'
+import ConfigDialog from './components/ConfigDialog.vue'
+import DepartmentSidebar from './components/DepartmentSidebar.vue'
 import ExecutionLogPanel from './components/ExecutionLogPanel.vue'
 import GlobalRunningTasksBar from './components/GlobalRunningTasksBar.vue'
+import NetworkSettingsPanel from './components/NetworkSettingsPanel.vue'
+import ToolGrid from './components/ToolGrid.vue'
 import ToolPreviewDialog from './components/preview/ToolPreviewDialog.vue'
 import UiBadge from './components/ui/UiBadge.vue'
 import UiButton from './components/ui/UiButton.vue'
 import UiCard from './components/ui/UiCard.vue'
-import UiDialog from './components/ui/UiDialog.vue'
-import UiInput from './components/ui/UiInput.vue'
-import UiLabel from './components/ui/UiLabel.vue'
-import UiSelect from './components/ui/UiSelect.vue'
 import UiToastStack from './components/ui/UiToastStack.vue'
+import { useExecutionEvents } from './composables/useExecutionEvents'
+import {
+  normalizeInvoiceRecognizerConfig,
+  sanitizePathInput,
+  useToolConfig,
+} from './composables/useToolConfig'
 import { departmentNetworkPaths, departments } from './data/departments'
 
 const PREVIEW_TOOL_ID = 'invoice_recognizer'
@@ -63,13 +69,10 @@ const getSavedWorkspaceView = () => {
 const activeDepartmentCode = ref(getSavedDepartment())
 const activeWorkspaceView = ref(getSavedWorkspaceView())
 const activeDashboardTab = ref('overview')
-const activeToolIdsByDepartment = ref({})
 const previewDialogOpen = ref(false)
 const previewLoading = ref(false)
 const previewData = ref(null)
 const previewTargetKey = ref('')
-const configDialogOpen = ref(false)
-const toolConfigCache = ref({})
 const toasts = ref([])
 const logPanel = ref(null)
 const globalRunningBar = ref(null)
@@ -91,69 +94,66 @@ const NETWORK_REQUIRED_TOOL_KEYS = new Set([
   'CONSULT:invoice_recognizer',
 ])
 
-const createDefaultConfigData = () => ({
-  folderPath: '',
-  folderDisplay: '',
-  excelPath: '',
-  listExcelPath: '',
-  listExcelDisplay: '',
-  excelFilePath: '',
-  excelFileDisplay: '',
-  excelFolderPath: '',
-  excelFolderDisplay: '',
-  reportYear: '',
-  reportMonthGerman: '',
-  // BUE2 email extractor config
-  email: '',
-  authCode: '',
-  maxEmails: 50,
-  subjectKeyword: '注销成功',
-  selectedFolder: '',
-})
-const configData = ref(createDefaultConfigData())
-
-const currentConfigTool = ref({ department: '', toolId: '' })
-const mailFolders = ref([])
-const loadingFolders = ref(false)
-const mailFoldersError = ref('')
-const loadingToolConfig = ref(false)
-const savingToolConfig = ref(false)
-const pendingToolKeys = ref({})
-
-// 将邮件文件夹列表转换为 UiSelect 需要的 options 格式
-const folderOptions = computed(() => {
-  if (mailFolders.value.length === 0) {
-    return [{ value: '', label: '请先输入邮箱和授权码', disabled: true }]
-  }
-
-  const options = mailFolders.value.map(folder => {
-    const label = folder.type === 'inbox' ? '收件箱' :
-                  folder.type === 'sent' ? '已发送' :
-                  folder.type === 'drafts' ? '草稿箱' :
-                  folder.type === 'trash' ? '垃圾箱' :
-                  folder.display
-    return {
-      value: folder.encoded,
-      label: label,
-      type: folder.type,
-      badge: null
-    }
-  })
-
-  return options.sort((a, b) => {
-    const aIsSystem = a.type !== 'other'
-    const bIsSystem = b.type !== 'other'
-
-    if (aIsSystem && !bIsSystem) return -1
-    if (!aIsSystem && bIsSystem) return 1
-
-    return a.label.localeCompare(b.label, 'zh-CN')
-  })
-})
-
 const previewCache = new Map()
 let previewAbortController = null
 const toastTimers = new Map()
+
+function getToolKey(departmentCode, toolId) {
+  return `${departmentCode}:${toolId}`
+}
+
+const {
+  getDepartmentActiveToolIds,
+  isToolPending,
+  setToolPendingState,
+  isToolBusy,
+  addActiveTool,
+  handleActiveToolsChange,
+  refreshExecutionViews,
+  notifyTaskStarted,
+  refreshGlobalRunningBar,
+} = useExecutionEvents({
+  getToolKey,
+  logPanel,
+  globalRunningBar,
+})
+
+const {
+  configDialogOpen,
+  toolConfigCache,
+  configData,
+  currentConfigTool,
+  mailFolders,
+  loadingFolders,
+  mailFoldersError,
+  loadingToolConfig,
+  savingToolConfig,
+  folderOptions,
+  activeConfigDialogTitle,
+  activeConfigDialogDescription,
+  hasSavedToolConfig,
+  updateInvoiceFolderPath,
+  updateInvoiceExcelPath,
+  updateEarExcelFilePath,
+  updateConfigField,
+  downloadEarTemplate,
+  loadToolConfig,
+  preloadDepartmentToolConfigs,
+  openConfigDialog,
+  loadMailFolders,
+  saveConfiguration,
+} = useToolConfig({
+  departments,
+  activeDepartmentCode,
+  getToolKey,
+  pushToast,
+  async onConfigSaved({ department, toolId }) {
+    previewCache.delete(getToolKey(department, toolId))
+    if (previewDialogOpen.value && previewTargetKey.value === getToolKey(department, toolId)) {
+      await openToolPreview(findPreviewTool(), { force: true })
+    }
+  },
+})
 
 const activeDepartment = computed(() => {
   return departments.find((department) => department.code === activeDepartmentCode.value) ?? departments[0]
@@ -191,65 +191,6 @@ const statusBadgeVariant = computed(() => {
 
   return 'secondary'
 })
-
-const configDialogTitle = computed(() => {
-  if (currentConfigTool.value.toolId === 'citeo_email_extractor') {
-    return '邮箱配置'
-  }
-  return '英德单据识别配置'
-})
-
-const configDialogDescription = computed(() => {
-  if (currentConfigTool.value.toolId === 'citeo_email_extractor') {
-    return '163邮箱已配置，用于 IMAP 连接提取邮件。'
-  }
-  return ''
-})
-
-const activeConfigDialogTitle = computed(() => {
-  if (currentConfigTool.value.toolId === 'ear_declaration_data_fetcher') {
-    return 'EAR 抓取配置'
-  }
-  return configDialogTitle.value
-})
-
-const activeConfigDialogDescription = computed(() => {
-  if (currentConfigTool.value.toolId === 'ear_declaration_data_fetcher') {
-    return '填写申报数据 Excel 文件路径，并配置检测年份和德语月份；EAR 官网账号和密码将从表格列中读取。'
-  }
-  return configDialogDescription.value
-})
-
-function getCachedToolConfig(departmentCode, toolId) {
-  return toolConfigCache.value[getToolKey(departmentCode, toolId)] || null
-}
-
-function hasSavedToolConfig(departmentCode, toolId) {
-  const config = getCachedToolConfig(departmentCode, toolId)
-  if (!config) {
-    return false
-  }
-
-  if (toolId === 'invoice_recognizer') {
-    const folderPath = sanitizePathInput(config.folderPath || config.folderDisplay || '')
-    const excelPath = sanitizePathInput(config.listExcelPath || config.excelPath || config.listExcelDisplay || '')
-    return Boolean(folderPath && excelPath)
-  }
-
-  if (toolId === 'ear_declaration_data_fetcher') {
-    const excelFilePath = sanitizePathInput(config.excelFilePath || config.excelFolderPath || '')
-    const reportYear = String(config.reportYear || '').trim()
-    const reportMonthGerman = String(config.reportMonthGerman || '').trim()
-    return Boolean(excelFilePath && reportYear && reportMonthGerman)
-  }
-
-  if (toolId === 'citeo_email_extractor') {
-    const selectedFolder = String(config.selectedFolder || '').trim()
-    return Boolean(selectedFolder)
-  }
-
-  return true
-}
 
 function getToolSetupState(departmentCode, tool) {
   if (tool.action !== 'run_script') {
@@ -422,201 +363,12 @@ const activeToolCards = computed(() => {
   }))
 })
 
-function getToolKey(departmentCode, toolId) {
-  return `${departmentCode}:${toolId}`
-}
-
 function toolRequiresNetworkPath(departmentCode, toolId) {
   return NETWORK_REQUIRED_TOOL_KEYS.has(getToolKey(departmentCode, toolId))
 }
 
 function getDepartmentNetworkPath(departmentCode) {
   return sanitizePathInput(departmentConfigs.value[departmentCode] || departmentNetworkPaths[departmentCode] || '')
-}
-
-function cacheToolConfig(departmentCode, toolId, config) {
-  toolConfigCache.value = {
-    ...toolConfigCache.value,
-    [getToolKey(departmentCode, toolId)]: {
-      ...config,
-    },
-  }
-}
-
-function sanitizePathInput(value) {
-  const raw = String(value ?? '').trim()
-  if (raw.length >= 2) {
-    const firstChar = raw[0]
-    const lastChar = raw[raw.length - 1]
-    if ((firstChar === '"' && lastChar === '"') || (firstChar === "'" && lastChar === "'")) {
-      return raw.slice(1, -1).trim()
-    }
-  }
-  return raw
-}
-
-function normalizeInvoiceRecognizerConfig(config) {
-  const folderPath = sanitizePathInput(config.folderPath || '')
-  const listExcelPath = sanitizePathInput(config.listExcelPath || config.excelPath || '')
-
-  return {
-    ...config,
-    folderPath,
-    folderDisplay: folderPath,
-    excelPath: listExcelPath,
-    listExcelPath,
-    listExcelDisplay: listExcelPath,
-  }
-}
-
-function normalizeEarDeclarationFetcherConfig(config) {
-  const excelFilePath = sanitizePathInput(config.excelFilePath || config.excelFolderPath || '')
-  const reportYear = String(config.reportYear || '').trim()
-  const reportMonthGerman = String(config.reportMonthGerman || '').trim()
-
-  return {
-    ...config,
-    excelFilePath,
-    excelFileDisplay: excelFilePath,
-    excelFolderPath: excelFilePath,
-    excelFolderDisplay: excelFilePath,
-    reportYear,
-    reportMonthGerman,
-  }
-}
-
-function updateInvoiceFolderPath(value) {
-  const normalizedValue = sanitizePathInput(value)
-  configData.value.folderPath = normalizedValue
-  configData.value.folderDisplay = normalizedValue
-}
-
-function updateInvoiceExcelPath(value) {
-  const normalizedValue = sanitizePathInput(value)
-  configData.value.listExcelPath = normalizedValue
-  configData.value.excelPath = normalizedValue
-  configData.value.listExcelDisplay = normalizedValue
-}
-
-function updateEarExcelFilePath(value) {
-  const normalizedValue = sanitizePathInput(value)
-  configData.value.excelFilePath = normalizedValue
-  configData.value.excelFileDisplay = normalizedValue
-  configData.value.excelFolderPath = normalizedValue
-  configData.value.excelFolderDisplay = normalizedValue
-}
-
-function validateInvoiceRecognizerPathsOrThrow(config) {
-  const folderPath = (config.folderPath || '').trim()
-  const excelPath = (config.listExcelPath || config.excelPath || '').trim()
-
-  if (!folderPath || !excelPath) {
-    throw new Error('请先选择或填写单据文件夹和 Excel 路径。')
-  }
-  if (!excelPath.toLowerCase().endsWith('.xlsx')) {
-    throw new Error('Excel 清单必须是 .xlsx 文件。')
-  }
-}
-
-function validateInvoiceRecognizerManualPathsOrThrow(config) {
-  const folderPath = sanitizePathInput(config.folderPath || '')
-  const excelPath = sanitizePathInput(config.listExcelPath || config.excelPath || '')
-
-  if (!folderPath || !excelPath) {
-    throw new Error('请先手动填写单据文件夹和 Excel 的真实路径。')
-  }
-  if (!excelPath.toLowerCase().endsWith('.xlsx')) {
-    throw new Error('Excel 清单必须是 .xlsx 文件。')
-  }
-}
-
-function validateEarDeclarationFetcherConfigOrThrow(config) {
-  const excelFilePath = sanitizePathInput(config.excelFilePath || config.excelFolderPath || '')
-  const reportYear = String(config.reportYear || '').trim()
-  const reportMonthGerman = String(config.reportMonthGerman || '').trim()
-
-  if (!excelFilePath) {
-    throw new Error('请先填写申报数据 Excel 文件路径。')
-  }
-  const lowerPath = excelFilePath.toLowerCase()
-  if (!lowerPath.endsWith('.xlsx') && !lowerPath.endsWith('.xlsm')) {
-    throw new Error('申报数据 Excel 必须是 .xlsx 或 .xlsm 文件。')
-  }
-  if (!reportYear) {
-    throw new Error('请先填写检测年份。')
-  }
-  if (!reportMonthGerman) {
-    throw new Error('请先填写德语月份。')
-  }
-}
-
-function downloadEarTemplate() {
-  try {
-    const url = getToolTemplateUrl('BUE1', 'ear_declaration_data_fetcher')
-    window.open(url, '_blank', 'noopener')
-  } catch (error) {
-    pushToast({
-      type: 'error',
-      title: '模板下载失败',
-      message: error?.message || '无法下载 EAR 模板，请稍后重试。',
-    })
-  }
-}
-
-function getDepartmentActiveToolIds(departmentCode) {
-  return activeToolIdsByDepartment.value[departmentCode] || []
-}
-
-function getDepartmentActiveToolCount(departmentCode) {
-  return getDepartmentActiveToolIds(departmentCode).length
-}
-
-function isToolActive(departmentCode, toolId) {
-  return getDepartmentActiveToolIds(departmentCode).includes(toolId)
-}
-
-function setToolPendingState(departmentCode, toolId, pending) {
-  const key = getToolKey(departmentCode, toolId)
-  if (pending) {
-    pendingToolKeys.value = {
-      ...pendingToolKeys.value,
-      [key]: true,
-    }
-    return
-  }
-
-  const nextState = { ...pendingToolKeys.value }
-  delete nextState[key]
-  pendingToolKeys.value = nextState
-}
-
-function isToolPending(departmentCode, toolId) {
-  return Boolean(pendingToolKeys.value[getToolKey(departmentCode, toolId)])
-}
-
-function isToolBusy(departmentCode, toolId) {
-  return isToolPending(departmentCode, toolId) || isToolActive(departmentCode, toolId)
-}
-
-function setDepartmentActiveTools(departmentCode, toolIds) {
-  activeToolIdsByDepartment.value = {
-    ...activeToolIdsByDepartment.value,
-    [departmentCode]: [...toolIds],
-  }
-}
-
-function addActiveTool(departmentCode, toolId) {
-  const current = new Set(getDepartmentActiveToolIds(departmentCode))
-  current.add(toolId)
-  setDepartmentActiveTools(departmentCode, [...current])
-}
-
-function handleActiveToolsChange(payload) {
-  if (!payload?.department) {
-    return
-  }
-
-  setDepartmentActiveTools(payload.department, payload.toolIds || [])
 }
 
 function showDashboard() {
@@ -665,13 +417,6 @@ function dismissToast(id) {
   toasts.value = toasts.value.filter((toast) => toast.id !== id)
 }
 
-async function refreshExecutionViews() {
-  await Promise.allSettled([
-    logPanel.value?.refresh?.({ silent: true }),
-    globalRunningBar.value?.refresh?.({ silent: true }),
-  ])
-}
-
 function clearPreviewRequest() {
   if (previewAbortController) {
     previewAbortController.abort()
@@ -703,13 +448,6 @@ async function loadConnectionStatus() {
       label: '服务离线',
       detail: '未能连接到后端服务，请确认 FastAPI 已启动且地址可访问。',
     }
-  }
-}
-
-async function loadDepartmentConfig(department) {
-  departmentConfigs.value = {
-    ...departmentNetworkPaths,
-    [department]: departmentNetworkPaths[department] || '',
   }
 }
 
@@ -822,173 +560,8 @@ async function ensureNetworkPathReadyForTool(departmentCode, toolId) {
   return true
 }
 
-async function loadToolConfig(department, toolId) {
-  try {
-    const response = await getToolConfig(department, toolId)
-    const cfg = response?.success && response.config ? response.config : {}
-    configData.value = {
-      ...createDefaultConfigData(),
-      folderPath: cfg.folderPath || '',
-      folderDisplay: cfg.folderDisplay || cfg.folderPath || '',
-      excelPath: cfg.excelPath || cfg.listExcelPath || '',
-      listExcelPath: cfg.listExcelPath || '',
-      listExcelDisplay: cfg.listExcelDisplay || cfg.listExcelPath || cfg.excelPath || '',
-      excelFilePath: cfg.excelFilePath || cfg.excelFolderPath || '',
-      excelFileDisplay: cfg.excelFileDisplay || cfg.excelFilePath || cfg.excelFolderDisplay || cfg.excelFolderPath || '',
-      excelFolderPath: cfg.excelFilePath || cfg.excelFolderPath || '',
-      excelFolderDisplay: cfg.excelFileDisplay || cfg.excelFilePath || cfg.excelFolderDisplay || cfg.excelFolderPath || '',
-      reportYear: cfg.reportYear || '',
-      reportMonthGerman: cfg.reportMonthGerman || '',
-      email: cfg.email || '',
-      authCode: cfg.authCode || '',
-      maxEmails: cfg.maxEmails || 50,
-      subjectKeyword: cfg.subjectKeyword || '注销成功',
-      selectedFolder: cfg.selectedFolder || '',
-    }
-    cacheToolConfig(department, toolId, configData.value)
-  } catch (error) {
-    console.error('Failed to load config:', error)
-  }
-}
-
-async function preloadDepartmentToolConfigs(departmentCode) {
-  const department = departments.find((item) => item.code === departmentCode)
-  if (!department) {
-    return
-  }
-
-  const configurableTools = department.tools.filter((tool) => tool.configurable)
-  await Promise.allSettled(configurableTools.map(async (tool) => {
-    const response = await getToolConfig(departmentCode, tool.id)
-    const config = response?.success && response.config ? response.config : {}
-
-    if (tool.id === 'invoice_recognizer') {
-      cacheToolConfig(departmentCode, tool.id, normalizeInvoiceRecognizerConfig(config))
-      return
-    }
-
-    if (tool.id === 'ear_declaration_data_fetcher') {
-      cacheToolConfig(departmentCode, tool.id, normalizeEarDeclarationFetcherConfig(config))
-      return
-    }
-
-    cacheToolConfig(departmentCode, tool.id, {
-      ...createDefaultConfigData(),
-      ...config,
-    })
-  }))
-}
-
-// Legacy support
 async function loadInvoiceConfig() {
   await loadToolConfig(PREVIEW_DEPARTMENT, PREVIEW_TOOL_ID)
-}
-
-async function openConfigDialog(tool) {
-  currentConfigTool.value = {
-    department: activeDepartmentCode.value,
-    toolId: tool.id,
-  }
-  configData.value = createDefaultConfigData()
-  mailFolders.value = []
-  mailFoldersError.value = ''
-  configDialogOpen.value = true
-  loadingToolConfig.value = true
-
-  try {
-    await loadToolConfig(activeDepartmentCode.value, tool.id)
-
-    if (tool.id === 'citeo_email_extractor' && configData.value.email && configData.value.authCode) {
-      await loadMailFolders()
-    }
-  } finally {
-    loadingToolConfig.value = false
-  }
-}
-
-async function loadMailFolders() {
-  const { email, authCode } = configData.value
-  if (!email || !authCode) {
-    return
-  }
-
-  loadingFolders.value = true
-  mailFoldersError.value = ''
-  try {
-    const result = await listMailFolders({ email, authCode })
-    if (result?.success && result.folders && result.folders.length > 0) {
-      mailFolders.value = result.folders
-      mailFoldersError.value = ''
-      // Auto-select first inbox if none selected
-      const inbox = result.folders.find(f => f.type === 'inbox')
-      if (inbox && !configData.value.selectedFolder) {
-        configData.value.selectedFolder = inbox.encoded
-      }
-    } else {
-      mailFolders.value = []
-      mailFoldersError.value = result?.error || '无法获取文件夹列表，请检查邮箱账号、授权码和 IMAP 设置。'
-    }
-  } catch (error) {
-    mailFolders.value = []
-    mailFoldersError.value = '网络请求失败，请检查网络连接。'
-  } finally {
-    loadingFolders.value = false
-  }
-}
-
-async function saveConfiguration() {
-  if (loadingToolConfig.value) {
-    return
-  }
-
-  const { department, toolId } = currentConfigTool.value
-  const targetDept = department || PREVIEW_DEPARTMENT
-  const targetTool = toolId || PREVIEW_TOOL_ID
-  savingToolConfig.value = true
-
-  try {
-    let payload = { ...configData.value }
-
-    if (targetTool === 'invoice_recognizer') {
-      payload = normalizeInvoiceRecognizerConfig(configData.value)
-    } else if (targetTool === 'ear_declaration_data_fetcher') {
-      payload = normalizeEarDeclarationFetcherConfig(configData.value)
-    }
-
-    if (targetTool === 'invoice_recognizer') {
-      validateInvoiceRecognizerManualPathsOrThrow(payload)
-    } else if (targetTool === 'ear_declaration_data_fetcher') {
-      validateEarDeclarationFetcherConfigOrThrow(payload)
-    }
-
-    const response = await saveConfig(targetDept, targetTool, payload)
-    if (!response?.success) {
-      throw new Error(response?.error || '保存失败')
-    }
-
-    configData.value = payload
-    cacheToolConfig(targetDept, targetTool, payload)
-
-    configDialogOpen.value = false
-    pushToast({
-      type: 'success',
-      title: '配置已保存',
-    })
-
-    previewCache.delete(getToolKey(targetDept, targetTool))
-    if (previewDialogOpen.value && previewTargetKey.value === getToolKey(targetDept, targetTool)) {
-      await openToolPreview(findPreviewTool(), { force: true })
-    }
-  } catch (error) {
-    console.error('Failed to save config:', error)
-    pushToast({
-      type: 'error',
-      title: '保存失败',
-      message: error.message || '请检查配置内容后重试。',
-    })
-  } finally {
-    savingToolConfig.value = false
-  }
 }
 
 function findPreviewTool() {
@@ -1142,13 +715,7 @@ async function runDepartmentScript(tool) {
       const cachedConfig = toolConfigCache.value[cacheKey]
       const configSource = cachedConfig || (await getToolConfig(departmentCode, tool.id))?.config || {}
 
-      runtimeConfigOverride = {
-        folderPath: configSource.folderPath || '',
-        folderDisplay: configSource.folderPath || '',
-        excelPath: configSource.excelPath || configSource.listExcelPath || '',
-        listExcelPath: configSource.listExcelPath || configSource.excelPath || '',
-        listExcelDisplay: configSource.listExcelPath || configSource.excelPath || '',
-      }
+      runtimeConfigOverride = normalizeInvoiceRecognizerConfig(configSource)
 
       if (!runtimeConfigOverride.folderPath || !runtimeConfigOverride.listExcelPath) {
         pushToast({
@@ -1164,12 +731,7 @@ async function runDepartmentScript(tool) {
 
     if (result?.success && ['queued', 'running'].includes(result?.status)) {
       addActiveTool(departmentCode, tool.id)
-      globalRunningBar.value?.onTaskStarted({
-        toolId: tool.id,
-        logId: result.logId,
-        status: result.status,
-      })
-      logPanel.value?.onTaskStarted({
+      notifyTaskStarted({
         toolId: tool.id,
         logId: result.logId,
         status: result.status,
@@ -1265,76 +827,17 @@ onBeforeUnmount(() => {
 <template>
   <div class="page-shell">
     <div class="workspace-shell">
-      <UiCard class="mobile-workspace-card">
-        <div class="mobile-workspace-head">
-          <div class="mobile-workspace-copy">
-            <UiBadge variant="secondary">移动工作台</UiBadge>
-            <strong>{{ activeWorkspaceView === 'dashboard' ? '全局仪表盘' : activeDepartment.name }}</strong>
-            <small>{{ connectionStatus.label }} · {{ activeWorkspaceView === 'dashboard' ? '查看全部任务' : `${activeToolCount} 个可用工具` }}</small>
-          </div>
-          <UiButton :variant="activeWorkspaceView === 'dashboard' ? 'default' : 'outline'" size="sm" @click="showDashboard">
-            仪表盘
-          </UiButton>
-        </div>
-
-        <nav class="mobile-department-scroll" aria-label="移动端部门切换">
-          <UiButton
-            v-for="department in departments"
-            :key="department.code"
-            :variant="activeWorkspaceView === 'department' && department.code === activeDepartmentCode ? 'default' : 'outline'"
-            size="sm"
-            @click="selectDepartment(department.code)"
-          >
-            {{ department.name }}
-          </UiButton>
-        </nav>
-      </UiCard>
-
-      <aside class="workspace-sidebar">
-        <UiCard class="department-sidebar">
-          <div class="sidebar-head">
-            <div class="sidebar-copy">
-              <UiBadge variant="secondary">部门导航</UiBadge>
-              <h2>工作区切换</h2>
-              <p>左侧切换部门，右侧直接处理当前工作区的任务与配置。</p>
-            </div>
-            <div class="sidebar-status">
-              <UiBadge :variant="statusBadgeVariant">{{ connectionStatus.label }}</UiBadge>
-              <small>{{ connectionStatus.detail }}</small>
-            </div>
-          </div>
-
-          <nav class="sidebar-department-list" aria-label="部门切换">
-            <button
-              type="button"
-              class="sidebar-department-button sidebar-dashboard-button"
-              :class="{ active: activeWorkspaceView === 'dashboard' }"
-              :aria-current="activeWorkspaceView === 'dashboard' ? 'page' : undefined"
-              @click="showDashboard"
-            >
-              <div class="sidebar-department-top">
-                <div class="sidebar-department-title">
-                  <strong>仪表盘</strong>
-                  <span>全局运行任务</span>
-                </div>
-              </div>
-            </button>
-
-            <button
-              v-for="department in departments"
-              :key="department.code"
-              type="button"
-              class="sidebar-department-button sidebar-department-button--compact"
-              :class="{ active: activeWorkspaceView === 'department' && department.code === activeDepartmentCode }"
-              :aria-current="activeWorkspaceView === 'department' && department.code === activeDepartmentCode ? 'page' : undefined"
-              @click="selectDepartment(department.code)"
-            >
-              <strong>{{ department.name }}</strong>
-              <span>{{ department.tools.length }} 个工具</span>
-            </button>
-          </nav>
-        </UiCard>
-      </aside>
+      <DepartmentSidebar
+        :departments="departments"
+        :active-workspace-view="activeWorkspaceView"
+        :active-department-code="activeDepartmentCode"
+        :active-department="activeDepartment"
+        :active-tool-count="activeToolCount"
+        :connection-status="connectionStatus"
+        :status-badge-variant="statusBadgeVariant"
+        @show-dashboard="showDashboard"
+        @select-department="selectDepartment"
+      />
 
       <main class="workspace-main">
         <template v-if="activeWorkspaceView === 'dashboard'">
@@ -1385,55 +888,16 @@ onBeforeUnmount(() => {
               />
             </template>
 
-            <UiCard v-else class="department-card dashboard-network-card">
-            <div class="department-header department-header--stacked">
-              <div class="department-copy">
-                <UiBadge variant="outline">固定配置</UiBadge>
-                <h2>各部门局域网路径</h2>
-                <p>这些路径已写入系统默认配置，运行任务时会自动按部门使用对应共享目录。如需修改请联系管理员</p>
-              </div>
-              <UiButton variant="outline" :loading="testingAllNetworkPaths" :disabled="testingNetworkPath" @click="testAllNetworkPaths">
-                测试所有部门连接
-              </UiButton>
-            </div>
-
-            <div class="network-config-table-wrap">
-              <table class="network-config-table">
-                <thead>
-                  <tr>
-                    <th>部门名称</th>
-                    <th>局域网地址</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="item in networkConfigRows" :key="item.code">
-                    <td>{{ item.name }}</td>
-                    <td><code>{{ item.networkPath }}</code></td>
-                    <td>
-                      <UiButton
-                        variant="outline"
-                        size="sm"
-                        :loading="testingNetworkDepartment === item.code"
-                        :disabled="testingAllNetworkPaths || (testingNetworkPath && testingNetworkDepartment !== item.code)"
-                        @click="testDeptNetworkPath({ departmentCode: item.code })"
-                      >
-                        测试连接
-                      </UiButton>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div
-              v-if="networkPathTestResult"
-              class="test-result"
-              :class="{ success: networkPathTestResult.success, error: !networkPathTestResult.success }"
-            >
-              {{ networkPathTestResult.department ? `${networkPathTestResult.department}：` : '' }}{{ networkPathTestResult.message }}
-            </div>
-            </UiCard>
+            <NetworkSettingsPanel
+              v-else
+              :network-config-rows="networkConfigRows"
+              :testing-all-network-paths="testingAllNetworkPaths"
+              :testing-network-path="testingNetworkPath"
+              :testing-network-department="testingNetworkDepartment"
+              :network-path-test-result="networkPathTestResult"
+              @test-all="testAllNetworkPaths"
+              @test-department="departmentCode => testDeptNetworkPath({ departmentCode })"
+            />
           </div>
         </template>
 
@@ -1515,63 +979,17 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="tool-grid">
-          <UiCard
-            v-for="tool in activeToolCards"
-            :key="tool.id"
-            class="tool-card"
-            :tone="tool.setupState.key === 'ready' ? 'default' : 'muted'"
-          >
-            <div class="tool-card-head">
-              <div class="tool-card-headline">
-                <h3>{{ tool.name }}</h3>
-              </div>
-            </div>
-            <div class="tool-card-body">
-              <p>{{ tool.description }}</p>
-              <p class="tool-card-state-copy">{{ tool.setupState.description }}</p>
-              <div class="tool-card-meta">
-                <UiBadge v-if="tool.configurable" variant="outline">支持配置</UiBadge>
-                <UiBadge
-                  v-if="toolRequiresNetworkPath(activeDepartmentCode, tool.id)"
-                  variant="warning"
-                >
-                  依赖共享目录
-                </UiBadge>
-                <UiBadge v-if="tool.previewable" variant="outline">支持预览</UiBadge>
-              </div>
-            </div>
-            <div class="tool-card-foot">
-              <div class="tool-card-actions">
-                <UiButton
-                  v-if="tool.configurable"
-                  variant="outline"
-                  :disabled="isToolPending(activeDepartmentCode, tool.id)"
-                  @click="openConfigDialog(tool)"
-                >
-                  配置
-                </UiButton>
-                <UiButton
-                  v-if="tool.previewable"
-                  variant="outline"
-                  @mouseenter="warmToolPreview(tool)"
-                  @focus="warmToolPreview(tool)"
-                  @click="openToolPreview(tool)"
-                >
-                  预览
-                </UiButton>
-              </div>
-              <UiButton
-                :variant="tool.setupState.key === 'ready' ? 'default' : 'outline'"
-                :loading="tool.setupState.primaryAction === 'run' && isToolBusy(activeDepartmentCode, tool.id)"
-                :disabled="tool.setupState.primaryDisabled || isToolPending(activeDepartmentCode, tool.id)"
-                @click="handleToolPrimaryAction(tool)"
-              >
-                {{ tool.setupState.primaryLabel }}
-              </UiButton>
-            </div>
-          </UiCard>
-        </div>
+        <ToolGrid
+          :tools="activeToolCards"
+          :active-department-code="activeDepartmentCode"
+          :tool-requires-network-path="toolRequiresNetworkPath"
+          :is-tool-pending="isToolPending"
+          :is-tool-busy="isToolBusy"
+          @configure="openConfigDialog"
+          @preview-warm="warmToolPreview"
+          @preview="openToolPreview"
+          @primary-action="handleToolPrimaryAction"
+        />
       </UiCard>
 
       <aside class="aside-card">
@@ -1580,7 +998,7 @@ onBeforeUnmount(() => {
           :department="activeDepartment.code"
           :limit="12"
           @active-tools-change="handleActiveToolsChange"
-          @execution-mutated="globalRunningBar?.refresh?.({ silent: true })"
+          @execution-mutated="refreshGlobalRunningBar({ silent: true })"
         />
       </aside>
     </section>
@@ -1595,155 +1013,26 @@ onBeforeUnmount(() => {
       @refresh="refreshPreview"
     />
 
-    <UiDialog
+    <ConfigDialog
       v-model:open="configDialogOpen"
-      keep-mounted
       :title="activeConfigDialogTitle"
       :description="activeConfigDialogDescription"
-    >
-      <div v-if="loadingToolConfig" class="config-loading-state">
-        <UiBadge variant="secondary">加载中</UiBadge>
-        <p>正在同步当前工具配置，请稍候。</p>
-      </div>
-
-      <!-- 顾问部单据识别配置 -->
-      <div v-else-if="currentConfigTool.toolId === 'ear_declaration_data_fetcher'" class="config-form">
-        <div class="form-field">
-          <UiLabel for="ear-excel-file-path">申报数据 Excel 文件</UiLabel>
-          <div class="folder-select-header">
-            <UiLabel for="ear-excel-file-path">申报数据 Excel 文件</UiLabel>
-            <UiButton variant="outline" @click="downloadEarTemplate">
-              下载模板
-            </UiButton>
-          </div>
-          <UiInput
-            id="ear-excel-file-path"
-            :model-value="configData.excelFilePath || configData.excelFileDisplay || configData.excelFolderPath || configData.excelFolderDisplay"
-            @update:model-value="updateEarExcelFilePath"
-            placeholder="请填写申报数据 Excel 的绝对路径"
-          />
-          <small class="field-hint">当前会校验该 Excel 文件是否已填写；运行时只读取这一个表，不再扫描整个文件夹。</small>
-        </div>
-
-        <div class="form-field">
-          <UiLabel for="ear-report-year">检测年份</UiLabel>
-          <UiInput
-            id="ear-report-year"
-            :model-value="configData.reportYear"
-            @update:model-value="value => { configData.reportYear = String(value || '').trim() }"
-            placeholder="例如 2026"
-          />
-        </div>
-
-        <div class="form-field">
-          <UiLabel for="ear-report-month-german">检测月份（德语）</UiLabel>
-          <UiInput
-            id="ear-report-month-german"
-            :model-value="configData.reportMonthGerman"
-            @update:model-value="value => { configData.reportMonthGerman = String(value || '').trim() }"
-            placeholder="例如 März"
-          />
-        </div>
-
-        <div class="form-field">
-          <small class="field-hint">表头需包含：授权代表\nbevollmächtigter Vertreter、WEEE号\nWEEE-Nummer、中文名\nFirmenname auf Chinesisch、英文名\nFirmenname auf Englisch、类别\nKategorie、德语类目、账号、密码、*月申报数据、官网上抓取的数据（*月）。年份和德语月份从配置项读取，不再从 Excel 表中读取。</small>
-          <small class="field-hint">可先点击“下载模板”获取 Excel 示例。</small>
-        </div>
-      </div>
-
-      <div v-else-if="currentConfigTool.toolId !== 'citeo_email_extractor'" class="config-form">
-        <div class="form-field">
-          <UiLabel for="folder-path">递延税单据总文件夹</UiLabel>
-          <UiInput
-            id="folder-path"
-            :model-value="configData.folderPath || configData.folderDisplay"
-            @update:model-value="updateInvoiceFolderPath"
-            placeholder="请填写部署电脑可访问的真实绝对路径，例如 \\\\服务器\\共享\\顾问部\\英德单据"
-          />
-          <small class="field-hint">仅支持手动填写真实路径。保存或运行时会校验目录是否可读可写，且必须在当前部门共享根目录下；像 `C:\\Users\\...` 这类用户本机路径会被拦截。</small>
-        </div>
-
-        <div class="form-field">
-          <UiLabel for="list-excel-path">Excel 清单文件</UiLabel>
-          <UiInput
-            id="list-excel-path"
-            :model-value="configData.listExcelPath || configData.listExcelDisplay"
-            @update:model-value="updateInvoiceExcelPath"
-            placeholder="请填写部署电脑可访问的 .xlsx 真实绝对路径"
-          />
-          <small class="field-hint">保存或运行时会校验 Excel 文件是否可读，并同时确认该路径属于当前部门共享根目录。</small>
-        </div>
-      </div>
-
-      <!-- BUE2 邮件提取配置 -->
-      <div v-else class="config-form">
-        <div class="form-field">
-          <UiLabel for="email">163 邮箱账号</UiLabel>
-          <UiInput
-            id="email"
-            v-model="configData.email"
-            type="email"
-            placeholder="your_email@163.com"
-            disabled
-          />
-        </div>
-
-        <div class="form-field">
-          <small class="field-hint">提示：点击“加载文件夹”，选择存放注销邮件的文件夹，填写获取邮件数量后保存配置即可运行。邮箱和授权码已预配置，如需修改请联系管理员。</small>
-        </div>
-
-        <div class="form-field">
-          <div class="folder-select-header">
-            <UiLabel for="mail-folder">选择邮件文件夹（存放注销邮件的文件夹）</UiLabel>
-            <UiButton
-              variant="outline"
-              size="sm"
-              :loading="loadingFolders"
-              :disabled="!configData.email"
-              @click="loadMailFolders"
-            >
-              {{ mailFolders.length > 0 ? '刷新' : '加载文件夹' }}
-            </UiButton>
-          </div>
-          <UiSelect
-            id="mail-folder"
-            v-model="configData.selectedFolder"
-            :disabled="mailFolders.length === 0"
-            :options="folderOptions"
-            placeholder="请选择文件夹"
-            :searchable="false"
-          />
-          <small v-if="mailFoldersError" class="field-error">{{ mailFoldersError }}</small>
-        </div>
-
-        <div class="form-field">
-          <UiLabel for="max-emails">邮件数量限制</UiLabel>
-          <UiInput
-            id="max-emails"
-            v-model="configData.maxEmails"
-            type="number"
-            placeholder="50"
-          />
-        </div>
-      </div>
-
-      <template #footer>
-        <UiButton
-          variant="outline"
-          :disabled="savingToolConfig"
-          @click="configDialogOpen = false"
-        >
-          取消
-        </UiButton>
-        <UiButton
-          :loading="savingToolConfig"
-          :disabled="loadingToolConfig || savingToolConfig"
-          @click="saveConfiguration"
-        >
-          保存配置
-        </UiButton>
-      </template>
-    </UiDialog>
+      :loading-tool-config="loadingToolConfig"
+      :current-config-tool="currentConfigTool"
+      :config-data="configData"
+      :saving-tool-config="savingToolConfig"
+      :loading-folders="loadingFolders"
+      :mail-folders="mailFolders"
+      :mail-folders-error="mailFoldersError"
+      :folder-options="folderOptions"
+      @update-config-field="updateConfigField"
+      @update-ear-excel-file-path="updateEarExcelFilePath"
+      @update-invoice-folder-path="updateInvoiceFolderPath"
+      @update-invoice-excel-path="updateInvoiceExcelPath"
+      @download-ear-template="downloadEarTemplate"
+      @load-mail-folders="loadMailFolders"
+      @save="saveConfiguration"
+    />
 
     <UiToastStack class="page-toast-stack" :toasts="toasts" @dismiss="dismissToast" />
   </div>
@@ -1771,139 +1060,12 @@ onBeforeUnmount(() => {
   overflow: visible;
 }
 
-.mobile-workspace-card {
-  display: none;
-}
-
-.workspace-sidebar {
-  max-height: calc(100vh - 3rem);
-  min-height: 0;
-  overflow: hidden;
-  align-self: start;
-}
-
 .workspace-main {
   display: grid;
   gap: 1.25rem;
   min-height: 0;
   min-width: 0;
   padding-right: 0.25rem;
-}
-
-.department-sidebar {
-  display: grid;
-  gap: 1rem;
-  max-height: 100%;
-  overflow-y: auto;
-}
-
-.sidebar-head,
-.sidebar-copy,
-.sidebar-status,
-.sidebar-department-list {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.sidebar-copy h2 {
-  margin: 0;
-  font-size: 1.2rem;
-  line-height: 1.15;
-  letter-spacing: -0.03em;
-}
-
-.sidebar-status {
-  padding: 0.875rem;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--card-muted);
-}
-
-.sidebar-status small,
-.sidebar-copy p {
-  color: var(--muted-foreground);
-  line-height: 1.6;
-}
-
-.sidebar-department-button {
-  display: grid;
-  gap: 0.65rem;
-  width: 100%;
-  padding: 0.95rem 1rem;
-  text-align: left;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--card);
-  color: inherit;
-  cursor: pointer;
-  transition:
-    border-color 0.18s ease,
-    background 0.18s ease,
-    box-shadow 0.18s ease,
-    transform 0.18s ease;
-}
-
-
-.sidebar-department-button--compact {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  min-height: 44px;
-  padding: 0.62rem 0.75rem;
-  border-radius: 12px;
-}
-
-.sidebar-department-button--compact strong {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.92rem;
-  line-height: 1.2;
-}
-
-.sidebar-department-button--compact span {
-  flex-shrink: 0;
-  color: var(--muted-foreground);
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
-.sidebar-department-button:hover {
-  border-color: var(--border-strong);
-  background: var(--card-muted);
-  box-shadow: 0 0 0 3px var(--ring);
-  transform: translateY(-1px);
-}
-
-.sidebar-department-button.active {
-  border-color: var(--accent);
-  background: var(--card-muted);
-  box-shadow: 0 0 0 3px var(--ring);
-}
-
-.sidebar-department-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
-  align-items: flex-start;
-}
-
-.sidebar-department-title {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.sidebar-department-title strong {
-  font-size: 1rem;
-  line-height: 1.2;
-}
-
-.sidebar-department-title span,
-.sidebar-department-summary {
-  color: var(--muted-foreground);
-  line-height: 1.55;
 }
 
 .hero-strip {
@@ -2108,186 +1270,6 @@ onBeforeUnmount(() => {
   padding: 0 12px;
 }
 
-.network-config-table-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--card);
-}
-
-.network-config-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 720px;
-}
-
-.network-config-table th,
-.network-config-table td {
-  padding: 0.85rem 1rem;
-  border-bottom: 1px solid var(--border);
-  text-align: left;
-  vertical-align: middle;
-}
-
-.network-config-table th {
-  color: var(--muted-foreground);
-  background: var(--card-muted);
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
-.network-config-table tr:last-child td {
-  border-bottom: 0;
-}
-
-.network-config-table td:first-child {
-  width: 180px;
-  font-weight: 700;
-}
-
-.network-config-table td:last-child,
-.network-config-table th:last-child {
-  width: 140px;
-  text-align: right;
-}
-
-.network-config-table code {
-  display: block;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--foreground);
-  background: var(--card-muted);
-}
-
-.department-config-section {
-  margin: 0.25rem 0 0;
-  padding: 1rem;
-  background: var(--card-muted);
-  border-radius: 16px;
-  border: 1px solid var(--border);
-}
-
-.department-config-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.department-config-head h3 {
-  margin: 0.5rem 0 0;
-  font-size: 1.1rem;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-}
-
-.config-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 1rem;
-}
-
-.config-field {
-  flex: 1;
-}
-
-.config-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.config-note-row {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.test-result {
-  margin-top: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  border: 1px solid transparent;
-}
-
-.config-tip {
-  color: var(--muted-foreground);
-  background: var(--card);
-  border-color: var(--border);
-}
-
-.test-result.success {
-  background: var(--success-soft);
-  border-color: var(--success-border);
-  color: var(--success);
-}
-
-.test-result.error {
-  background: var(--danger-soft);
-  border-color: var(--danger-border);
-  color: var(--danger);
-}
-
-.field-hint {
-  display: block;
-  margin-top: 0.25rem;
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.field-error {
-  display: block;
-  margin-top: 0.25rem;
-  font-size: 0.75rem;
-  color: var(--danger);
-}
-
-.config-loading-state {
-  display: grid;
-  gap: 0.75rem;
-  padding: 0.25rem 0 0.5rem;
-}
-
-.config-loading-state p {
-  margin: 0;
-  color: var(--muted-foreground);
-  line-height: 1.6;
-}
-
-.form-field > .ui-label:has(+ .folder-select-header) {
-  display: none;
-}
-
-.folder-select-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.tool-card {
-  gap: 0.9rem;
-}
-
-.tool-card-headline {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.tool-card-headline h3 {
-  font-size: 1.08rem;
-  line-height: 1.2;
-  letter-spacing: -0.03em;
-}
-
-.tool-card-state-copy {
-  color: var(--foreground);
-  font-size: 0.88rem;
-  line-height: 1.55;
-}
-
 @media (max-width: 980px) {
   .page-shell {
     padding: 0.85rem;
@@ -2298,66 +1280,6 @@ onBeforeUnmount(() => {
     flex-direction: column;
     gap: 0.85rem;
     min-height: auto;
-  }
-
-  .mobile-workspace-card {
-    position: sticky;
-    top: 0.65rem;
-    z-index: 10;
-    display: grid;
-    gap: 0.85rem;
-    width: 100%;
-    padding: 0.9rem;
-    backdrop-filter: blur(16px);
-  }
-
-  .mobile-workspace-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-
-  .mobile-workspace-copy {
-    display: grid;
-    gap: 0.35rem;
-    min-width: 0;
-  }
-
-  .mobile-workspace-copy strong {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 1.05rem;
-    line-height: 1.2;
-    letter-spacing: -0.03em;
-  }
-
-  .mobile-workspace-copy small {
-    color: var(--muted-foreground);
-    line-height: 1.4;
-  }
-
-  .mobile-department-scroll {
-    display: flex;
-    gap: 0.5rem;
-    overflow-x: auto;
-    padding-bottom: 0.15rem;
-    scrollbar-width: none;
-    scroll-snap-type: x proximity;
-  }
-
-  .mobile-department-scroll::-webkit-scrollbar {
-    display: none;
-  }
-
-  .mobile-department-scroll .ui-button {
-    flex: 0 0 auto;
-    scroll-snap-align: start;
-  }
-
-  .workspace-sidebar {
-    display: none;
   }
 
   .workspace-main {
@@ -2441,67 +1363,25 @@ onBeforeUnmount(() => {
   }
 
   .department-header-actions,
-  .workspace-toolbar-actions,
-  .tool-card-actions {
+  .workspace-toolbar-actions {
     display: grid;
     grid-template-columns: 1fr;
     width: 100%;
   }
 
   .department-header-actions .ui-button,
-  .workspace-toolbar-actions .ui-button,
-  .tool-card-actions .ui-button,
-  .tool-card-foot > .ui-button {
+  .workspace-toolbar-actions .ui-button {
     width: 100%;
-  }
-
-  .tool-grid {
-    grid-template-columns: 1fr;
-    grid-auto-rows: auto;
-    gap: 0.75rem;
-  }
-
-  .tool-card {
-    min-height: 0;
-    padding: 1rem;
-  }
-
-  .tool-card-foot {
-    display: grid;
-    gap: 0.75rem;
   }
 
   .aside-card {
     position: static;
-  }
-
-  .network-config-table {
-    min-width: 640px;
-  }
-
-  .input-with-button,
-  .folder-select-header {
-    display: grid;
-    gap: 0.5rem;
   }
 }
 
 @media (max-width: 560px) {
   .page-shell {
     padding: 0.65rem;
-  }
-
-  .mobile-workspace-card {
-    top: 0.5rem;
-    border-radius: 18px;
-  }
-
-  .mobile-workspace-head {
-    align-items: stretch;
-  }
-
-  .mobile-workspace-head > .ui-button {
-    min-width: 5rem;
   }
 
   .hero-strip-stats,
