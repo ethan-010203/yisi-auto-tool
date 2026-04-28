@@ -8,6 +8,8 @@ from datetime import datetime
 from pathlib import Path
 
 LOG_PREFIX = "[BUE2-QUEUE-PROBE]"
+DEFAULT_WAIT_SECONDS = 12
+MAX_WAIT_SECONDS = 3600
 
 
 def log(message: str) -> None:
@@ -19,6 +21,19 @@ def get_required_path(env_name: str) -> Path:
     if not value:
         raise ValueError(f"Missing required env: {env_name}")
     return Path(value)
+
+
+def resolve_wait_seconds(config: dict) -> int:
+    raw_value = config.get("waitSeconds", DEFAULT_WAIT_SECONDS)
+    try:
+        wait_seconds = int(raw_value)
+    except (TypeError, ValueError):
+        raise ValueError("waitSeconds must be an integer from 1 to 3600.") from None
+
+    if wait_seconds < 1 or wait_seconds > MAX_WAIT_SECONDS:
+        raise ValueError("waitSeconds must be an integer from 1 to 3600.")
+
+    return wait_seconds
 
 
 def main() -> int:
@@ -50,12 +65,15 @@ def main() -> int:
     config_snapshot = {}
     if config_path.exists():
         config_snapshot = json.loads(config_path.read_text(encoding="utf-8"))
+    wait_seconds = resolve_wait_seconds(config_snapshot)
+    log(f"configured wait_seconds={wait_seconds}")
 
     metadata = {
         "department": department,
         "tool": tool_id,
         "run_id": run_id,
         "started_at": started_at.isoformat(),
+        "wait_seconds": wait_seconds,
         "config_snapshot": config_snapshot,
         "paths": {
             "runtime_dir": str(runtime_dir),
@@ -74,13 +92,14 @@ def main() -> int:
     )
 
     heartbeat_path = artifact_dir / "heartbeat.log"
-    for index in range(1, 7):
-        log(f"step {index}/6: simulate long-running work")
+    for remaining_seconds in range(wait_seconds, 0, -1):
+        elapsed_seconds = wait_seconds - remaining_seconds + 1
+        log(f"waiting {elapsed_seconds}/{wait_seconds}s")
         with heartbeat_path.open("a", encoding="utf-8") as heartbeat_file:
             heartbeat_file.write(
-                f"{datetime.now().isoformat()} | run_id={run_id} | step={index}/6\n"
+                f"{datetime.now().isoformat()} | run_id={run_id} | elapsed={elapsed_seconds}/{wait_seconds}s\n"
             )
-        time.sleep(2)
+        time.sleep(1)
 
     (artifact_dir / "probe_done.txt").write_text(
         f"done at {datetime.now().isoformat()}\n",

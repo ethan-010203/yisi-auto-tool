@@ -82,6 +82,20 @@ function updateField(key, value) {
       <p>正在同步当前工具配置，请稍候。</p>
     </div>
 
+    <div v-else-if="currentConfigTool.toolId === 'queue_runtime_probe'" class="config-form">
+      <div class="form-field">
+        <UiLabel for="queue-probe-wait-seconds">等待秒数</UiLabel>
+        <UiInput
+          id="queue-probe-wait-seconds"
+          :model-value="String(configData.waitSeconds || 12)"
+          type="number"
+          placeholder="12"
+          @update:model-value="value => updateField('waitSeconds', value)"
+        />
+        <small class="field-hint">可填写 1-3600。探针启动后会持续占用一个运行槽位这么久，用来测试排队和并发。</small>
+      </div>
+    </div>
+
     <div v-else-if="currentConfigTool.toolId === 'ear_declaration_data_fetcher'" class="config-form">
       <div class="form-field">
         <UiLabel for="ear-excel-file-path">申报数据 Excel 文件</UiLabel>

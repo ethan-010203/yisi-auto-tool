@@ -123,6 +123,13 @@ export function terminateExecution(logId, signal) {
   })
 }
 
+export function forceTerminateExecution(logId, signal) {
+  return requestJson(`${API_BASE_URL}/executions/${logId}/force-terminate`, {
+    method: 'POST',
+    signal,
+  })
+}
+
 export function retryExecution(logId, signal) {
   return requestJson(`${API_BASE_URL}/executions/${logId}/retry`, {
     method: 'POST',

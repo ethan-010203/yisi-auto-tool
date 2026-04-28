@@ -895,6 +895,7 @@ onBeforeUnmount(() => {
             <template v-if="activeDashboardTab === 'overview'">
               <GlobalRunningTasksBar
               ref="globalRunningBar"
+              :departments="departments"
               :limit="50"
               :display-limit="8"
               @active-tools-change="handleActiveToolsChange"
@@ -948,6 +949,7 @@ onBeforeUnmount(() => {
         <ExecutionLogPanel
           ref="logPanel"
           :department="activeDepartment.code"
+          :departments="departments"
           :limit="12"
           @active-tools-change="handleActiveToolsChange"
           @execution-mutated="refreshGlobalRunningBar({ silent: true })"

@@ -418,6 +418,47 @@ def request_cancel(execution_id: str) -> tuple[bool, Optional[str]]:
         return False, status
 
 
+def force_terminate_execution(execution_id: str) -> Optional[dict[str, Any]]:
+    init_db()
+    now = _utcnow()
+    with _db_cursor(immediate=True) as (_, cursor):
+        row = cursor.execute("SELECT * FROM executions WHERE id = ?", (execution_id,)).fetchone()
+        if not row:
+            return None
+
+        previous_status = row["status"]
+        process_id = row["process_id"]
+        if previous_status not in ACTIVE_STATUSES:
+            return {
+                "status": previous_status,
+                "previousStatus": previous_status,
+                "processId": process_id,
+                "changed": False,
+            }
+
+        duration = _execution_duration(row)
+        cursor.execute(
+            """
+            UPDATE executions
+            SET status = 'terminated',
+                cancel_requested = 1,
+                finished_at = ?,
+                updated_at = ?,
+                duration = ?,
+                error = COALESCE(error, '任务已被强制结束'),
+                process_id = NULL
+            WHERE id = ?
+            """,
+            (now, now, duration, execution_id),
+        )
+        return {
+            "status": "terminated",
+            "previousStatus": previous_status,
+            "processId": process_id,
+            "changed": True,
+        }
+
+
 def retry_execution(execution_id: str, new_execution_id: str) -> Optional[dict[str, Any]]:
     init_db()
     with _db_cursor(immediate=True) as (_, cursor):
@@ -597,7 +638,7 @@ def finalize_execution(
                 updated_at = ?,
                 exit_code = ?,
                 process_id = NULL
-            WHERE id = ?
+            WHERE id = ? AND status IN ('queued', 'running', 'cancelling')
             """,
             (
                 status,

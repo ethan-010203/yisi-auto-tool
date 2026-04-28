@@ -132,6 +132,47 @@ Correct:
 write_weights_back_batch(write_backs, output_column, excel_path)
 ```
 
+### Queue Runtime Probe Config Contract
+
+`BUE2 / queue_runtime_probe` and `CONSULT / queue_runtime_probe` share the same saved config shape.
+
+#### Signatures
+
+Frontend normalizer:
+
+```js
+normalizeQueueRuntimeProbeConfig(config) -> { waitSeconds }
+```
+
+Backend request model:
+
+```python
+class ConfigRequest(BaseModel):
+    waitSeconds: Optional[int] = None
+```
+
+Script resolver:
+
+```python
+resolve_wait_seconds(config: dict) -> int
+```
+
+#### Contract
+
+`waitSeconds` is an integer from `1` to `3600`. If not configured, the probe defaults to `12` seconds to preserve the previous 6-step, 2-second behavior.
+
+#### Validation & Error Matrix
+
+| Field | Good | Bad | Expected Behavior |
+|-------|------|-----|-------------------|
+| `waitSeconds` | `1`, `12`, `120` | `0`, `3601`, `"abc"` | Frontend and backend reject invalid saved values; scripts reject invalid runtime configs. |
+
+#### Tests Required
+
+- `cmd /c npm run build` must pass after frontend config UI changes.
+- `py -3 -m py_compile black/main.py black/scripts/bue2/testing/queue_runtime_probe.py black/scripts/consult/testing/queue_runtime_probe.py`
+- Import each probe's `resolve_wait_seconds` and confirm default, valid, and invalid values.
+
 ---
 
 ## Common Mistakes

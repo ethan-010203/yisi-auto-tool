@@ -29,6 +29,7 @@ try:
         build_global_snapshot,
         clear_department_logs as clear_department_logs_sqlite,
         enqueue_execution,
+        force_terminate_execution,
         healthcheck,
         init_db,
         list_executions,
@@ -43,6 +44,7 @@ except ModuleNotFoundError:
         build_global_snapshot,
         clear_department_logs as clear_department_logs_sqlite,
         enqueue_execution,
+        force_terminate_execution,
         healthcheck,
         init_db,
         list_executions,
@@ -109,6 +111,7 @@ DEPARTMENT_CATALOG: list[dict[str, Any]] = [
                 "tag": "Queue",
                 "description": "用于验证任务排队、运行时目录和实时日志能力。",
                 "action": "run_script",
+                "configurable": True,
                 "script": SCRIPT_DIR / "bue2" / "testing" / "queue_runtime_probe.py",
             },
             {
@@ -179,6 +182,7 @@ DEPARTMENT_CATALOG: list[dict[str, Any]] = [
                 "tag": "Queue",
                 "description": "用于验证任务排队、运行时目录和实时日志能力。",
                 "action": "run_script",
+                "configurable": True,
                 "script": SCRIPT_DIR / "consult" / "testing" / "queue_runtime_probe.py",
             },
             {
@@ -265,6 +269,7 @@ class ConfigRequest(BaseModel):
     email: Optional[str] = None
     authCode: Optional[str] = None
     maxEmails: Optional[int] = None
+    waitSeconds: Optional[int] = None
     subjectKeyword: Optional[str] = None
     selectedFolder: Optional[str] = None
 
@@ -298,6 +303,42 @@ def _config_payload(model: BaseModel) -> dict[str, Any]:
 
 def _config_file(department: str, tool: str) -> Path:
     return CONFIG_DIR / f"{department}_{tool}.json"
+
+
+def _kill_process_tree(process_id: int | None) -> dict[str, Any]:
+    if not process_id:
+        return {"attempted": False, "success": False, "message": "No process id recorded"}
+
+    try:
+        if sys.platform.startswith("win"):
+            startupinfo = None
+            if hasattr(subprocess, "STARTUPINFO"):
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+            result = subprocess.run(
+                ["taskkill", "/PID", str(process_id), "/T", "/F"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=10,
+                check=False,
+                startupinfo=startupinfo,
+            )
+            message = (result.stdout or result.stderr or "").strip()
+            return {
+                "attempted": True,
+                "success": result.returncode == 0,
+                "message": message,
+            }
+
+        os.kill(process_id, 9)
+        return {"attempted": True, "success": True, "message": ""}
+    except ProcessLookupError:
+        return {"attempted": True, "success": False, "message": "Process no longer exists"}
+    except Exception as error:
+        return {"attempted": True, "success": False, "message": str(error)}
 
 
 def _department_config_file(department: str) -> Path:
@@ -480,8 +521,26 @@ def _validate_ear_declaration_data_fetcher_config_or_raise(config: dict[str, Any
     return normalized_config
 
 
+def _validate_queue_runtime_probe_config_or_raise(config: dict[str, Any]) -> dict[str, Any]:
+    raw_wait_seconds = config.get("waitSeconds", 12)
+    try:
+        wait_seconds = int(raw_wait_seconds)
+    except (TypeError, ValueError):
+        raise ValueError("队列运行探针等待秒数必须是 1 到 3600 之间的整数。") from None
+
+    if wait_seconds < 1 or wait_seconds > 3600:
+        raise ValueError("队列运行探针等待秒数必须是 1 到 3600 之间的整数。")
+
+    normalized_config = dict(config)
+    normalized_config["waitSeconds"] = wait_seconds
+    return normalized_config
+
+
 def _validate_tool_config_or_raise(department: str, tool: str, config: dict[str, Any]) -> dict[str, Any]:
     normalized_config = dict(config or {})
+
+    if tool == "queue_runtime_probe":
+        return _validate_queue_runtime_probe_config_or_raise(normalized_config)
 
     if department.upper() == "BUE1" and tool == "ear_declaration_data_fetcher":
         return _validate_ear_declaration_data_fetcher_config_or_raise(normalized_config)
@@ -926,6 +985,32 @@ def terminate_execution(log_id: str):
         return {"success": True, "message": "已向 worker 发送取消请求"}
 
     return {"success": False, "error": f"Task cannot be cancelled in status: {status}"}
+
+
+@app.post("/api/executions/{log_id}/force-terminate")
+def force_terminate_execution_route(log_id: str):
+    result = force_terminate_execution(log_id)
+    if not result:
+        return {"success": False, "error": "Task not found"}
+
+    if not result.get("changed"):
+        return {
+            "success": False,
+            "error": f"Task is already in terminal status: {result.get('status')}",
+        }
+
+    kill_result = _kill_process_tree(result.get("processId"))
+    message = "任务已强制结束"
+    if kill_result.get("attempted") and not kill_result.get("success"):
+        message = "任务记录已强制结束；原进程已不存在或无法访问"
+
+    return {
+        "success": True,
+        "status": result["status"],
+        "previousStatus": result["previousStatus"],
+        "process": kill_result,
+        "message": message,
+    }
 
 
 @app.post("/api/executions/{log_id}/retry")

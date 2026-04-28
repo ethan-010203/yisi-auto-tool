@@ -3,13 +3,14 @@ import { computed, onUnmounted, ref, watch } from 'vue'
 import { RotateCw } from 'lucide-vue-next'
 import {
   clearDepartmentLogs,
+  forceTerminateExecution,
   getDepartmentEventsUrl,
   getDepartmentLogs,
   getToolLogs,
   retryExecution,
   terminateExecution,
 } from '../api/index'
-import { departments } from '../data/departments'
+import { departments as fallbackDepartments } from '../data/departments'
 import UiBadge from './ui/UiBadge.vue'
 import UiButton from './ui/UiButton.vue'
 import UiCard from './ui/UiCard.vue'
@@ -29,6 +30,10 @@ const props = defineProps({
   limit: {
     type: Number,
     default: 50,
+  },
+  departments: {
+    type: Array,
+    default: () => fallbackDepartments,
   },
 })
 
@@ -60,6 +65,7 @@ const liveRefreshInFlight = ref(false)
 const pendingExecutions = ref({})
 let eventSource = null
 let refreshSpinTimer = null
+let logRequestSeq = 0
 
 const clearDialogOpen = ref(false)
 const clearLoading = ref(false)
@@ -68,6 +74,9 @@ const selectedLog = ref(null)
 const terminateDialogOpen = ref(false)
 const terminateLoading = ref(false)
 const terminateTargetId = ref(null)
+const forceTerminateDialogOpen = ref(false)
+const forceTerminateLoading = ref(false)
+const forceTerminateTargetId = ref(null)
 const retryLoading = ref(false)
 const showFailureOutput = ref(false)
 
@@ -132,11 +141,28 @@ function dismissToast(id) {
   toasts.value = toasts.value.filter((toast) => toast.id !== id)
 }
 
-function getToolName(toolId) {
-  const dept = departments.find((item) => item.code === props.department)
+function resetLogsState() {
+  logs.value = []
+  summary.value = defaultSummary()
+  error.value = null
+  currentPage.value = 1
+  selectedLog.value = null
+  detailDialogOpen.value = false
+  terminateDialogOpen.value = false
+  terminateTargetId.value = null
+  forceTerminateDialogOpen.value = false
+  forceTerminateTargetId.value = null
+}
+
+function getToolName(toolId, departmentCode = props.department) {
+  const dept = props.departments.find((item) => item.code === departmentCode)
   if (!dept) return toolId
   const tool = dept.tools.find((item) => item.id === toolId)
   return tool?.name || toolId
+}
+
+function getLogToolName(log) {
+  return log.toolName || log.tool_name || log.name || getToolName(log.tool, log.department || props.department)
 }
 
 function setRefreshFeedback(message, tone = 'muted', duration = 2400) {
@@ -261,6 +287,10 @@ function startTaskLiveRefresh(payload = {}) {
 }
 
 function syncSnapshot(snapshot) {
+  if (snapshot?.department && snapshot.department !== props.department) {
+    return
+  }
+
   logs.value = Array.isArray(snapshot?.logs) ? snapshot.logs : []
   summary.value = snapshot?.summary || defaultSummary()
   streamConnected.value = true
@@ -277,15 +307,25 @@ function syncSnapshot(snapshot) {
 
 async function loadLogs(options = {}) {
   const { silent = false, manual = false } = options
-  if (!props.department) {
-    logs.value = []
-    summary.value = defaultSummary()
+  const requestDepartment = props.department
+  const requestTool = props.tool
+
+  if (!requestDepartment) {
+    resetLogsState()
     return
   }
 
   if (!silent && loading.value) {
     return
   }
+
+  const requestId = ++logRequestSeq
+  const isCurrentRequest = () => (
+    requestId === logRequestSeq &&
+    props.department === requestDepartment &&
+    props.tool === requestTool
+  )
+
   if (!silent) {
     loading.value = true
     if (manual) {
@@ -295,9 +335,13 @@ async function loadLogs(options = {}) {
   error.value = null
 
   try {
-    const response = props.tool
-      ? await getToolLogs(props.department, props.tool, props.limit)
-      : await getDepartmentLogs(props.department, props.limit)
+    const response = requestTool
+      ? await getToolLogs(requestDepartment, requestTool, props.limit)
+      : await getDepartmentLogs(requestDepartment, props.limit)
+
+    if (!isCurrentRequest()) {
+      return
+    }
 
     if (!response?.success) {
       throw new Error(response?.error || '无法获取执行记录')
@@ -315,11 +359,19 @@ async function loadLogs(options = {}) {
       if (updatedLog) selectedLog.value = updatedLog
     }
   } catch (err) {
+    if (!isCurrentRequest()) {
+      return
+    }
+
     error.value = err.message || '请求失败'
     if (!silent && manual) {
       setRefreshFeedback('刷新失败', 'danger')
     }
   } finally {
+    if (!isCurrentRequest()) {
+      return
+    }
+
     prunePendingExecutions(logs.value)
     if (shouldKeepLiveRefresh()) {
       scheduleLiveRefresh()
@@ -411,6 +463,17 @@ function closeTerminateDialog() {
   terminateLoading.value = false
 }
 
+function openForceTerminateDialog(logId) {
+  forceTerminateTargetId.value = logId
+  forceTerminateDialogOpen.value = true
+}
+
+function closeForceTerminateDialog() {
+  forceTerminateDialogOpen.value = false
+  forceTerminateTargetId.value = null
+  forceTerminateLoading.value = false
+}
+
 async function confirmTerminate() {
   if (!terminateTargetId.value) return
 
@@ -439,6 +502,37 @@ async function confirmTerminate() {
     })
   } finally {
     terminateLoading.value = false
+  }
+}
+
+async function confirmForceTerminate() {
+  if (!forceTerminateTargetId.value) return
+
+  forceTerminateLoading.value = true
+  try {
+    const response = await forceTerminateExecution(forceTerminateTargetId.value)
+    if (!response?.success) {
+      throw new Error(response?.error || '强制结束任务失败')
+    }
+
+    closeForceTerminateDialog()
+    await loadLogs({ silent: true })
+    emit('execution-mutated')
+    pushToast({
+      type: 'success',
+      title: '任务已强制结束',
+      message: response.message || '任务记录已收尾，不会继续占用运行槽位。',
+      duration: 3600,
+    })
+  } catch (err) {
+    pushToast({
+      type: 'error',
+      title: '强制结束失败',
+      message: err.message || '请稍后重试',
+      duration: 4200,
+    })
+  } finally {
+    forceTerminateLoading.value = false
   }
 }
 
@@ -544,7 +638,7 @@ function exportLogs() {
     ['执行时间', '任务', '状态', '耗时', '输出'],
     ...filteredLogs.value.map((log) => [
       formatTime(log.timestamp),
-      getToolName(log.tool),
+      getLogToolName(log),
       getStatusLabel(log.status),
       formatDuration(log.duration),
       (log.output || '').replace(/\n/g, ' '),
@@ -595,7 +689,7 @@ const filteredLogs = computed(() => {
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase()
     result = result.filter((log) => {
-      const toolName = getToolName(log.tool).toLowerCase()
+      const toolName = getLogToolName(log).toLowerCase()
       const output = (log.output || '').toLowerCase()
       const errorText = (log.error || '').toLowerCase()
       return toolName.includes(query) || output.includes(query) || errorText.includes(query)
@@ -616,16 +710,23 @@ const hasRunningTasks = computed(() => logs.value.some((log) => isActiveStatus(l
 
 watch(
   () => props.department,
-  async () => {
-    currentPage.value = 1
+  async (department) => {
+    logRequestSeq += 1
+    closeEventStream()
+    resetLogsState()
+    loading.value = false
+    streamConnected.value = false
     hadRunningTasks.value = false
     pendingExecutions.value = {}
     stopLiveRefresh()
     emit('active-tools-change', {
-      department: props.department,
+      department,
       toolIds: [],
     })
     await loadLogs()
+    if (props.department !== department) {
+      return
+    }
     hadRunningTasks.value = hasRunningTasks.value
     connectEventStream()
   },
@@ -786,7 +887,7 @@ defineExpose({
       >
         <div class="record-card-top">
           <div class="task-cell">
-            <span class="task-name">{{ getToolName(log.tool) }}</span>
+            <span class="task-name">{{ getLogToolName(log) }}</span>
             <span class="task-meta">{{ formatTime(log.timestamp) }}</span>
           </div>
           <span class="status-chip" :class="getStatusChipClass(log.status)">
@@ -811,7 +912,7 @@ defineExpose({
     <UiDialog
       v-model:open="detailDialogOpen"
       size="wide"
-      :title="selectedLog ? getToolName(selectedLog.tool) : '执行详情'"
+      :title="selectedLog ? getLogToolName(selectedLog) : '执行详情'"
       @update:open="!$event && closeDetailDialog()"
     >
       <div v-if="selectedLog" class="detail-shell">
@@ -848,11 +949,19 @@ defineExpose({
               失败重试
             </UiButton>
             <UiButton
-              v-if="isActiveStatus(selectedLog.status)"
+              v-if="selectedLog.status === 'queued' || selectedLog.status === 'running'"
               variant="danger"
               @click="openTerminateDialog(selectedLog.id)"
             >
               取消任务
+            </UiButton>
+            <UiButton
+              v-if="selectedLog.status === 'cancelling'"
+              variant="danger"
+              :loading="forceTerminateLoading"
+              @click="openForceTerminateDialog(selectedLog.id)"
+            >
+              强制结束
             </UiButton>
           </div>
         </div>
@@ -914,6 +1023,16 @@ defineExpose({
       <template #footer>
         <UiButton variant="outline" :disabled="terminateLoading" @click="closeTerminateDialog">关闭</UiButton>
         <UiButton variant="danger" :loading="terminateLoading" @click="confirmTerminate">确认取消</UiButton>
+      </template>
+    </UiDialog>
+    <UiDialog
+      v-model:open="forceTerminateDialogOpen"
+      title="强制结束任务"
+      description="仅在任务长时间卡在取消中时使用。系统会尝试结束残留进程，并立即把这条执行记录收尾为已取消。"
+    >
+      <template #footer>
+        <UiButton variant="outline" :disabled="forceTerminateLoading" @click="closeForceTerminateDialog">关闭</UiButton>
+        <UiButton variant="danger" :loading="forceTerminateLoading" @click="confirmForceTerminate">确认强制结束</UiButton>
       </template>
     </UiDialog>
   </UiCard>

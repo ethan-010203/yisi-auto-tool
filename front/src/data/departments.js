@@ -44,6 +44,7 @@ export const departments = [
         tag: 'Queue',
         description: '用于验证任务排队、运行时目录和实时日志能力。',
         action: 'run_script',
+        configurable: true,
       },
       {
         id: 'citeo_email_extractor',
@@ -107,6 +108,7 @@ export const departments = [
         tag: 'Queue',
         description: '用于验证任务排队、运行时目录和实时日志能力。',
         action: 'run_script',
+        configurable: true,
       },
       {
         id: 'invoice_recognizer',

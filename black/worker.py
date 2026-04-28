@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
 try:
     from runner.runtime_limits import load_runtime_limits
@@ -136,7 +137,7 @@ def _extract_error_message(stdout: str, stderr: str) -> str:
     return "Unknown error"
 
 
-def _run_execution(job: dict[str, object], worker_id: str) -> None:
+def _run_execution(job: dict[str, Any], worker_id: str) -> None:
     execution_id = str(job["id"])
     department = str(job["department"])
     tool = str(job["tool"])
@@ -260,9 +261,24 @@ def main() -> None:
 
     init_db()
     worker_id = f"{socket.gethostname()}-{os.getpid()}"
+    active_threads: set[threading.Thread] = set()
     print(f"[worker] started: {worker_id}", flush=True)
 
+    def cleanup_finished_threads() -> None:
+        active_threads.difference_update([thread for thread in active_threads if not thread.is_alive()])
+
+    def start_job(job: dict[str, Any]) -> None:
+        thread = threading.Thread(
+            target=_run_execution,
+            args=(job, worker_id),
+            daemon=True,
+            name=f"yisi-job-{job['id']}",
+        )
+        active_threads.add(thread)
+        thread.start()
+
     while True:
+        cleanup_finished_threads()
         limits = load_runtime_limits(CONFIG_DIR)
         job = claim_next_execution(
             worker_id=worker_id,
@@ -278,7 +294,7 @@ def main() -> None:
             f"[worker] executing {job['department']}/{job['tool']} ({job['id']})",
             flush=True,
         )
-        _run_execution(job, worker_id)
+        start_job(job)
 
 
 if __name__ == "__main__":

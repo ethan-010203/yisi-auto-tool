@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RotateCw } from 'lucide-vue-next'
 import { getExecutionLogs, getGlobalEventsUrl } from '../api/index'
-import { departments } from '../data/departments'
+import { departments as fallbackDepartments } from '../data/departments'
 import UiBadge from './ui/UiBadge.vue'
 import UiButton from './ui/UiButton.vue'
 import UiCard from './ui/UiCard.vue'
@@ -15,6 +15,10 @@ const props = defineProps({
   displayLimit: {
     type: Number,
     default: 6,
+  },
+  departments: {
+    type: Array,
+    default: () => fallbackDepartments,
   },
 })
 
@@ -54,13 +58,17 @@ function getStatusVariant(status) {
 }
 
 function getDepartmentMeta(code) {
-  return departments.find((item) => item.code === code)
+  return props.departments.find((item) => item.code === code)
 }
 
 function getToolName(departmentCode, toolId) {
   const department = getDepartmentMeta(departmentCode)
   const tool = department?.tools?.find((item) => item.id === toolId)
   return tool?.name || toolId
+}
+
+function getLogToolName(log) {
+  return log.toolName || log.tool_name || log.name || getToolName(log.department, log.tool)
 }
 
 function setRefreshFeedback(message, tone = 'muted', duration = 2400) {
@@ -94,7 +102,7 @@ function syncSnapshot(snapshot) {
 }
 
 function emitActiveToolsByDepartment() {
-  for (const department of departments) {
+  for (const department of props.departments) {
     const toolIds = [...new Set(
       activeLogs.value
         .filter((log) => log.department === department.code)
@@ -386,7 +394,7 @@ defineExpose({
             {{ getStatusLabel(log.status) }}
           </UiBadge>
         </div>
-        <strong>{{ getToolName(log.department, log.tool) }}</strong>
+        <strong>{{ getLogToolName(log) }}</strong>
         <div class="global-task-meta">
           <span v-if="log.queuePosition">队列 #{{ log.queuePosition }}</span>
           <span v-else-if="log.duration !== undefined && log.duration !== null">已执行 {{ Number(log.duration).toFixed(1) }}s</span>

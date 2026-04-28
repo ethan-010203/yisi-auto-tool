@@ -18,6 +18,7 @@ export function createDefaultConfigData() {
     email: '',
     authCode: '',
     maxEmails: 50,
+    waitSeconds: 12,
     subjectKeyword: '注销成功',
     selectedFolder: '',
   }
@@ -67,6 +68,15 @@ export function normalizeEarDeclarationFetcherConfig(config) {
   }
 }
 
+export function normalizeQueueRuntimeProbeConfig(config) {
+  const waitSeconds = String(config.waitSeconds ?? '').trim() === '' ? 12 : Number(config.waitSeconds)
+
+  return {
+    ...config,
+    waitSeconds: Number.isInteger(waitSeconds) ? waitSeconds : config.waitSeconds,
+  }
+}
+
 export function validateInvoiceRecognizerManualPathsOrThrow(config) {
   const folderPath = sanitizePathInput(config.folderPath || '')
   const excelPath = sanitizePathInput(config.listExcelPath || config.excelPath || '')
@@ -100,6 +110,13 @@ export function validateEarDeclarationFetcherConfigOrThrow(config) {
   }
   if (!Number.isInteger(maxWorkers) || maxWorkers < 1 || maxWorkers > 4) {
     throw new Error('EAR 并发线程数必须是 1 到 4 之间的整数。')
+  }
+}
+
+export function validateQueueRuntimeProbeConfigOrThrow(config) {
+  const waitSeconds = String(config.waitSeconds ?? '').trim() === '' ? 12 : Number(config.waitSeconds)
+  if (!Number.isInteger(waitSeconds) || waitSeconds < 1 || waitSeconds > 3600) {
+    throw new Error('队列运行探针等待秒数必须是 1 到 3600 之间的整数。')
   }
 }
 
@@ -152,6 +169,10 @@ export function useToolConfig({
   })
 
   const configDialogTitle = computed(() => {
+    if (currentConfigTool.value.toolId === 'queue_runtime_probe') {
+      return '队列运行探针配置'
+    }
+
     if (currentConfigTool.value.toolId === 'citeo_email_extractor') {
       return '邮箱配置'
     }
@@ -159,6 +180,10 @@ export function useToolConfig({
   })
 
   const configDialogDescription = computed(() => {
+    if (currentConfigTool.value.toolId === 'queue_runtime_probe') {
+      return '设置探针任务在队列中实际占用运行槽位的等待时间。'
+    }
+
     if (currentConfigTool.value.toolId === 'citeo_email_extractor') {
       return '163邮箱已配置，用于 IMAP 连接提取邮件。'
     }
@@ -205,6 +230,11 @@ export function useToolConfig({
     if (toolId === 'citeo_email_extractor') {
       const selectedFolder = String(config.selectedFolder || '').trim()
       return Boolean(selectedFolder)
+    }
+
+    if (toolId === 'queue_runtime_probe') {
+      const waitSeconds = String(config.waitSeconds ?? '').trim() === '' ? 12 : Number(config.waitSeconds)
+      return Number.isInteger(waitSeconds) && waitSeconds >= 1 && waitSeconds <= 3600
     }
 
     return true
@@ -278,6 +308,7 @@ export function useToolConfig({
         email: cfg.email || '',
         authCode: cfg.authCode || '',
         maxEmails: cfg.maxEmails || 50,
+        waitSeconds: cfg.waitSeconds || 12,
         subjectKeyword: cfg.subjectKeyword || '注销成功',
         selectedFolder: cfg.selectedFolder || '',
       }
@@ -305,6 +336,14 @@ export function useToolConfig({
 
       if (tool.id === 'ear_declaration_data_fetcher') {
         cacheToolConfig(departmentCode, tool.id, normalizeEarDeclarationFetcherConfig(config))
+        return
+      }
+
+      if (tool.id === 'queue_runtime_probe') {
+        cacheToolConfig(departmentCode, tool.id, {
+          ...createDefaultConfigData(),
+          ...normalizeQueueRuntimeProbeConfig(config),
+        })
         return
       }
 
@@ -383,12 +422,16 @@ export function useToolConfig({
         payload = normalizeInvoiceRecognizerConfig(configData.value)
       } else if (targetTool === 'ear_declaration_data_fetcher') {
         payload = normalizeEarDeclarationFetcherConfig(configData.value)
+      } else if (targetTool === 'queue_runtime_probe') {
+        payload = normalizeQueueRuntimeProbeConfig(configData.value)
       }
 
       if (targetTool === 'invoice_recognizer') {
         validateInvoiceRecognizerManualPathsOrThrow(payload)
       } else if (targetTool === 'ear_declaration_data_fetcher') {
         validateEarDeclarationFetcherConfigOrThrow(payload)
+      } else if (targetTool === 'queue_runtime_probe') {
+        validateQueueRuntimeProbeConfigOrThrow(payload)
       }
 
       const response = await saveConfig(targetDept, targetTool, payload)
