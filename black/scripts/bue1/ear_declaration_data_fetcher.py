@@ -3,6 +3,7 @@ import os
 import re
 import sys
 import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +23,8 @@ EAR_PORTAL_URL = "https://www.ear-system.de/ear-portal/"
 LOGIN_FRAME_PATTERN = re.compile(r"/ear-portal/secure/common/portalaufgaben\.jsf")
 IST_INPUT_PATH_FRAGMENT = "/ear-portal/secure/hersteller/ist-inputmeldung/ist-inputmeldungen.jsf"
 SUPPORTED_EXCEL_SUFFIXES = {".xlsx", ".xlsm"}
+DEFAULT_MAX_WORKERS = 1
+MAX_WORKERS_LIMIT = 4
 
 HEADER_AUTHORIZED_REP = "授权代表\nbevollmächtigter Vertreter"
 HEADER_WEEE_NUMBER = "WEEE号\nWEEE-Nummer"
@@ -99,6 +102,23 @@ def normalize_text_casefold(value: object) -> str:
     return normalize_text_for_match(value).casefold()
 
 
+def normalize_ear_weight_for_write_back(value: object) -> str:
+    text = normalize_text_for_match(value)
+    if not text:
+        return ""
+
+    compact = text.replace(" ", "")
+    if not re.fullmatch(r"[+-]?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?", compact):
+        return text
+
+    normalized = compact.replace(".", "").replace(",", ".")
+    if "." in normalized:
+        normalized = normalized.rstrip("0").rstrip(".")
+    if normalized in {"-0", "+0"}:
+        return "0"
+    return normalized.lstrip("+")
+
+
 def resolve_excel_file(config: dict) -> Path:
     excel_path = Path(str(config.get("excelFilePath") or config.get("excelFolderPath") or "").strip())
     if not str(excel_path):
@@ -134,6 +154,18 @@ def resolve_report_period(config: dict) -> tuple[str, str]:
     if not report_month_german:
         raise ValueError("配置中的德语月份不能为空。")
     return report_year, report_month_german
+
+
+def resolve_max_workers(config: dict) -> int:
+    raw_value = config.get("maxWorkers", DEFAULT_MAX_WORKERS)
+    try:
+        max_workers = int(raw_value)
+    except (TypeError, ValueError):
+        raise ValueError("并发线程数必须是 1 到 4 之间的整数。") from None
+
+    if max_workers < 1 or max_workers > MAX_WORKERS_LIMIT:
+        raise ValueError("并发线程数必须是 1 到 4 之间的整数。")
+    return max_workers
 
 
 def ensure_expected_headers(header_map: dict[str, int], excel_path: Path, sheet_name: str) -> None:
@@ -229,10 +261,6 @@ def write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as file:
         json.dump(payload, file, ensure_ascii=False, indent=2)
-
-
-def sanitize_filename(value: str) -> str:
-    return re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("_") or "row"
 
 
 def launch_isolated_browser_context(playwright, browser_profile_dir: Path) -> tuple[BrowserContext, str]:
@@ -584,14 +612,11 @@ def attempt_logout(page: Page, portal_frame=None, log_prefix: str = "") -> tuple
 def attempt_login_and_fetch(
     page: Page,
     task: LoginTask,
-    screenshot_dir: Path,
     report_year: str,
     report_month_german: str,
     reuse_session: bool = False,
     previous_route: str = "",
 ) -> dict:
-    screenshot_dir.mkdir(parents=True, exist_ok=True)
-
     result = {
         "excel": str(task.excel_path),
         "sheet": task.sheet_name,
@@ -723,11 +748,6 @@ def attempt_login_and_fetch(
                 result["error"] = "检测到当前账号登录后未直接进入公司，需补充公司搜索与进入逻辑。"
                 log_info(f"{log_prefix} 未能打开 Ist-Inputmitteilungen，当前按多公司账号处理")
 
-        screenshot_name = sanitize_filename(f"{task.excel_path.stem}_{task.sheet_name}_row_{task.row_index}.png")
-        screenshot_path = screenshot_dir / screenshot_name
-        page.screenshot(path=str(screenshot_path), full_page=True)
-        result["screenshotPath"] = str(screenshot_path)
-
         return result
     except PlaywrightTimeoutError as error:
         result["status"] = "timeout"
@@ -762,11 +782,249 @@ def write_weight_back(row_index: int, output_column: int, weight_value: str, exc
         raise
 
 
+def write_weights_back_batch(write_backs: list[tuple[int, str]], output_column: int, excel_path: Path) -> None:
+    if not write_backs:
+        return
+
+    workbook = load_workbook(
+        excel_path,
+        read_only=False,
+        data_only=False,
+        keep_vba=excel_path.suffix.lower() == ".xlsm",
+    )
+    temp_path = excel_path.with_name(f"{excel_path.stem}.tmp.{uuid4().hex}{excel_path.suffix}")
+    try:
+        worksheet = workbook.active
+        for row_index, weight_value in write_backs:
+            worksheet.cell(row=row_index, column=output_column, value=weight_value)
+        workbook.save(temp_path)
+    finally:
+        workbook.close()
+
+    try:
+        os.replace(temp_path, excel_path)
+    except Exception:
+        if temp_path.exists():
+            temp_path.unlink(missing_ok=True)
+        raise
+
+
 def build_write_back_error_message(error: Exception, excel_path: Path) -> str:
     error_text = str(error)
     if isinstance(error, PermissionError) or "Permission denied" in error_text:
         return f"当前 Excel 无法写入，请检查是否正在被打开中: {excel_path}"
     return f"回填 Excel 失败，请检查文件是否可写: {excel_path}; {error_text}"
+
+
+def prepare_write_back_value(result: dict) -> str:
+    write_back_value = result.get("matchedWeight")
+    if not write_back_value and result.get("status") == "matching_entry_not_found":
+        write_back_value = MISSING_MATCH_WRITEBACK_VALUE
+    elif write_back_value:
+        write_back_value = normalize_ear_weight_for_write_back(write_back_value)
+        result["matchedWeight"] = write_back_value
+
+    result["writeBackValue"] = write_back_value or ""
+    return write_back_value or ""
+
+
+def process_task_batch(
+    worker_id: int,
+    tasks: list[LoginTask],
+    browser_profile_dir: Path,
+    report_year: str,
+    report_month_german: str,
+    output_column: int,
+    excel_path: Path,
+    write_immediately: bool,
+) -> dict:
+    results: list[dict] = []
+    browser_engine = ""
+    with sync_playwright() as playwright:
+        context, browser_engine = launch_isolated_browser_context(playwright, browser_profile_dir)
+        active_page = None
+        active_credentials: tuple[str, str] | None = None
+        active_session_reusable = False
+        active_session_route = ""
+        try:
+            page = get_or_create_page(context)
+            page.goto("about:blank")
+            log_info(f"worker-{worker_id} 开始查询，任务数: {len(tasks)}")
+
+            for task in tasks:
+                task_log_prefix = (
+                    f"worker-{worker_id} 第{task.row_index}行 账号={task.account or '-'} "
+                    f"月份={report_month_german or '-'} 德语类目={task.german_category or '-'}"
+                )
+                current_credentials = (task.account, task.password)
+                reuse_session = (
+                    active_page is not None
+                    and active_credentials == current_credentials
+                    and active_session_reusable
+                )
+
+                if not reuse_session:
+                    if active_page is not None:
+                        log_info(f"{task_log_prefix} 切换账号，先退出上一个登录")
+                        previous_portal_frame = None
+                        try:
+                            previous_portal_frame = get_portal_frame(active_page)
+                        except Exception:
+                            previous_portal_frame = None
+                        logout_succeeded, logout_error = attempt_logout(
+                            active_page,
+                            portal_frame=previous_portal_frame,
+                            log_prefix=f"账号={active_credentials[0] if active_credentials else '-'}",
+                        )
+                        if not logout_succeeded:
+                            log_info(f"{task_log_prefix} 上一账号退出失败: {logout_error}")
+                        active_page.close()
+
+                    active_page = context.new_page()
+                    active_credentials = current_credentials
+                    active_session_reusable = False
+                    active_session_route = ""
+
+                log_info(f"{task_log_prefix} 开始查询")
+                result = attempt_login_and_fetch(
+                    active_page,
+                    task,
+                    report_year,
+                    report_month_german,
+                    reuse_session=reuse_session,
+                    previous_route=active_session_route,
+                )
+                result["workerId"] = worker_id
+                active_session_reusable = result["status"] in {"weight_found", "matching_entry_not_found"}
+                active_session_route = result.get("route", "")
+
+                write_back_value = prepare_write_back_value(result)
+
+                if write_back_value:
+                    if write_immediately:
+                        try:
+                            write_weight_back(
+                                task.row_index,
+                                output_column,
+                                write_back_value,
+                                excel_path,
+                            )
+                            result["writeBackSucceeded"] = True
+                            result["writeBackError"] = ""
+                            log_info(
+                                f"{task_log_prefix} 已将官网数据 {write_back_value} 回填到 Excel 第{task.row_index}行"
+                            )
+                        except Exception as error:
+                            friendly_error = build_write_back_error_message(error, excel_path)
+                            result["writeBackSucceeded"] = False
+                            result["writeBackError"] = friendly_error
+                            log_info(f"{task_log_prefix} 回填 Excel 失败: {friendly_error}")
+                            if result["status"] == "weight_found":
+                                result["status"] = "write_back_failed"
+                            results.append(result)
+                            raise RuntimeError(friendly_error) from error
+                    else:
+                        result["writeBackSucceeded"] = False
+                        result["writeBackError"] = ""
+                        result["writeBackPending"] = True
+                else:
+                    result["writeBackSucceeded"] = False
+                    result["writeBackError"] = ""
+                    result["writeBackPending"] = False
+                    log_info(f"{task_log_prefix} 未获取到官网重量，未执行回填")
+
+                results.append(result)
+        finally:
+            if active_page is not None:
+                final_portal_frame = None
+                try:
+                    final_portal_frame = get_portal_frame(active_page)
+                except Exception:
+                    final_portal_frame = None
+                logout_succeeded, logout_error = attempt_logout(
+                    active_page,
+                    portal_frame=final_portal_frame,
+                    log_prefix=f"账号={active_credentials[0] if active_credentials else '-'}",
+                )
+                if not logout_succeeded:
+                    log_info(f"worker-{worker_id} 账号={active_credentials[0] if active_credentials else '-'} 最终退出失败: {logout_error}")
+                active_page.close()
+            context.close()
+
+    return {
+        "workerId": worker_id,
+        "browserEngine": browser_engine,
+        "results": results,
+    }
+
+
+def run_parallel_task_batches(
+    tasks: list[LoginTask],
+    max_workers: int,
+    browser_profile_dir: Path,
+    report_year: str,
+    report_month_german: str,
+    output_column: int,
+    excel_path: Path,
+) -> tuple[list[dict], str]:
+    task_groups = [tasks[index::max_workers] for index in range(max_workers)]
+    task_groups = [group for group in task_groups if group]
+
+    results: list[dict] = []
+    worker_engines: list[str] = []
+    with ThreadPoolExecutor(max_workers=len(task_groups)) as executor:
+        futures = [
+            executor.submit(
+                process_task_batch,
+                worker_index,
+                task_group,
+                browser_profile_dir / f"worker-{worker_index}",
+                report_year,
+                report_month_german,
+                output_column,
+                excel_path,
+                False,
+            )
+            for worker_index, task_group in enumerate(task_groups, start=1)
+        ]
+
+        for future in as_completed(futures):
+            worker_payload = future.result()
+            worker_engines.append(worker_payload.get("browserEngine", ""))
+            results.extend(worker_payload.get("results", []))
+
+    results.sort(key=lambda item: item.get("rowIndex", 0))
+    browser_engine = ",".join(sorted({engine for engine in worker_engines if engine})) or "unknown"
+    return results, browser_engine
+
+
+def write_pending_results_back(results: list[dict], output_column: int, excel_path: Path) -> None:
+    pending_results = [
+        result
+        for result in results
+        if result.get("writeBackPending") and result.get("writeBackValue")
+    ]
+    write_backs = [
+        (int(result["rowIndex"]), str(result["writeBackValue"]))
+        for result in pending_results
+    ]
+
+    try:
+        write_weights_back_batch(write_backs, output_column, excel_path)
+    except Exception as error:
+        friendly_error = build_write_back_error_message(error, excel_path)
+        for result in pending_results:
+            result["writeBackSucceeded"] = False
+            result["writeBackPending"] = False
+            result["writeBackError"] = friendly_error
+            if result.get("status") == "weight_found":
+                result["status"] = "write_back_failed"
+        raise RuntimeError(friendly_error) from error
+
+    for result in pending_results:
+        result["writeBackSucceeded"] = True
+        result["writeBackPending"] = False
+        result["writeBackError"] = ""
 
 
 def build_manifest(
@@ -822,7 +1080,6 @@ def main() -> int:
             raise ValueError("没有可执行的登录任务，请检查 Excel 中的账号和密码列是否为空。")
 
         artifact_dir = Path(os.environ.get("YISI_ARTIFACT_DIR", "") or excel_file_path.parent)
-        screenshot_dir = Path(os.environ.get("YISI_SCREENSHOT_DIR", "") or (artifact_dir / "screenshots"))
         browser_profile_dir = Path(
             os.environ.get("YISI_BROWSER_PROFILE_DIR", "") or (artifact_dir / "browser-profile")
         )
@@ -895,7 +1152,6 @@ def main() -> int:
                     result = attempt_login_and_fetch(
                         active_page,
                         task,
-                        screenshot_dir,
                         report_year,
                         report_month_german,
                         reuse_session=reuse_session,
@@ -907,6 +1163,9 @@ def main() -> int:
                     write_back_value = result.get("matchedWeight")
                     if not write_back_value and result.get("status") == "matching_entry_not_found":
                         write_back_value = MISSING_MATCH_WRITEBACK_VALUE
+                    elif write_back_value:
+                        write_back_value = normalize_ear_weight_for_write_back(write_back_value)
+                        result["matchedWeight"] = write_back_value
 
                     if write_back_value:
                         try:
@@ -974,6 +1233,98 @@ def main() -> int:
         log_error(message)
         traceback.print_exc(file=sys.stdout)
         return 1
+
+
+def main_with_workers() -> int:
+    try:
+        log_info("开始执行 EAR 官网申报数据抓取流程。")
+        config = load_config()
+
+        excel_file_path = resolve_excel_file(config)
+        ensure_excel_read_write_access(excel_file_path)
+        log_info(f"Excel 读写权限检查通过: {excel_file_path}")
+        report_year, report_month_german = resolve_report_period(config)
+        max_workers = resolve_max_workers(config)
+        runtime = load_excel_runtime(excel_file_path, report_year, report_month_german)
+        tasks: list[LoginTask] = runtime["tasks"]
+        output_column = runtime["outputColumn"]
+
+        if not tasks:
+            raise ValueError("没有可执行的登录任务，请检查 Excel 中的账号和密码列是否为空。")
+
+        artifact_dir = Path(os.environ.get("YISI_ARTIFACT_DIR", "") or excel_file_path.parent)
+        browser_profile_dir = Path(
+            os.environ.get("YISI_BROWSER_PROFILE_DIR", "") or (artifact_dir / "browser-profile")
+        )
+        manifest_path = artifact_dir / "ear_login_manifest.json"
+        report_path = artifact_dir / "ear_login_report.json"
+
+        log_info(f"并发线程数: {max_workers}; 待查询任务数: {len(tasks)}")
+        if max_workers == 1:
+            worker_payload = process_task_batch(
+                1,
+                tasks,
+                browser_profile_dir,
+                report_year,
+                report_month_german,
+                output_column,
+                excel_file_path,
+                True,
+            )
+            results = worker_payload["results"]
+            browser_engine = worker_payload["browserEngine"]
+        else:
+            results, browser_engine = run_parallel_task_batches(
+                tasks,
+                max_workers,
+                browser_profile_dir,
+                report_year,
+                report_month_german,
+                output_column,
+                excel_file_path,
+            )
+            write_pending_results_back(results, output_column, excel_file_path)
+
+        manifest = build_manifest(
+            config,
+            [excel_file_path],
+            tasks,
+            browser_profile_dir,
+            browser_engine,
+            report_year,
+            report_month_german,
+        )
+        manifest["maxWorkers"] = max_workers
+        manifest["writeBackMode"] = "immediate" if max_workers == 1 else "batch_after_parallel_query"
+        write_json(manifest_path, manifest)
+
+        report_payload = {
+            "generatedAt": datetime.now().isoformat(),
+            "total": len(results),
+            "maxWorkers": max_workers,
+            "writeBackMode": "immediate" if max_workers == 1 else "batch_after_parallel_query",
+            "results": results,
+        }
+        write_json(report_path, report_payload)
+
+        success_count = sum(1 for item in results if item["status"] == "weight_found")
+        log_info(f"抓取流程执行完成，报告路径: {report_path}")
+        print("EAR 抓取流程执行完成")
+        print(f"处理任务数: {len(results)}")
+        print(f"成功抓取重量数: {success_count}")
+        print(f"并发线程数: {max_workers}")
+        print(f"清单文件: {manifest_path}")
+        print(f"报告文件: {report_path}")
+        return 0
+    except Exception as error:
+        message = f"执行失败: {error}"
+        log_info(message)
+        log_error(message)
+        traceback.print_exc(file=sys.stdout)
+        return 1
+
+
+main = main_with_workers
 
 
 if __name__ == "__main__":

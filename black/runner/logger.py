@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-LOGS_DIR = Path(__file__).parent.parent / "logs"
+LOGS_DIR = Path(os.environ.get("YISI_LOGS_DIR") or Path(__file__).parent.parent / "logs")
 LOGS_DIR.mkdir(exist_ok=True)
 
 MAX_LOG_ENTRIES = 100

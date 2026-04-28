@@ -29,13 +29,20 @@ Thumbs.db
 
 # Build
 dist/
+front/dist-production/
+front/dist-staging/
 build/
 *.log
 
 # Runtime and local workspace artifacts
 .run/
+.releases/
 .windsurf/
 .rollback_snapshots/
+black/configs-staging/
 black/runtime/
+black/runtime-staging/
 black/data/
+black/data-staging/
+black/logs-staging/
 tmp*/

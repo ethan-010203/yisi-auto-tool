@@ -61,9 +61,10 @@ except ImportError:
 
 app = FastAPI()
 
-CONFIG_DIR = Path(__file__).parent / "configs"
+SERVICE_ENV = os.environ.get("YISI_SERVICE_ENV", "production").strip() or "production"
+CONFIG_DIR = Path(os.environ.get("YISI_CONFIG_DIR") or Path(__file__).parent / "configs")
 CONFIG_DIR.mkdir(exist_ok=True)
-FRONT_DIST_DIR = Path(__file__).parent.parent / "front" / "dist"
+FRONT_DIST_DIR = Path(os.environ.get("YISI_FRONT_DIST_DIR") or Path(__file__).parent.parent / "front" / "dist")
 FRONT_ASSETS_DIR = FRONT_DIST_DIR / "assets"
 
 SCRIPT_DIR = Path(__file__).parent / "scripts"
@@ -230,6 +231,7 @@ def _load_cors_origins() -> list[str]:
 
     return [
         "https://auto.ethan010203.online",
+        "https://auto-test.ethan010203.online",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
@@ -259,6 +261,7 @@ class ConfigRequest(BaseModel):
     excelFolderDisplay: Optional[str] = None
     reportYear: Optional[str] = None
     reportMonthGerman: Optional[str] = None
+    maxWorkers: Optional[int] = None
     email: Optional[str] = None
     authCode: Optional[str] = None
     maxEmails: Optional[int] = None
@@ -442,6 +445,7 @@ def _validate_ear_declaration_data_fetcher_config_or_raise(config: dict[str, Any
     excel_file_path_text = (config.get("excelFilePath") or config.get("excelFolderPath") or "").strip()
     report_year = str(config.get("reportYear") or "").strip()
     report_month_german = str(config.get("reportMonthGerman") or "").strip()
+    raw_max_workers = config.get("maxWorkers", 1)
     excel_file_path = _normalize_absolute_path_or_raise(excel_file_path_text, "EAR Excel")
 
     if not excel_file_path.exists():
@@ -455,6 +459,13 @@ def _validate_ear_declaration_data_fetcher_config_or_raise(config: dict[str, Any
     if not report_month_german:
         raise ValueError("请填写德语月份。")
 
+    try:
+        max_workers = int(raw_max_workers)
+    except (TypeError, ValueError):
+        raise ValueError("EAR 并发线程数必须是 1 到 4 之间的整数。") from None
+    if max_workers < 1 or max_workers > 4:
+        raise ValueError("EAR 并发线程数必须是 1 到 4 之间的整数。")
+
     _ensure_readable_file(excel_file_path, "EAR Excel")
 
     normalized_excel_path = str(excel_file_path)
@@ -465,6 +476,7 @@ def _validate_ear_declaration_data_fetcher_config_or_raise(config: dict[str, Any
     normalized_config["excelFolderDisplay"] = normalized_excel_path
     normalized_config["reportYear"] = report_year
     normalized_config["reportMonthGerman"] = report_month_german
+    normalized_config["maxWorkers"] = max_workers
     return normalized_config
 
 
@@ -773,10 +785,13 @@ def read_health():
         "frontend": {
             "distExists": FRONT_DIST_DIR.exists(),
             "indexExists": (FRONT_DIST_DIR / "index.html").exists(),
+            "distPath": str(FRONT_DIST_DIR),
         },
         "mode": {
+            "environment": SERVICE_ENV,
             "queue": "sqlite",
             "worker": "separate-process",
+            "configDir": str(CONFIG_DIR),
         },
     }
 

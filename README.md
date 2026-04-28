@@ -1,5 +1,51 @@
 # Yisi Auto Tool
 
+## Staging and Production
+
+This project can run two isolated Windows service environments from the same codebase:
+
+| Environment | Public hostname | Local port | Frontend build | Config | Queue database | Runtime |
+| --- | --- | --- | --- | --- | --- | --- |
+| Production | `auto.ethan010203.online` | `8000` | `front/dist-production` | `black/configs` | `black/data` | `black/runtime` |
+| Staging | `auto-test.ethan010203.online` | `8001` | `front/dist-staging` | `black/configs-staging` | `black/data-staging` | `black/runtime-staging` |
+
+Recommended workflow:
+
+```text
+1. Make code changes.
+2. Run yisi.bat and choose "Restart staging".
+3. Test https://auto-test.ethan010203.online.
+4. Run yisi.bat and choose "Publish staging to production" after staging is good.
+5. Users see the release at https://auto.ethan010203.online.
+```
+
+Root command:
+
+```text
+yisi.bat
+```
+
+Useful command-line shortcuts:
+
+```text
+yisi.bat staging            Restart staging backend + worker on port 8001
+yisi.bat production         Restart production backend + worker on port 8000
+yisi.bat publish            Copy tested staging frontend to production and restart port 8000
+yisi.bat rollback           Restore the latest saved production frontend backup and restart port 8000
+yisi.bat status             Show staging and production status
+yisi.bat stop-staging       Stop staging
+yisi.bat stop-production    Stop production
+```
+
+Cloudflare Tunnel routes:
+
+```text
+auto.ethan010203.online        http://localhost:8000
+auto-test.ethan010203.online   http://localhost:8001
+```
+
+`publish-production.bat` backs up the current production frontend under `.releases/production/<timestamp>/frontend` before replacing it. This rollback only restores the frontend build. Backend code rollback should use Git, so commit known-good production code before risky changes.
+
 椅思内部本地自动化工具项目，采用 `Vue 3 + Vite` 前端和 `FastAPI + Python` 后端，面向各部门承接可配置、可执行、可留痕的自动化脚本。
 
 ## 当前状态

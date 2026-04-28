@@ -10,8 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional
 
-DB_DIR = Path(__file__).parent.parent / "data"
-DB_PATH = DB_DIR / "automation.sqlite3"
+DB_DIR = Path(os.environ.get("YISI_DATA_DIR") or Path(__file__).parent.parent / "data")
+DB_PATH = Path(os.environ.get("YISI_DB_PATH") or DB_DIR / "automation.sqlite3")
 
 MAX_OUTPUT_CHARS = 12000
 MAX_ERROR_CHARS = 4000

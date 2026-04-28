@@ -1,15 +1,20 @@
 param(
+    [ValidateSet("production", "staging")]
+    [string]$Environment = "production",
     [switch]$SkipBuild
 )
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
 
+$normalizedEnvironment = Get-ServiceEnvironment $Environment
+Set-ServiceEnvironmentVariables $normalizedEnvironment
+
 $root = Get-WorkspaceRoot
 $runDir = Get-RunDir
 $python = Get-PythonCommand
 $hostIp = Get-PreferredLanIp
-$port = if ($env:YISI_BACKEND_PORT) { [string]$env:YISI_BACKEND_PORT } else { "8000" }
+$port = Get-ServicePort $normalizedEnvironment
 $appUrl = "http://$hostIp`:$port"
 
 $backendPidFile = Get-PidFile "backend"
@@ -22,9 +27,9 @@ $preflightHealth = Invoke-AppHealth $appUrl 1
 $externalBackendDetected = $false
 
 if (-not $SkipBuild) {
-    $distIndex = Join-Path $root "front\dist\index.html"
+    $distIndex = Join-Path (Get-FrontendDistDir $normalizedEnvironment) "index.html"
     if (-not (Test-Path $distIndex)) {
-        & (Join-Path $PSScriptRoot "build-frontend.ps1")
+        & (Join-Path $PSScriptRoot "build-frontend.ps1") -Environment $normalizedEnvironment
     }
 }
 
@@ -92,10 +97,16 @@ if (-not (Test-Path $workerPidFile)) {
 
 $meta = [ordered]@{
     startedAt = (Get-Date).ToString("o")
+    environment = $normalizedEnvironment
     workspace = $root
     host = $hostIp
     port = $port
     appUrl = $appUrl
+    frontendDistDir = Get-FrontendDistDir $normalizedEnvironment
+    configDir = Get-ConfigDir $normalizedEnvironment
+    dataDir = Get-DataDir $normalizedEnvironment
+    runtimeRoot = Get-RuntimeRoot $normalizedEnvironment
+    logsDir = Get-LogsDir $normalizedEnvironment
     backendPid = if (Test-Path $backendPidFile) { Get-Content -LiteralPath $backendPidFile -Raw } else { $null }
     backendManaged = -not $externalBackendDetected
     workerPid = if (Test-Path $workerPidFile) { Get-Content -LiteralPath $workerPidFile -Raw } else { $null }
@@ -110,7 +121,7 @@ Start-Sleep -Seconds 2
 $health = Invoke-AppHealth $appUrl 3
 
 Write-Host ""
-Write-Host "Services are ready."
+Write-Host "$normalizedEnvironment services are ready."
 Write-Host "App URL: $appUrl"
 Write-Host "Backend log: $backendLog"
 Write-Host "Backend error log: $backendErrorLog"

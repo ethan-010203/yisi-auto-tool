@@ -14,6 +14,7 @@ export function createDefaultConfigData() {
     excelFolderDisplay: '',
     reportYear: '',
     reportMonthGerman: '',
+    maxWorkers: 1,
     email: '',
     authCode: '',
     maxEmails: 50,
@@ -52,6 +53,7 @@ export function normalizeEarDeclarationFetcherConfig(config) {
   const excelFilePath = sanitizePathInput(config.excelFilePath || config.excelFolderPath || '')
   const reportYear = String(config.reportYear || '').trim()
   const reportMonthGerman = String(config.reportMonthGerman || '').trim()
+  const maxWorkers = String(config.maxWorkers ?? '').trim() === '' ? 1 : Number(config.maxWorkers)
 
   return {
     ...config,
@@ -61,6 +63,7 @@ export function normalizeEarDeclarationFetcherConfig(config) {
     excelFolderDisplay: excelFilePath,
     reportYear,
     reportMonthGerman,
+    maxWorkers: Number.isInteger(maxWorkers) ? maxWorkers : config.maxWorkers,
   }
 }
 
@@ -80,6 +83,7 @@ export function validateEarDeclarationFetcherConfigOrThrow(config) {
   const excelFilePath = sanitizePathInput(config.excelFilePath || config.excelFolderPath || '')
   const reportYear = String(config.reportYear || '').trim()
   const reportMonthGerman = String(config.reportMonthGerman || '').trim()
+  const maxWorkers = String(config.maxWorkers ?? '').trim() === '' ? 1 : Number(config.maxWorkers)
 
   if (!excelFilePath) {
     throw new Error('请先填写申报数据 Excel 文件路径。')
@@ -93,6 +97,9 @@ export function validateEarDeclarationFetcherConfigOrThrow(config) {
   }
   if (!reportMonthGerman) {
     throw new Error('请先填写德语月份。')
+  }
+  if (!Number.isInteger(maxWorkers) || maxWorkers < 1 || maxWorkers > 4) {
+    throw new Error('EAR 并发线程数必须是 1 到 4 之间的整数。')
   }
 }
 
@@ -267,6 +274,7 @@ export function useToolConfig({
         excelFolderDisplay: cfg.excelFileDisplay || cfg.excelFilePath || cfg.excelFolderDisplay || cfg.excelFolderPath || '',
         reportYear: cfg.reportYear || '',
         reportMonthGerman: cfg.reportMonthGerman || '',
+        maxWorkers: cfg.maxWorkers || 1,
         email: cfg.email || '',
         authCode: cfg.authCode || '',
         maxEmails: cfg.maxEmails || 50,

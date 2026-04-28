@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import time
 from pathlib import Path
 from typing import Any, Dict
 
-RUNTIME_ROOT = Path(__file__).parent.parent / "runtime"
+RUNTIME_ROOT = Path(os.environ.get("YISI_RUNTIME_ROOT") or Path(__file__).parent.parent / "runtime")
 RUNTIME_RETENTION_DAYS = 3
 SECONDS_PER_DAY = 24 * 60 * 60
 

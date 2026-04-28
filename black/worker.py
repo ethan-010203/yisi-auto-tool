@@ -33,7 +33,7 @@ except ModuleNotFoundError:
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REQUIREMENTS_FILE = Path(__file__).parent / "requirements.txt"
-CONFIG_DIR = Path(__file__).parent / "configs"
+CONFIG_DIR = Path(os.environ.get("YISI_CONFIG_DIR") or Path(__file__).parent / "configs")
 
 TOOL_REQUIRED_PYTHON_MODULES = {
     ("BUE1", "ear_declaration_data_fetcher"): ("playwright", "openpyxl"),

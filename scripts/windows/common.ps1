@@ -4,10 +4,130 @@ function Get-WorkspaceRoot {
     return Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 }
 
+function Get-ServiceEnvironment {
+    param([string]$Environment = $env:YISI_SERVICE_ENV)
+
+    $normalized = if ($Environment) { $Environment.ToLowerInvariant() } else { "production" }
+    if ($normalized -notin @("production", "staging")) {
+        throw "Unknown service environment '$Environment'. Use production or staging."
+    }
+    return $normalized
+}
+
+function Get-ServicePort {
+    param([string]$Environment = (Get-ServiceEnvironment))
+
+    $normalized = Get-ServiceEnvironment $Environment
+    if ($env:YISI_BACKEND_PORT) {
+        return [string]$env:YISI_BACKEND_PORT
+    }
+    if ($normalized -eq "staging") {
+        return "8001"
+    }
+    return "8000"
+}
+
 function Get-RunDir {
-    $runDir = Join-Path (Get-WorkspaceRoot) ".run\windows"
+    param([string]$Environment = (Get-ServiceEnvironment))
+
+    $normalized = Get-ServiceEnvironment $Environment
+    $runDir = Join-Path (Get-WorkspaceRoot) ".run\windows\$normalized"
     New-Item -ItemType Directory -Force -Path $runDir | Out-Null
     return $runDir
+}
+
+function Get-FrontendDistDir {
+    param([string]$Environment = (Get-ServiceEnvironment))
+
+    $root = Get-WorkspaceRoot
+    $normalized = Get-ServiceEnvironment $Environment
+    if ($normalized -eq "staging") {
+        return Join-Path $root "front\dist-staging"
+    }
+    return Join-Path $root "front\dist-production"
+}
+
+function Get-ConfigDir {
+    param([string]$Environment = (Get-ServiceEnvironment))
+
+    $root = Get-WorkspaceRoot
+    $normalized = Get-ServiceEnvironment $Environment
+    if ($normalized -eq "staging") {
+        return Join-Path $root "black\configs-staging"
+    }
+    return Join-Path $root "black\configs"
+}
+
+function Get-DataDir {
+    param([string]$Environment = (Get-ServiceEnvironment))
+
+    $root = Get-WorkspaceRoot
+    $normalized = Get-ServiceEnvironment $Environment
+    if ($normalized -eq "staging") {
+        return Join-Path $root "black\data-staging"
+    }
+    return Join-Path $root "black\data"
+}
+
+function Get-RuntimeRoot {
+    param([string]$Environment = (Get-ServiceEnvironment))
+
+    $root = Get-WorkspaceRoot
+    $normalized = Get-ServiceEnvironment $Environment
+    if ($normalized -eq "staging") {
+        return Join-Path $root "black\runtime-staging"
+    }
+    return Join-Path $root "black\runtime"
+}
+
+function Get-LogsDir {
+    param([string]$Environment = (Get-ServiceEnvironment))
+
+    $root = Get-WorkspaceRoot
+    $normalized = Get-ServiceEnvironment $Environment
+    if ($normalized -eq "staging") {
+        return Join-Path $root "black\logs-staging"
+    }
+    return Join-Path $root "black\logs"
+}
+
+function Initialize-ServiceEnvironment {
+    param([string]$Environment = (Get-ServiceEnvironment))
+
+    $normalized = Get-ServiceEnvironment $Environment
+    $configDir = Get-ConfigDir $normalized
+    $dataDir = Get-DataDir $normalized
+    $runtimeRoot = Get-RuntimeRoot $normalized
+    $logsDir = Get-LogsDir $normalized
+
+    New-Item -ItemType Directory -Force -Path $configDir | Out-Null
+    New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
+    New-Item -ItemType Directory -Force -Path $runtimeRoot | Out-Null
+    New-Item -ItemType Directory -Force -Path $logsDir | Out-Null
+
+    if ($normalized -eq "staging") {
+        $productionConfigDir = Get-ConfigDir "production"
+        $hasStagingConfigs = @(Get-ChildItem -LiteralPath $configDir -Filter "*.json" -ErrorAction SilentlyContinue).Count -gt 0
+        if ((-not $hasStagingConfigs) -and (Test-Path $productionConfigDir)) {
+            Copy-Item -Path (Join-Path $productionConfigDir "*") -Destination $configDir -Recurse -Force
+        }
+    }
+}
+
+function Set-ServiceEnvironmentVariables {
+    param([string]$Environment = (Get-ServiceEnvironment))
+
+    $normalized = Get-ServiceEnvironment $Environment
+    Initialize-ServiceEnvironment $normalized
+
+    $env:YISI_SERVICE_ENV = $normalized
+    $env:YISI_BACKEND_PORT = if ($normalized -eq "staging") { "8001" } else { "8000" }
+    $env:YISI_FRONT_DIST_DIR = Get-FrontendDistDir $normalized
+    $env:YISI_CONFIG_DIR = Get-ConfigDir $normalized
+    $env:YISI_DATA_DIR = Get-DataDir $normalized
+    $env:YISI_RUNTIME_ROOT = Get-RuntimeRoot $normalized
+    $env:YISI_LOGS_DIR = Get-LogsDir $normalized
+    $env:YISI_CORS_ORIGINS = "https://auto.ethan010203.online,https://auto-test.ethan010203.online,http://localhost:5173,http://127.0.0.1:5173"
 }
 
 function Get-PreferredLanIp {
@@ -216,7 +336,7 @@ function Get-AppUrl {
     }
 
     $hostIp = Get-PreferredLanIp
-    $port = if ($env:YISI_BACKEND_PORT) { [string]$env:YISI_BACKEND_PORT } else { "8000" }
+    $port = Get-ServicePort
     return "http://$hostIp`:$port"
 }
 

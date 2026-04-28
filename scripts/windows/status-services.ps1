@@ -1,14 +1,20 @@
-param()
+param(
+    [ValidateSet("production", "staging")]
+    [string]$Environment = "production"
+)
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "common.ps1")
+
+$normalizedEnvironment = Get-ServiceEnvironment $Environment
+Set-ServiceEnvironmentVariables $normalizedEnvironment
 
 $root = Get-WorkspaceRoot
 $meta = Read-ServiceMeta
 $appUrl = Get-AppUrl
 $backendStatus = Get-ManagedProcessStatus "backend"
 $workerStatus = Get-ManagedProcessStatus "worker"
-$frontendIndex = Join-Path $root "front\dist\index.html"
+$frontendIndex = Join-Path (Get-FrontendDistDir $normalizedEnvironment) "index.html"
 $health = Invoke-AppHealth $appUrl
 
 function Write-ServiceLine($title, $status) {
@@ -19,9 +25,13 @@ function Write-ServiceLine($title, $status) {
     Write-Host ("  Stderr log: {0}" -f (Get-ErrorLogFile $status.Name))
 }
 
-Write-Host "Yisi Automation Service Status"
+Write-Host "Yisi Automation Service Status ($normalizedEnvironment)"
 Write-Host "Workspace: $root"
 Write-Host "App URL: $appUrl"
+Write-Host "Frontend dist: $(Get-FrontendDistDir $normalizedEnvironment)"
+Write-Host "Config dir: $(Get-ConfigDir $normalizedEnvironment)"
+Write-Host "Data dir: $(Get-DataDir $normalizedEnvironment)"
+Write-Host "Logs dir: $(Get-LogsDir $normalizedEnvironment)"
 if ($meta -and $meta.startedAt) {
     Write-Host "Last start: $($meta.startedAt)"
 }
@@ -48,6 +58,7 @@ if ($health.Success) {
         Write-Host ("  Frontend index: {0}" -f $health.Response.frontend.indexExists)
     }
     if ($health.Response.mode) {
+        Write-Host ("  Environment: {0}" -f $health.Response.mode.environment)
         Write-Host ("  Queue mode: {0}" -f $health.Response.mode.queue)
         Write-Host ("  Worker mode: {0}" -f $health.Response.mode.worker)
     }

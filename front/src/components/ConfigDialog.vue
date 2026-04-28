@@ -124,6 +124,25 @@ function updateField(key, value) {
         <small class="field-hint">表头需包含：授权代表\nbevollmächtigter Vertreter、WEEE号\nWEEE-Nummer、中文名\nFirmenname auf Chinesisch、英文名\nFirmenname auf Englisch、类别\nKategorie、德语类目、账号、密码、*月申报数据、官网上抓取的数据（*月）。年份和德语月份从配置项读取，不再从 Excel 表中读取。</small>
         <small class="field-hint">可先点击“下载模板”获取 Excel 示例。</small>
       </div>
+      <div class="form-field">
+        <UiLabel for="ear-max-workers">并发线程数</UiLabel>
+        <UiInput
+          id="ear-max-workers"
+          :model-value="String(configData.maxWorkers || 1)"
+          type="number"
+          placeholder="1"
+          @update:model-value="value => updateField('maxWorkers', value)"
+        />
+        <small class="field-hint">可填写 1-4。1 为单线程，查一条写一条；大于 1 时会并发查询，全部查询完成后统一写回 Excel。</small>
+      </div>
+
+      <div class="config-warning">
+        <div class="config-warning-head">
+          <UiBadge variant="warning">注意事项</UiBadge>
+        </div>
+        <small class="field-hint">运行前请先备份一份原始 Excel 数据，防止脚本异常或文件占用导致数据损坏。</small>
+        <small class="field-hint">建议先用 1 个线程确认账号和表格格式正常，再逐步提高到 2 或 3 个线程。</small>
+      </div>
     </div>
 
     <div v-else-if="currentConfigTool.toolId !== 'citeo_email_extractor'" class="config-form">
@@ -248,6 +267,20 @@ function updateField(key, value) {
   margin: 0;
   color: var(--muted-foreground);
   line-height: 1.6;
+}
+
+.config-warning {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card-muted);
+}
+
+.config-warning-head {
+  display: flex;
+  align-items: center;
 }
 
 .form-field > :deep(.ui-label):has(+ .folder-select-header) {
