@@ -1,5 +1,6 @@
 ﻿<script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { RotateCw } from 'lucide-vue-next'
 import { getExecutionLogs, getGlobalEventsUrl } from '../api/index'
 import { departments } from '../data/departments'
 import UiBadge from './ui/UiBadge.vue'
@@ -339,23 +340,12 @@ defineExpose({
         </div>
         <UiButton size="icon" variant="outline" title="刷新全局任务" aria-label="刷新全局任务" @click="loadLogs({ manual: true })">
           <span class="refresh-button-content">
-            <svg
+            <RotateCw
               class="refresh-button-icon"
               :class="{ 'refresh-button-icon--spinning': loading }"
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
+              :size="14"
               aria-hidden="true"
-            >
-              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-              <path d="M21 3v5h-5" />
-              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-              <path d="M8 16H3v5" />
-            </svg>
+            />
           </span>
         </UiButton>
       </div>
@@ -382,10 +372,11 @@ defineExpose({
     </div>
 
     <div v-else class="global-task-list">
-      <button
+      <UiButton
         v-for="log in visibleActiveLogs"
         :key="log.id"
         type="button"
+        variant="outline"
         class="global-task-card"
         @click="focusDepartment(log.department)"
       >
@@ -401,7 +392,7 @@ defineExpose({
           <span v-else-if="log.duration !== undefined && log.duration !== null">已执行 {{ Number(log.duration).toFixed(1) }}s</span>
           <span v-else>等待 worker 处理</span>
         </div>
-      </button>
+      </UiButton>
 
       <div v-if="hiddenActiveCount > 0" class="global-task-more">
         还有 {{ hiddenActiveCount }} 个运行任务未展开显示
@@ -556,6 +547,8 @@ defineExpose({
 .global-task-card {
   display: grid;
   gap: 0.5rem;
+  justify-content: stretch;
+  align-items: stretch;
   padding: 0.85rem 0.95rem;
   border: 1px solid var(--border);
   border-radius: 1rem;

@@ -1,5 +1,6 @@
 <script setup>
 import UiBadge from '../ui/UiBadge.vue'
+import UiButton from '../ui/UiButton.vue'
 import UiDialog from '../ui/UiDialog.vue'
 
 defineProps({
@@ -61,9 +62,9 @@ const emit = defineEmits(['update:open', 'refresh'])
         <div class="preview-section">
           <div class="preview-section-head">
             <h4>执行分层</h4>
-            <button type="button" class="preview-refresh" @click="emit('refresh')">
+            <UiButton type="button" variant="outline" size="sm" class="preview-refresh" @click="emit('refresh')">
               刷新预览
-            </button>
+            </UiButton>
           </div>
           <ul class="preview-list">
             <li v-for="stage in preview.stages" :key="stage.name">
@@ -224,16 +225,6 @@ const emit = defineEmits(['update:open', 'refresh'])
 
 .preview-list span {
   color: #52525b;
-}
-
-.preview-refresh {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #0f766e;
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 .preview-empty {

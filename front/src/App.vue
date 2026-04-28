@@ -8,7 +8,6 @@ import GlobalRunningTasksBar from './components/GlobalRunningTasksBar.vue'
 import NetworkSettingsPanel from './components/NetworkSettingsPanel.vue'
 import ToolGrid from './components/ToolGrid.vue'
 import ToolPreviewDialog from './components/preview/ToolPreviewDialog.vue'
-import UiBadge from './components/ui/UiBadge.vue'
 import UiButton from './components/ui/UiButton.vue'
 import UiCard from './components/ui/UiCard.vue'
 import UiPageHeader from './components/ui/UiPageHeader.vue'
@@ -930,53 +929,8 @@ onBeforeUnmount(() => {
       :stats="activeDepartmentOverview"
     />
 
-    <UiCard v-if="false" class="switcher-card">
-      <div class="tabs-head">
-        <div>
-          <p class="section-label">部门切换</p>
-          <h2>选择你现在要处理的工作区</h2>
-          <p class="switcher-copy">先确认部门，再看下方任务是否已经就绪。</p>
-        </div>
-        <div class="switcher-status">
-          <UiBadge :variant="statusBadgeVariant">{{ connectionStatus.label }}</UiBadge>
-          <small>{{ connectionStatus.detail }}</small>
-        </div>
-      </div>
-
-      <div class="tabs-list" role="tablist" aria-label="部门切换">
-        <button
-          v-for="department in departments"
-          :key="department.code"
-          type="button"
-          class="tab-trigger"
-          :class="{ active: department.code === activeDepartmentCode }"
-          :aria-selected="department.code === activeDepartmentCode"
-          @click="activeDepartmentCode = department.code"
-        >
-          <span>{{ department.name }}</span>
-        </button>
-      </div>
-    </UiCard>
-
     <section class="content-grid app-stable-content">
       <UiCard class="department-card">
-        <div class="department-header department-header--stacked">
-          <div class="department-copy">
-            <div v-if="false" class="department-badges">
-              <UiBadge>{{ activeDepartment.code }}</UiBadge>
-              <UiBadge variant="secondary">{{ activeToolCount }} 个工具</UiBadge>
-              <UiBadge :variant="activeDepartmentStatus.variant">{{ activeDepartmentStatus.label }}</UiBadge>
-            </div>
-          </div>
-          </div>
-        <div v-if="false" class="overview-grid">
-          <div v-for="item in activeDepartmentOverview" :key="item.label" class="overview-card">
-            <span class="section-label">{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <small>{{ item.hint }}</small>
-          </div>
-        </div>
-
         <ToolGrid
           :tools="activeToolCards"
           :active-department-code="activeDepartmentCode"
@@ -1066,71 +1020,10 @@ onBeforeUnmount(() => {
   padding-right: 0.25rem;
 }
 
-.overview-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.overview-card {
-  display: grid;
-  gap: 0.4rem;
-  padding: 1rem 1.05rem;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--card-muted);
-}
-
-.overview-card strong {
-  font-size: 1.2rem;
-  line-height: 1.15;
-  letter-spacing: -0.03em;
-}
-
-.overview-card small {
-  color: var(--muted-foreground);
-  line-height: 1.55;
-}
-
 .department-card {
   display: grid;
   gap: 1rem;
 }
-
-.department-copy {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.department-copy h2 {
-  margin: 0;
-  font-size: 1.18rem;
-  line-height: 1.15;
-  letter-spacing: -0.03em;
-}
-
-.department-copy p {
-  color: var(--muted-foreground);
-  line-height: 1.6;
-}
-
-.department-header--stacked {
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.department-header-actions {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.overview-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-
-
 
 .workspace-main {
   grid-auto-rows: max-content;
@@ -1208,14 +1101,6 @@ onBeforeUnmount(() => {
     padding-right: 0;
   }
 
-  .overview-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .overview-card {
-    padding: 0.85rem;
-  }
-
   .dashboard-subtabs {
     position: sticky;
     top: 8.45rem;
@@ -1248,25 +1133,6 @@ onBeforeUnmount(() => {
     padding: 1rem;
   }
 
-  .department-header,
-  .department-header--stacked,
-  .workspace-toolbar {
-    display: grid;
-    gap: 0.85rem;
-  }
-
-  .department-header-actions,
-  .workspace-toolbar-actions {
-    display: grid;
-    grid-template-columns: 1fr;
-    width: 100%;
-  }
-
-  .department-header-actions .ui-button,
-  .workspace-toolbar-actions .ui-button {
-    width: 100%;
-  }
-
   .aside-card {
     position: static;
   }
@@ -1275,10 +1141,6 @@ onBeforeUnmount(() => {
 @media (max-width: 560px) {
   .page-shell {
     padding: 0.65rem;
-  }
-
-  .overview-grid {
-    grid-template-columns: 1fr;
   }
 
   .dashboard-subtabs {

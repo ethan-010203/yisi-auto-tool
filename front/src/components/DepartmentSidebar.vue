@@ -78,8 +78,9 @@ defineEmits(['show-dashboard', 'select-department'])
       </div>
 
       <nav class="sidebar-department-list" aria-label="部门切换">
-        <button
+        <UiButton
           type="button"
+          variant="outline"
           class="sidebar-department-button sidebar-dashboard-button"
           :class="{ active: activeWorkspaceView === 'dashboard' }"
           :aria-current="activeWorkspaceView === 'dashboard' ? 'page' : undefined"
@@ -91,12 +92,13 @@ defineEmits(['show-dashboard', 'select-department'])
               <span>全局运行任务</span>
             </div>
           </div>
-        </button>
+        </UiButton>
 
-        <button
+        <UiButton
           v-for="department in departments"
           :key="department.code"
           type="button"
+          variant="outline"
           class="sidebar-department-button sidebar-department-button--compact"
           :class="{ active: activeWorkspaceView === 'department' && department.code === activeDepartmentCode }"
           :aria-current="activeWorkspaceView === 'department' && department.code === activeDepartmentCode ? 'page' : undefined"
@@ -104,7 +106,7 @@ defineEmits(['show-dashboard', 'select-department'])
         >
           <strong>{{ department.name }}</strong>
           <span>{{ department.tools.length }} 个工具</span>
-        </button>
+        </UiButton>
       </nav>
     </UiCard>
   </aside>
@@ -160,6 +162,8 @@ defineEmits(['show-dashboard', 'select-department'])
 .sidebar-department-button {
   display: grid;
   gap: 0.65rem;
+  justify-content: stretch;
+  align-items: stretch;
   width: 100%;
   padding: 0.95rem 1rem;
   text-align: left;

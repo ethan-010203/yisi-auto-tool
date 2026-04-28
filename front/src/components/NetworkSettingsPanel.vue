@@ -2,6 +2,7 @@
 import UiBadge from './ui/UiBadge.vue'
 import UiButton from './ui/UiButton.vue'
 import UiCard from './ui/UiCard.vue'
+import UiTable from './ui/UiTable.vue'
 
 defineProps({
   networkConfigRows: {
@@ -42,34 +43,32 @@ defineEmits(['test-all', 'test-department'])
       </UiButton>
     </div>
 
-    <div class="network-config-table-wrap">
-      <table class="network-config-table">
-        <thead>
-          <tr>
-            <th>部门名称</th>
-            <th>局域网地址</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in networkConfigRows" :key="item.code">
-            <td>{{ item.name }}</td>
-            <td><code>{{ item.networkPath }}</code></td>
-            <td>
-              <UiButton
-                variant="outline"
-                size="sm"
-                :loading="testingNetworkDepartment === item.code"
-                :disabled="testingAllNetworkPaths || (testingNetworkPath && testingNetworkDepartment !== item.code)"
-                @click="$emit('test-department', item.code)"
-              >
-                测试连接
-              </UiButton>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <UiTable table-class="network-config-table">
+      <thead>
+        <tr>
+          <th>部门名称</th>
+          <th>局域网地址</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="item in networkConfigRows" :key="item.code">
+          <td>{{ item.name }}</td>
+          <td><code>{{ item.networkPath }}</code></td>
+          <td>
+            <UiButton
+              variant="outline"
+              size="sm"
+              :loading="testingNetworkDepartment === item.code"
+              :disabled="testingAllNetworkPaths || (testingNetworkPath && testingNetworkDepartment !== item.code)"
+              @click="$emit('test-department', item.code)"
+            >
+              测试连接
+            </UiButton>
+          </td>
+        </tr>
+      </tbody>
+    </UiTable>
 
     <div
       v-if="networkPathTestResult"
@@ -82,50 +81,18 @@ defineEmits(['test-all', 'test-department'])
 </template>
 
 <style scoped>
-.network-config-table-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--card);
-}
-
-.network-config-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 720px;
-}
-
-.network-config-table th,
-.network-config-table td {
-  padding: 0.85rem 1rem;
-  border-bottom: 1px solid var(--border);
-  text-align: left;
-  vertical-align: middle;
-}
-
-.network-config-table th {
-  color: var(--muted-foreground);
-  background: var(--card-muted);
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
-.network-config-table tr:last-child td {
-  border-bottom: 0;
-}
-
-.network-config-table td:first-child {
+:deep(.network-config-table td:first-child) {
   width: 180px;
   font-weight: 700;
 }
 
-.network-config-table td:last-child,
-.network-config-table th:last-child {
+:deep(.network-config-table td:last-child),
+:deep(.network-config-table th:last-child) {
   width: 140px;
   text-align: right;
 }
 
-.network-config-table code {
+:deep(.network-config-table code) {
   display: block;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -156,9 +123,4 @@ defineEmits(['test-all', 'test-department'])
   color: var(--danger);
 }
 
-@media (max-width: 980px) {
-  .network-config-table {
-    min-width: 640px;
-  }
-}
 </style>

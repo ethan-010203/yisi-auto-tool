@@ -1,5 +1,6 @@
 ﻿<script setup>
 import { computed, onUnmounted, ref, watch } from 'vue'
+import { RotateCw } from 'lucide-vue-next'
 import {
   clearDepartmentLogs,
   getDepartmentEventsUrl,
@@ -709,23 +710,12 @@ defineExpose({
       <div class="panel-actions">
         <UiButton size="icon" variant="outline" title="刷新运行记录" aria-label="刷新运行记录" @click="handleManualRefresh">
           <span class="refresh-button-content">
-            <svg
+            <RotateCw
               class="refresh-button-icon"
               :class="{ 'refresh-button-icon--spinning': loading || refreshSpinning }"
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
+              :size="14"
               aria-hidden="true"
-            >
-              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-              <path d="M21 3v5h-5" />
-              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-              <path d="M8 16H3v5" />
-            </svg>
+            />
           </span>
         </UiButton>
         <UiButton variant="outline" :disabled="filteredLogs.length === 0" @click="exportLogs">
@@ -752,7 +742,7 @@ defineExpose({
       <UiInput v-model="searchQuery" placeholder="搜索任务名或错误信息" class="search-input" />
 
       <div class="status-filter">
-        <button
+        <UiButton
           v-for="option in [
             { value: 'all', label: '全部' },
             { value: 'queued', label: '排队中' },
@@ -761,12 +751,14 @@ defineExpose({
             { value: 'failed', label: '失败' },
           ]"
           :key="option.value"
+          type="button"
+          :variant="statusFilter === option.value ? 'default' : 'outline'"
           class="filter-btn"
           :class="{ active: statusFilter === option.value }"
           @click="statusFilter = option.value"
         >
           {{ option.label }}
-        </button>
+        </UiButton>
       </div>
     </div>
 
@@ -779,10 +771,11 @@ defineExpose({
     </div>
 
     <div v-else class="records-shell">
-      <button
+      <UiButton
         v-for="log in displayedLogs"
         :key="log.id"
         type="button"
+        variant="outline"
         class="record-card"
         :class="{
           'record-card-success': log.status === 'success',
@@ -806,13 +799,13 @@ defineExpose({
           <span>{{ log.queuePosition ? `队列 #${log.queuePosition}` : '非排队任务' }}</span>
           <span>{{ formatDuration(log.duration) }}</span>
         </div>
-      </button>
+      </UiButton>
     </div>
 
     <div v-if="totalPages > 1" class="pagination">
-      <button class="page-btn" :disabled="currentPage === 1" @click="currentPage -= 1">上一页</button>
+      <UiButton variant="outline" class="page-btn" :disabled="currentPage === 1" @click="currentPage -= 1">上一页</UiButton>
       <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-      <button class="page-btn" :disabled="currentPage === totalPages" @click="currentPage += 1">下一页</button>
+      <UiButton variant="outline" class="page-btn" :disabled="currentPage === totalPages" @click="currentPage += 1">下一页</UiButton>
     </div>
 
     <UiDialog
@@ -1093,6 +1086,9 @@ defineExpose({
 }
 
 .record-card {
+  display: grid;
+  justify-content: stretch;
+  align-items: stretch;
   width: 100%;
   border: 1px solid transparent;
   border-radius: 0.9rem;
