@@ -34,11 +34,9 @@ HEADER_CATEGORY = "类别\nKategorie"
 HEADER_GERMAN_CATEGORY = "德语类目"
 HEADER_ACCOUNT = "账号"
 HEADER_PASSWORD = "密码"
-HEADER_DECLARED_WEIGHT = "3月申报数据"
-HEADER_FETCHED_WEIGHT = "官网上抓取的数据（3月）"
 MISSING_MATCH_WRITEBACK_VALUE = "查无此数据"
 
-EXPECTED_HEADERS = [
+STATIC_EXPECTED_HEADERS = [
     HEADER_AUTHORIZED_REP,
     HEADER_WEEE_NUMBER,
     HEADER_COMPANY_NAME_CN,
@@ -47,9 +45,44 @@ EXPECTED_HEADERS = [
     HEADER_GERMAN_CATEGORY,
     HEADER_ACCOUNT,
     HEADER_PASSWORD,
-    HEADER_DECLARED_WEIGHT,
-    HEADER_FETCHED_WEIGHT,
 ]
+
+GERMAN_MONTH_TO_NUMBER = {
+    "januar": 1,
+    "februar": 2,
+    "märz": 3,
+    "maerz": 3,
+    "april": 4,
+    "mai": 5,
+    "juni": 6,
+    "juli": 7,
+    "august": 8,
+    "september": 9,
+    "oktober": 10,
+    "november": 11,
+    "dezember": 12,
+}
+
+
+def resolve_chinese_month_number(report_month_german: str) -> int:
+    key = normalize_text_casefold(report_month_german)
+    if key not in GERMAN_MONTH_TO_NUMBER:
+        raise ValueError(
+            f"无法识别的德语月份: {report_month_german!r}; 期望值如 Januar/Februar/März/April 等。"
+        )
+    return GERMAN_MONTH_TO_NUMBER[key]
+
+
+def build_month_headers(report_month_german: str) -> tuple[str, str]:
+    month_number = resolve_chinese_month_number(report_month_german)
+    declared = f"{month_number}月申报数据"
+    fetched = f"官网上抓取的数据（{month_number}月）"
+    return declared, fetched
+
+
+def build_expected_headers(report_month_german: str) -> list[str]:
+    declared, fetched = build_month_headers(report_month_german)
+    return [*STATIC_EXPECTED_HEADERS, declared, fetched]
 
 
 @dataclass
@@ -168,8 +201,13 @@ def resolve_max_workers(config: dict) -> int:
     return max_workers
 
 
-def ensure_expected_headers(header_map: dict[str, int], excel_path: Path, sheet_name: str) -> None:
-    missing_headers = [header for header in EXPECTED_HEADERS if header not in header_map]
+def ensure_expected_headers(
+    header_map: dict[str, int],
+    excel_path: Path,
+    sheet_name: str,
+    expected_headers: list[str],
+) -> None:
+    missing_headers = [header for header in expected_headers if header not in header_map]
     if missing_headers:
         raise ValueError(
             f"Excel 表头不完整: {excel_path.name} / {sheet_name}; 缺少: {', '.join(missing_headers)}"
@@ -195,7 +233,9 @@ def load_excel_runtime(excel_path: Path, report_year: str, report_month_german: 
         for index, value in enumerate(header_row)
         if normalize_header(value)
     }
-    ensure_expected_headers(header_map, excel_path, values_worksheet.title)
+    declared_header, fetched_header = build_month_headers(report_month_german)
+    expected_headers = [*STATIC_EXPECTED_HEADERS, declared_header, fetched_header]
+    ensure_expected_headers(header_map, excel_path, values_worksheet.title, expected_headers)
 
     tasks: list[LoginTask] = []
     account_index = header_map[HEADER_ACCOUNT]
@@ -205,7 +245,7 @@ def load_excel_runtime(excel_path: Path, report_year: str, report_month_german: 
     weee_number_index = header_map[HEADER_WEEE_NUMBER]
     company_name_cn_index = header_map[HEADER_COMPANY_NAME_CN]
     company_name_en_index = header_map[HEADER_COMPANY_NAME_EN]
-    fetched_weight_index = header_map[HEADER_FETCHED_WEIGHT]
+    fetched_weight_index = header_map[fetched_header]
 
     try:
         for row_index, row in enumerate(values_worksheet.iter_rows(min_row=2, values_only=True), start=2):
@@ -250,7 +290,7 @@ def load_excel_runtime(excel_path: Path, report_year: str, report_month_german: 
 
     runtime = {
         "tasks": tasks,
-        "outputColumn": header_map[HEADER_FETCHED_WEIGHT] + 1,
+        "outputColumn": header_map[fetched_header] + 1,
         "reportYear": report_year,
         "reportMonthGerman": report_month_german,
     }
@@ -1050,7 +1090,7 @@ def build_manifest(
         "reportMonthGerman": report_month_german,
         "browserEngine": browser_engine,
         "browserProfileDir": str(browser_profile_dir),
-        "expectedHeaders": EXPECTED_HEADERS,
+        "expectedHeaders": build_expected_headers(report_month_german),
         "excelFiles": [str(path) for path in excel_files],
         "taskCount": len(tasks),
         "notes": [
